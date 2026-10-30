@@ -26,11 +26,11 @@ import { buildResolvedConfigLogEntry } from "./config-reporter";
 import {
   DEFAULT_EXTENSION_CONFIG,
   EXTENSION_ROOT,
+  isYoloModeEnabled,
   normalizePermissionSystemConfig,
   type PermissionSystemExtensionConfig,
 } from "./extension-config";
 import type { ResolvedPolicyPaths } from "./policy-loader";
-import { syncPermissionSystemStatus } from "./status";
 
 /** Read-only view of the current config — for consumers that only read. */
 export interface ConfigReader {
@@ -48,6 +48,12 @@ export interface SessionConfigStore extends ConfigReader {
   logResolvedPaths(cwd?: string): void;
   /** The `commandEffects` declarations the last {@link refresh} loaded, scope stamped. */
   declaredCommandEffects(): DeclaredCommandEffects;
+  /**
+   * Whether `yoloMode` is on only because the project config turned it on
+   * while the global config leaves it off — a project loosening the status
+   * line flags.
+   */
+  yoloEnabledByProject(): boolean;
 }
 
 /**
@@ -76,6 +82,11 @@ export interface ConfigStoreDeps {
   coreCommandWords: ReadonlySet<string>;
   /** The wrapper command names, whose arguments no `commandEffects` declaration describes. */
   wrapperCommandWords: ReadonlySet<string>;
+  /**
+   * Bring the status line in step after {@link ConfigStore.save}; the session
+   * owns it because the line reports the composed policy, not this config.
+   */
+  syncStatus: (ctx: ExtensionCommandContext) => void;
 }
 
 /**
@@ -97,6 +108,7 @@ export class ConfigStore
   // Held beside the runtime config rather than on it: `save()` rebuilds the
   // config through `normalizePermissionSystemConfig`, which would drop it.
   private declared: DeclaredCommandEffects = NO_DECLARED_COMMAND_EFFECTS;
+  private yoloFromProject = false;
 
   constructor(private readonly deps: ConfigStoreDeps) {
     this.config = { ...DEFAULT_EXTENSION_CONFIG };
@@ -113,6 +125,10 @@ export class ConfigStore
    */
   declaredCommandEffects(): DeclaredCommandEffects {
     return this.declared;
+  }
+
+  yoloEnabledByProject(): boolean {
+    return this.yoloFromProject;
   }
 
   /**
@@ -157,6 +173,11 @@ export class ConfigStore
     const runtimeConfig = normalizePermissionSystemConfig(mergeResult.merged);
     this.config = runtimeConfig;
     this.declared = mergeResult.declaredCommandEffects;
+    this.yoloFromProject =
+      isYoloModeEnabled(runtimeConfig) &&
+      !isYoloModeEnabled(
+        normalizePermissionSystemConfig(mergeResult.belowProject),
+      );
 
     const ignoredDeclarations = [
       detectShadowedCommandEffects(this.declared, this.deps.coreCommandWords),
@@ -219,7 +240,9 @@ export class ConfigStore
     }
 
     this.config = normalized;
-    syncPermissionSystemStatus(ctx, normalized);
+    // The saved value now lives in the global file, so it is no project's doing.
+    this.yoloFromProject = false;
+    this.deps.syncStatus(ctx);
 
     this.deps.logger.debug("config.saved", {
       debugLog: normalized.debugLog,
