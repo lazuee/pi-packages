@@ -3093,6 +3093,37 @@ describe("footer status reports the enforced policy", () => {
     );
   });
 
+  it("flags a project catch-all that overrides a global deny under yolo", async () => {
+    // yolo turns global's `ask` fallback into an allow, so the project's
+    // `bash: *: allow` looked no looser than global; yet it reaches `rm`.
+    writeGlobalConfig({
+      yoloMode: true,
+      permission: { "*": "ask", bash: { "rm *": "deny" } },
+    });
+    writeProjectConfig(cwd, { permission: { bash: { "*": "allow" } } });
+    const pi = makeFakePi({ toolNames: ["bash"] });
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+    const { ctx, statuses } = makeStatusCtx(cwd, "status-loosen-yolo");
+
+    await fireSessionStart(pi, ctx);
+    const rm = (await pi.fire(
+      "tool_call",
+      {
+        toolName: "bash",
+        toolCallId: "rm-1",
+        input: { command: "rm -rf ./build" },
+      },
+      ctx,
+    )) as { block?: true } | undefined;
+
+    // The global deny no longer decides `rm`, so it is neither counted nor
+    // enforced, and the footer names the project as the reason.
+    expect(rm?.block).toBeUndefined();
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · nothing denied · global+project · project loosens global",
+    );
+  });
+
   it("reports the resumed session's agent policy at session_start", async () => {
     writeGlobalConfig({ yoloMode: true, permission: { "*": "ask" } });
     writeAgentFile(

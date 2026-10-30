@@ -1657,16 +1657,16 @@ Additional behaviors:
 The `pi-permission-system` footer entry describes the policy the gates enforce for the session's current agent, not the `yoloMode` setting alone.
 It is recomputed at session start (including a resumed session, whose agent comes from its entries), on every turn, on `/reload`, and after a `/permission-system` settings change.
 
-| Segment                                    | Meaning                                                                                                   |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `perm: no prompts (yolo)`                  | `yoloMode` is on: a matched `ask` is allowed without a prompt                                             |
-| `perm: prompts on`                         | `ask` results still prompt                                                                                |
-| `perm: yolo, fail-closed asks prompt`      | `yoloMode` is on, but a scope failed closed, so its floored `ask` results still prompt                    |
-| `N deny rules` / `default deny`            | Deny rules (and a `deny` universal fallback) that still block, under yolo too                             |
-| `nothing denied`                           | Under yolo, no deny rule or deny fallback remains for this agent                                          |
-| `global+project+agent`                     | The config scopes that contributed a rule; `built-in defaults` when none did                              |
-| `project loosens global`                   | A project or agent scope allows something the global config alone does not, or the project turned yolo on |
-| `project invalid: fail-closed`             | A non-global scope was rejected and its policy floored `allow`→`ask`, under yolo too                      |
+| Segment                               | Meaning                                                                                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `perm: no prompts (yolo)`             | `yoloMode` is on: a matched `ask` is allowed without a prompt                                                                                                                                               |
+| `perm: prompts on`                    | `ask` results still prompt                                                                                                                                                                                  |
+| `perm: yolo, fail-closed asks prompt` | `yoloMode` is on, but a scope failed closed, so its floored `ask` results still prompt                                                                                                                      |
+| `N deny rules` / `default deny`       | Deny rules that still decide their own pattern (a deny a later rule overrides is not counted), and a `deny` universal fallback; yolo keeps them                                                             |
+| `nothing denied`                      | Under yolo, no deny rule or deny fallback remains for this agent                                                                                                                                            |
+| `global+project+agent`                | The config scopes that contributed a rule; `built-in defaults` when none did                                                                                                                                |
+| `project loosens global`              | A project or agent rule decides a configured pattern more permissively than the global config alone (a deny or ask made allow, a deny made ask), judged with or without yolo; or the project turned yolo on |
+| `project invalid: fail-closed`        | A non-global scope was rejected and its policy floored `allow`→`ask`, under yolo too                                                                                                                        |
 
 For example, `perm: no prompts (yolo) · 12 deny rules · global+project · project loosens global`.
 With yolo off and nothing loosened or failed closed, the entry is cleared, as before.

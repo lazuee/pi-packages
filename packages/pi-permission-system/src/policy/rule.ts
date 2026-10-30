@@ -2,7 +2,11 @@ import { PATH_SURFACES } from "#src/access-intent/path-surfaces";
 import { expandHomePath } from "#src/path/expand-home";
 import type { PathFlavor } from "#src/path/path-flavor";
 import type { PermissionState } from "#src/types";
-import { type WildcardMatchOptions, wildcardMatch } from "./wildcard-matcher";
+import {
+  compileWildcardPattern,
+  type WildcardMatchOptions,
+  wildcardMatch,
+} from "./wildcard-matcher";
 
 /**
  * Provenance of a rule — which source contributed it.
@@ -146,6 +150,44 @@ function ruleMatches(
     wildcardMatch(rule.surface, surface) &&
     wildcardMatch(rule.pattern, value, matchOptions)
   );
+}
+
+/**
+ * Compile a ruleset once for many lookups.
+ *
+ * The returned function answers the index of the rule {@link evaluate} returns
+ * for `(surface, value)` — the last rule whose surface and pattern both match,
+ * with the same path-surface match folding — or `-1` when none matches.
+ * `evaluate` recompiles every rule's patterns on each call, which is fine for
+ * one lookup and quadratic for a caller probing every configured pattern.
+ */
+export function compileRulesetLookup(
+  rules: Ruleset,
+  flavor: PathFlavor,
+): (surface: string, value: string) => number {
+  // `pathMatchOptions` answers either nothing or the flavor's folding, so
+  // each pattern needs at most these two compilations.
+  const folding = flavor.matchOptions;
+  const compiled = rules.map((rule) => {
+    const plain = compileWildcardPattern(rule.pattern, null);
+    return {
+      surface: compileWildcardPattern(rule.surface, null),
+      plain,
+      folded:
+        folding === undefined
+          ? plain
+          : compileWildcardPattern(rule.pattern, null, folding),
+    };
+  });
+  return (surface, value) => {
+    const folds = pathMatchOptions(surface, flavor) !== undefined;
+    for (let index = compiled.length - 1; index >= 0; index--) {
+      const entry = compiled[index];
+      if (!entry.surface.matches(surface)) continue;
+      if ((folds ? entry.folded : entry.plain).matches(value)) return index;
+    }
+    return -1;
+  };
 }
 
 /**

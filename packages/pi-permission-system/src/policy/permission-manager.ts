@@ -142,6 +142,13 @@ export class PermissionManager implements ScopedPermissionManager {
     string,
     FileCacheEntry<ResolvedPermissions>
   >();
+  // Keyed on the cached resolution, which is replaced whenever a config file
+  // the stamp covers changes, so a posture lives exactly as long as the policy
+  // it describes; yolo is read per call and must match too.
+  private readonly postureCache = new WeakMap<
+    ResolvedPermissions,
+    PolicyPosture
+  >();
 
   constructor(options: PermissionManagerOptions = {}) {
     this.agentDir = options.agentDir;
@@ -249,20 +256,25 @@ export class PermissionManager implements ScopedPermissionManager {
   }
 
   describePosture(agentName?: string): PolicyPosture {
-    const { composedRules, unflooredRules, failClosedScopes } =
-      this.resolvePermissions(agentName);
+    const resolved = this.resolvePermissions(agentName);
+    const asksAutoAllowed = this.isYoloEnabled();
+    const cached = this.postureCache.get(resolved);
+    if (cached?.asksAutoAllowed === asksAutoAllowed) return cached;
+
     // The ceiling a loosening is measured against: what global alone composes.
     const globalOnly = composeScopes([
       ["global", this.loader.loadGlobalConfig()],
     ]).composedRules;
-    return describePolicyPosture({
-      composed: composedRules,
-      unfloored: unflooredRules,
+    const posture = describePolicyPosture({
+      composed: resolved.composedRules,
+      unfloored: resolved.unflooredRules,
       globalOnly,
-      failClosedScopes,
-      asksAutoAllowed: this.isYoloEnabled(),
+      failClosedScopes: resolved.failClosedScopes,
+      asksAutoAllowed,
       flavor: this.flavor,
     });
+    this.postureCache.set(resolved, posture);
+    return posture;
   }
 
   /**

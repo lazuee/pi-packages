@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { posixPathFlavor, win32PathFlavor } from "#src/path/path-flavor";
 import type { Rule, RuleOrigin, Ruleset } from "#src/policy/rule";
 import {
+  compileRulesetLookup,
   evaluate,
   evaluateAnyValue,
   evaluateMostRestrictive,
@@ -819,6 +820,91 @@ describe("floorAllowsToAsk", () => {
   test("'fail-closed' is a valid RuleOrigin", () => {
     const origin: RuleOrigin = "fail-closed";
     expect(origin).toBe("fail-closed");
+  });
+});
+
+describe("compileRulesetLookup", () => {
+  const rules: Ruleset = [
+    {
+      surface: "*",
+      pattern: "*",
+      action: "ask",
+      layer: "default",
+      origin: "global",
+    },
+    {
+      surface: "bash",
+      pattern: "*",
+      action: "allow",
+      layer: "config",
+      origin: "global",
+    },
+    {
+      surface: "bash",
+      pattern: "rm *",
+      action: "deny",
+      layer: "config",
+      origin: "global",
+    },
+    {
+      surface: "bash",
+      pattern: "rm -i *",
+      action: "allow",
+      layer: "config",
+      origin: "project",
+    },
+    {
+      surface: "path_read",
+      pattern: "C:\\Users\\Me\\*",
+      action: "allow",
+      layer: "config",
+      origin: "global",
+    },
+    {
+      surface: "path_read",
+      pattern: "~/secret/*",
+      action: "deny",
+      layer: "config",
+      origin: "project",
+    },
+    {
+      surface: "mcp*",
+      pattern: "srv_?",
+      action: "deny",
+      layer: "config",
+      origin: "agent",
+    },
+  ];
+  const probes: [string, string][] = [
+    ["bash", "ls"],
+    ["bash", "rm -rf x"],
+    ["bash", "rm -i x"],
+    ["bash", "rm"],
+    ["path_read", "c:/users/me/notes.txt"],
+    ["path_read", "C:\\Users\\Me\\notes.txt"],
+    ["path_read", "~/secret/key"],
+    ["mcp", "srv_1"],
+    ["mcp", "srv_12"],
+    ["edit", "x"],
+    ["nothing-matches-here", "x"],
+  ];
+
+  for (const flavor of [posixPathFlavor, win32PathFlavor]) {
+    test(`answers the index of the rule evaluate returns (${flavor === posixPathFlavor ? "posix" : "win32"})`, () => {
+      const lookup = compileRulesetLookup(rules, flavor);
+      for (const [surface, value] of probes) {
+        expect([surface, value, lookup(surface, value)]).toEqual([
+          surface,
+          value,
+          rules.indexOf(evaluate(surface, value, rules, flavor)),
+        ]);
+      }
+    });
+  }
+
+  test("answers -1 when no rule matches", () => {
+    const lookup = compileRulesetLookup(rules.slice(1), posixPathFlavor);
+    expect(lookup("edit", "x")).toBe(-1);
   });
 });
 

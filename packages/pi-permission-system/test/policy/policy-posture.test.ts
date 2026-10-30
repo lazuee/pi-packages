@@ -101,6 +101,62 @@ describe("PermissionManager.describePosture", () => {
       expect(posture.loosenedBy).toEqual(["project"]);
     });
 
+    it("flags a project catch-all over a global deny under yolo", () => {
+      // yolo makes global's `ask` fallback an allow, so comparing effective
+      // actions at the project rule's own pattern saw nothing looser — while
+      // `rm -rf x` resolved to the project's allow over global's deny.
+      const posture = postureOf(
+        {
+          global: scope({ "*": "ask", bash: { "rm *": "deny" } }),
+          project: scope({ bash: { "*": "allow" } }),
+        },
+        { yolo: true },
+      );
+      expect(posture.loosenedBy).toEqual(["project"]);
+    });
+
+    it("flags a project catch-all over a global deny when global allows the rest", () => {
+      // Global's own catch-all is `allow`, so the project rule is no looser at
+      // its own pattern; it is looser where global denied.
+      const posture = postureOf({
+        global: scope({ "*": "allow", bash: { "rm *": "deny" } }),
+        project: scope({ bash: { "*": "allow" } }),
+      });
+      expect(posture.loosenedBy).toEqual(["project"]);
+    });
+
+    it("flags a project allow over a global ask under yolo", () => {
+      // Under yolo both resolve to allow, but the project still turned one of
+      // global's asks into an allow of its own.
+      const posture = postureOf(
+        {
+          global: scope({ "*": "ask", write: "ask" }),
+          project: scope({ write: "allow" }),
+        },
+        { yolo: true },
+      );
+      expect(posture.loosenedBy).toEqual(["project"]);
+    });
+
+    it("does not flag a project deny that a global allow is replaced by", () => {
+      const posture = postureOf({
+        global: scope({ "*": "ask", bash: { "*": "allow" } }),
+        project: scope({ bash: { "rm *": "deny" } }),
+      });
+      expect(posture.loosenedBy).toEqual([]);
+    });
+
+    it("does not flag a project catch-all that a global deny still overrides", () => {
+      // The project's `*` replaces global's in place, ahead of `rm *`, so
+      // last-match-wins still denies `rm` and nothing resolves looser.
+      const posture = postureOf({
+        global: scope({ "*": "ask", bash: { "*": "ask", "rm *": "deny" } }),
+        project: scope({ bash: { "*": "ask" } }),
+      });
+      expect(posture.loosenedBy).toEqual([]);
+      expect(posture.ruleCounts.deny).toBe(1);
+    });
+
     it("flags a project universal fallback looser than global's", () => {
       const posture = postureOf({
         global: scope({ "*": "ask" }),
@@ -148,6 +204,52 @@ describe("PermissionManager.describePosture", () => {
         { yolo: true },
       );
       expect(posture.loosenedBy).toEqual(["project"]);
+    });
+  });
+
+  describe("effective rule counts", () => {
+    it("does not count a deny a later rule overrides at its own pattern", () => {
+      const posture = postureOf({
+        global: scope({ "*": "ask", bash: { "rm *": "deny" } }),
+        project: scope({ bash: { "*": "allow" } }),
+      });
+      expect(posture.ruleCounts).toEqual({ allow: 1, ask: 0, deny: 0 });
+    });
+
+    it("counts a deny a later rule overrides only in part", () => {
+      // `rm -i *` re-allows one form; `rm x` is still denied.
+      const posture = postureOf({
+        global: scope({
+          "*": "ask",
+          bash: { "rm *": "deny", "rm -i *": "allow" },
+        }),
+      });
+      expect(posture.ruleCounts).toEqual({ allow: 1, ask: 0, deny: 1 });
+    });
+
+    it("counts a deny that overrides an earlier catch-all", () => {
+      const posture = postureOf({
+        global: scope({ "*": "ask", bash: { "*": "allow", "rm *": "deny" } }),
+      });
+      expect(posture.ruleCounts).toEqual({ allow: 1, ask: 0, deny: 1 });
+    });
+  });
+
+  describe("recomputation", () => {
+    it("follows a yolo toggle over an unchanged policy", () => {
+      let yolo = false;
+      const manager = new PermissionManager({
+        policyLoader: createInMemoryPolicyLoader({
+          global: scope({ "*": "ask" }),
+        }),
+        flavor: posixPathFlavor,
+        isYoloEnabled: () => yolo,
+      });
+      expect(manager.describePosture().fallback.action).toBe("ask");
+      yolo = true;
+      expect(manager.describePosture().fallback.action).toBe("allow");
+      yolo = false;
+      expect(manager.describePosture().fallback.action).toBe("ask");
     });
   });
 
