@@ -62,6 +62,12 @@ type ResolvedPermissions = {
    */
   composedRules: Ruleset;
   /**
+   * The same ruleset before the fail-closed floor, rule for rule: the floor
+   * maps each rule in place, so index `i` here is the rule `composedRules[i]`
+   * was floored from, still tagged with the scope that wrote it.
+   */
+  unflooredRules: Ruleset;
+  /**
    * Non-global scopes whose config file failed to load or validate. When
    * non-empty the composed ruleset has been floored allow→ask (#646); the
    * names also drive the fail-closed notice in {@link getPolicyIssues}.
@@ -234,6 +240,7 @@ export class PermissionManager implements ScopedPermissionManager {
 
     const value: ResolvedPermissions = {
       composedRules: effectiveRules,
+      unflooredRules: composedRules,
       failClosedScopes,
       legacyMcpToolKeys: [...new Set(relocatedKeys)],
     };
@@ -242,7 +249,7 @@ export class PermissionManager implements ScopedPermissionManager {
   }
 
   describePosture(agentName?: string): PolicyPosture {
-    const { composedRules, failClosedScopes } =
+    const { composedRules, unflooredRules, failClosedScopes } =
       this.resolvePermissions(agentName);
     // The ceiling a loosening is measured against: what global alone composes.
     const globalOnly = composeScopes([
@@ -250,6 +257,7 @@ export class PermissionManager implements ScopedPermissionManager {
     ]).composedRules;
     return describePolicyPosture({
       composed: composedRules,
+      unfloored: unflooredRules,
       globalOnly,
       failClosedScopes,
       asksAutoAllowed: this.isYoloEnabled(),
@@ -352,6 +360,8 @@ export class PermissionManager implements ScopedPermissionManager {
     // Apply the yolo rewrite post-cache so the resolved-permissions cache and
     // the display surfaces (getComposedConfigRules / getToolPermission) stay
     // yolo-free — only the resolution path sees the ask→allow rewrite (#526).
+    // The rewrite leaves a fail-closed floored ask alone, so a malformed
+    // non-global scope keeps failing closed under yolo.
     const fullRules: Ruleset = this.isYoloEnabled()
       ? rewriteAsksToYolo(composedWithSession)
       : composedWithSession;

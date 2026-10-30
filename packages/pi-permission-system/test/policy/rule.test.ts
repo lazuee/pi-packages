@@ -741,6 +741,11 @@ describe("rewriteAsksToYolo", () => {
     ]);
   });
 
+  test("passes a fail-closed floored ask through untouched", () => {
+    const [floored] = floorAllowsToAsk([overlayAllowRead]);
+    expect(rewriteAsksToYolo([floored])).toEqual([floored]);
+  });
+
   test("does not mutate the input ruleset", () => {
     const ruleset: Ruleset = [overlayAskBash];
     rewriteAsksToYolo(ruleset);

@@ -2,7 +2,7 @@ import type { PermissionCheckResult, PermissionState } from "#src/types";
 
 /**
  * Select the most restrictive permission result from a possibly-empty list
- * (deny > ask > allow).
+ * (deny > fail-closed ask > ask > allow).
  *
  * The first occurrence wins on ties, so a caller passing results in candidate
  * order receives the earliest worst case. Returns `undefined` for an empty list.
@@ -21,7 +21,7 @@ export function pickMostRestrictive(
 
 /**
  * Select the most restrictive of a statically non-empty list of results
- * (deny > ask > allow), first-wins on ties.
+ * (deny > fail-closed ask > ask > allow), first-wins on ties.
  *
  * Total by construction: the non-empty tuple parameter means the caller never
  * handles an `undefined` branch. The winner is the losing member's **own**
@@ -33,16 +33,32 @@ export function mostRestrictiveOf(
 ): PermissionCheckResult {
   let worst = results[0];
   for (const result of results) {
-    if (RESTRICTIVENESS[result.state] > RESTRICTIVENESS[worst.state]) {
+    if (restrictiveness(result) > restrictiveness(worst)) {
       worst = result;
     }
   }
   return worst;
 }
 
+/**
+ * Rank a result: deny is the most restrictive, allow the least, and a
+ * fail-closed `ask` outranks any other `ask`.
+ *
+ * The two asks prompt alike with yolo off, but yolo approves an ordinary ask
+ * and never a fail-closed one, so letting an ordinary ask win the tie would
+ * let yolo approve a chain or path set that holds a fail-closed member.
+ */
+function restrictiveness(result: PermissionCheckResult): number {
+  if (result.state === "ask" && result.origin === "fail-closed") {
+    return FAIL_CLOSED_ASK;
+  }
+  return RESTRICTIVENESS[result.state];
+}
+
 /** Restrictiveness ordering: deny is the most restrictive, allow the least. */
 const RESTRICTIVENESS: Record<PermissionState, number> = {
   allow: 0,
   ask: 1,
-  deny: 2,
+  deny: 3,
 };
+const FAIL_CLOSED_ASK = 2;

@@ -50,7 +50,7 @@ export function getPermissionSystemStatus(
   }
 
   const segments = [
-    posture.asksAutoAllowed ? "perm: no prompts (yolo)" : "perm: prompts on",
+    promptSegment(posture),
     ...denySegments(posture),
     posture.scopes.length > 0 ? posture.scopes.join("+") : "built-in defaults",
   ];
@@ -63,6 +63,17 @@ export function getPermissionSystemStatus(
     segments.push(`${failClosed.join("+")} invalid: fail-closed`);
   }
   return segments.join(" · ");
+}
+
+/**
+ * Whether asks prompt. Under yolo a fail-closed scope's floored asks still
+ * do, so "no prompts" would be false there.
+ */
+function promptSegment(posture: PolicyPosture): string {
+  if (!posture.asksAutoAllowed) return "perm: prompts on";
+  return posture.failClosedScopes.length > 0
+    ? "perm: yolo, fail-closed asks prompt"
+    : "perm: no prompts (yolo)";
 }
 
 function denySegments(posture: PolicyPosture): string[] {

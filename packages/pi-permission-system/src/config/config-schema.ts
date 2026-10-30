@@ -461,7 +461,7 @@ export const unifiedConfigSchema = z
       description:
         "Auto-approve ask-state permission checks, including subagent approval forwarding.",
       markdownDescription:
-        "Auto-approve `ask`-state permission checks, including subagent approval forwarding.\n\n⚠️ **Use with caution** — this disables all interactive confirmation prompts.",
+        "Auto-approve `ask`-state permission checks, including subagent approval forwarding.\n\n⚠️ **Use with caution** — this disables interactive confirmation prompts, except the ones an invalid project or agent config raises when it fails closed.",
       default: false,
     }),
     doublePressToConfirm: z.boolean().optional().meta({

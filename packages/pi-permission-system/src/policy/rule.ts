@@ -49,12 +49,18 @@ export interface Rule {
 export type Ruleset = Rule[];
 
 /**
- * Rewrite every `ask` rule to `allow`, tagged `origin: "yolo"`.
+ * Rewrite every `ask` rule to `allow`, tagged `origin: "yolo"` — except an
+ * `ask` the fail-closed floor produced.
  *
  * The composition-stage expression of yolo mode as recorded authority: when
  * enabled, an `ask` becomes a standing `allow` grant in the ruleset rather than
  * a live prompt-path concern. `deny` and existing `allow` rules pass through
  * untouched, so yolo suppresses prompts but preserves hard denies.
+ *
+ * A floored `ask` (origin `"fail-closed"`, see {@link floorAllowsToAsk}) also
+ * passes through: a malformed config fails closed, and yolo is an opt-in to
+ * skip the prompts a valid policy asks for, not to re-permit what a broken
+ * one can no longer vouch for.
  *
  * Pure and non-mutating — `surface`, `pattern`, and `layer` are preserved so
  * downstream `matchedPattern` / source derivation is unaffected; only `action`
@@ -62,7 +68,9 @@ export type Ruleset = Rule[];
  */
 export function rewriteAsksToYolo(rules: Ruleset): Ruleset {
   return rules.map((rule) =>
-    rule.action === "ask" ? { ...rule, action: "allow", origin: "yolo" } : rule,
+    rule.action === "ask" && rule.origin !== "fail-closed"
+      ? { ...rule, action: "allow", origin: "yolo" }
+      : rule,
   );
 }
 
@@ -74,7 +82,8 @@ export function rewriteAsksToYolo(rules: Ruleset): Ruleset {
  * scope is detected. A permissive `allow` inherited from a lower-precedence
  * scope becomes an `ask` prompt rather than a silent grant, while `deny` and
  * existing `ask` rules pass through untouched — so the clamp removes only
- * permissive inheritance and never weakens a hard deny.
+ * permissive inheritance and never weakens a hard deny. The floored `ask` keeps
+ * prompting under yolo: {@link rewriteAsksToYolo} skips its origin.
  *
  * Pure and non-mutating — `surface`, `pattern`, and `layer` are preserved so
  * downstream `matchedPattern` / source derivation is unaffected; only `action`

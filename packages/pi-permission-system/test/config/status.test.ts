@@ -111,6 +111,18 @@ describe("getPermissionSystemStatus", () => {
         statusOf({ scopes: ["global"], failClosedScopes: ["project"] }),
       ).toBe("perm: prompts on · global · project invalid: fail-closed");
     });
+
+    it("says floored asks still prompt under yolo instead of 'no prompts'", () => {
+      expect(
+        statusOf({
+          ...YOLO,
+          fallback: { action: "ask", origin: "fail-closed" },
+          failClosedScopes: ["project"],
+        }),
+      ).toBe(
+        "perm: yolo, fail-closed asks prompt · nothing denied · global · project invalid: fail-closed",
+      );
+    });
   });
 });
 

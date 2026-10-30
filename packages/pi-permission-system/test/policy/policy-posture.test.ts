@@ -160,5 +160,23 @@ describe("PermissionManager.describePosture", () => {
       expect(posture.failClosedScopes).toEqual(["project"]);
       expect(posture.fallback.action).toBe("ask");
     });
+
+    it("keeps floored allows as asks under yolo and still names their scope", () => {
+      const posture = postureOf(
+        {
+          global: scope({ "*": "allow", bash: { "*": "ask", "rm *": "deny" } }),
+          project: { invalid: true },
+        },
+        { yolo: true },
+      );
+      expect(posture).toEqual({
+        asksAutoAllowed: true,
+        fallback: { action: "ask", origin: "global" },
+        ruleCounts: { allow: 1, ask: 0, deny: 1 },
+        scopes: ["global"],
+        loosenedBy: [],
+        failClosedScopes: ["project"],
+      });
+    });
   });
 });

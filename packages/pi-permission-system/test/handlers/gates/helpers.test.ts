@@ -153,6 +153,19 @@ describe("resolveYoloGrant", () => {
     });
   });
 
+  it("returns null for a fail-closed ask, which yolo does not lift", () => {
+    expect(
+      resolveYoloGrant(
+        makeCheckResult({
+          state: "ask",
+          origin: "fail-closed",
+          matchedPattern: "*",
+        }),
+        true,
+      ),
+    ).toBeNull();
+  });
+
   it("returns null for a residual ask with yolo disabled", () => {
     expect(
       resolveYoloGrant(

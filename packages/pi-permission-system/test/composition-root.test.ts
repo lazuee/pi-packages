@@ -3137,3 +3137,81 @@ describe("footer status reports the enforced policy", () => {
     );
   });
 });
+
+describe("a fail-closed scope under yolo", () => {
+  // A malformed project config fails closed: every `allow` is floored to `ask`.
+  // yolo used to rewrite that floored `ask` straight back to `allow`, so a
+  // broken project file under yolo enforced nothing while the footer said
+  // "fail-closed". The floor now holds under yolo.
+  let cwd: string;
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "pi-perm-failclosed-yolo-cwd-"));
+  });
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  async function runBash(
+    permission: Record<string, unknown>,
+    command: string,
+  ): Promise<{ blocked: boolean; prompts: string[]; status?: string }> {
+    writeGlobalConfig({ yoloMode: true, permission });
+    writeProjectConfig(cwd, { permission: { write: "deny" }, bogusKey: 1 });
+    const pi = makeFakePi({ toolNames: ["bash"] });
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+
+    const prompts: string[] = [];
+    const statuses: (string | undefined)[] = [];
+    const base = makeUiCtx(cwd, prompts).ctx as { ui: Record<string, unknown> };
+    const ctx = {
+      ...base,
+      ui: {
+        ...base.ui,
+        setStatus: (key: string, value: string | undefined): void => {
+          if (key === "pi-permission-system") statuses.push(value);
+        },
+      },
+    };
+    await fireSessionStart(pi, ctx);
+
+    const result = (await pi.fire(
+      "tool_call",
+      { toolName: "bash", toolCallId: "fail-closed-1", input: { command } },
+      ctx,
+    )) as { block?: true } | undefined;
+
+    return {
+      blocked: result?.block === true,
+      prompts,
+      status: statuses.at(-1),
+    };
+  }
+
+  it("prompts for a command a floored universal allow would have allowed", async () => {
+    const outcome = await runBash({ "*": "allow" }, "rm -rf ./build");
+
+    expect(outcome.blocked).toBe(false);
+    expect(outcome.prompts).toHaveLength(1);
+  });
+
+  it("prompts when a yolo-granted wrapper unit precedes a floored unit", async () => {
+    // `sudo make` resolves to a yolo `allow` that the wrapper floor turns into
+    // an ask yolo may grant; `rm -rf` is fail-closed. The chain's answer is the
+    // fail-closed one, whichever unit comes first.
+    const outcome = await runBash(
+      { "*": "allow", bash: { "*": "allow", "sudo *": "ask" } },
+      "sudo make && rm -rf ./build",
+    );
+
+    expect(outcome.blocked).toBe(false);
+    expect(outcome.prompts).toHaveLength(1);
+  });
+
+  it("says in the footer that fail-closed asks still prompt under yolo", async () => {
+    const outcome = await runBash({ "*": "allow" }, "rm -rf ./build");
+
+    expect(outcome.status).toBe(
+      "perm: yolo, fail-closed asks prompt · nothing denied · global · project invalid: fail-closed",
+    );
+  });
+});

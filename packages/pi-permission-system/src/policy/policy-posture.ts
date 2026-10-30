@@ -1,7 +1,7 @@
 import { expandHomePath } from "#src/path/expand-home";
 import type { PathFlavor } from "#src/path/path-flavor";
 import type { PermissionState } from "#src/types";
-import { evaluate, type RuleOrigin, type Ruleset } from "./rule";
+import { evaluate, type Rule, type RuleOrigin, type Ruleset } from "./rule";
 
 /** A config scope that can contribute rules, lowest precedence first. */
 export type ConfigScope = "global" | "project" | "agent" | "project-agent";
@@ -34,7 +34,7 @@ const PERMISSIVENESS: Record<PermissionState, number> = {
  * to — so under yolo an `ask` reads as `allow` and a `deny` stays a `deny`.
  */
 export interface PolicyPosture {
-  /** Whether matched `ask` rules resolve to `allow` (yolo's rewrite). */
+  /** Whether matched `ask` rules resolve to `allow` (yolo's rewrite); a fail-closed floored `ask` never does. */
   asksAutoAllowed: boolean;
   /** The effective universal fallback (`permission["*"]`) and who set it. */
   fallback: { action: PermissionState; origin: RuleOrigin };
@@ -54,6 +54,11 @@ export interface PolicyPosture {
 export interface PolicyPostureInput {
   /** The composed ruleset `check()` evaluates (fail-closed floor applied, yolo not). */
   composed: Ruleset;
+  /**
+   * {@link composed} before the fail-closed floor, rule for rule: a floored
+   * rule's origin reads `"fail-closed"`, and this names the scope that wrote it.
+   */
+  unfloored: Ruleset;
   /** The ruleset the global scope alone composes to — the ceiling a loosening is measured against. */
   globalOnly: Ruleset;
   failClosedScopes: readonly RuleOrigin[];
@@ -71,8 +76,13 @@ export interface PolicyPostureInput {
 export function describePolicyPosture(
   input: PolicyPostureInput,
 ): PolicyPosture {
-  const effective = (action: PermissionState): PermissionState =>
-    input.asksAutoAllowed && action === "ask" ? "allow" : action;
+  // yolo's rewrite as `rewriteAsksToYolo` applies it: a floored ask stays one.
+  const effective = (rule: Rule): PermissionState =>
+    input.asksAutoAllowed &&
+    rule.action === "ask" &&
+    rule.origin !== "fail-closed"
+      ? "allow"
+      : rule.action;
 
   const ruleCounts: Record<PermissionState, number> = {
     allow: 0,
@@ -82,20 +92,21 @@ export function describePolicyPosture(
   const contributing = new Set<RuleOrigin>();
   const loosening = new Set<RuleOrigin>();
   let fallback: PolicyPosture["fallback"] = {
-    action: effective("ask"),
+    action: input.asksAutoAllowed ? "allow" : "ask",
     origin: "builtin",
   };
 
-  for (const rule of input.composed) {
+  for (const [index, rule] of input.composed.entries()) {
+    const origin = input.unfloored[index]?.origin ?? rule.origin;
     if (rule.layer === "default") {
-      fallback = { action: effective(rule.action), origin: rule.origin };
+      fallback = { action: effective(rule), origin };
     } else if (rule.layer === "config") {
-      ruleCounts[effective(rule.action)] += 1;
+      ruleCounts[effective(rule)] += 1;
     } else {
       continue;
     }
-    contributing.add(rule.origin);
-    if (!NON_GLOBAL_SCOPES.has(rule.origin)) continue;
+    contributing.add(origin);
+    if (!NON_GLOBAL_SCOPES.has(origin)) continue;
 
     const ceiling = evaluate(
       rule.surface,
@@ -103,11 +114,8 @@ export function describePolicyPosture(
       input.globalOnly,
       input.flavor,
     );
-    if (
-      PERMISSIVENESS[effective(rule.action)] >
-      PERMISSIVENESS[effective(ceiling.action)]
-    ) {
-      loosening.add(rule.origin);
+    if (PERMISSIVENESS[effective(rule)] > PERMISSIVENESS[effective(ceiling)]) {
+      loosening.add(origin);
     }
   }
 

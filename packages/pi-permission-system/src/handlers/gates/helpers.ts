@@ -168,7 +168,9 @@ export function buildDecisionEvent(
  * log still shows why the ask was raised, while `origin: "yolo"` records why it
  * was granted.
  *
- * A `deny` matches neither arm, so an explicit deny survives yolo.
+ * A `deny` matches neither arm, so an explicit deny survives yolo. Neither
+ * does an `ask` of origin `"fail-closed"`: the floor an invalid non-global
+ * config scope raises holds under yolo, as it does in the ruleset rewrite.
  */
 export function resolveYoloGrant(
   check: PermissionCheckResult,
@@ -177,7 +179,7 @@ export function resolveYoloGrant(
   if (check.state === "allow" && check.origin === "yolo") {
     return check;
   }
-  if (check.state === "ask" && yoloEnabled) {
+  if (check.state === "ask" && yoloEnabled && check.origin !== "fail-closed") {
     return { ...check, state: "allow", origin: "yolo" };
   }
   return null;
