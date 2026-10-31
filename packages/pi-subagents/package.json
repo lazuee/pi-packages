@@ -24,7 +24,7 @@
     "#src/*": "./src/*",
     "#test/*": "./test/*"
   },
-  "description": "A focused, in-process sub-agent core for pi — autonomous agents plus a typed API and lifecycle events other extensions build on. Friendly fork of @tintinweb/pi-subagents.",
+  "description": "A focused, in-process sub-agent core for pi \u2014 autonomous agents plus a typed API and lifecycle events other extensions build on. Friendly fork of @tintinweb/pi-subagents.",
   "author": {
     "name": "Chris Lasher"
   },
@@ -69,17 +69,17 @@
     "lint": "biome check . && eslint . && pnpm run lint:md"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:",
+    "@biomejs/biome": "^2.5.11",
     "@earendil-works/pi-ai": "1.0.0",
     "@earendil-works/pi-coding-agent": "1.0.0",
     "@earendil-works/pi-tui": "1.0.0",
-    "@types/node": "catalog:",
-    "rollup": "catalog:",
-    "rollup-plugin-dts": "catalog:",
-    "rumdl": "catalog:",
+    "@types/node": "^22.15.3",
+    "rollup": "^4.63.1",
+    "rollup-plugin-dts": "^6.5.1",
+    "rumdl": "0.2.24",
     "typebox": "^1.3.7",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   },
   "pi": {
     "extensions": [

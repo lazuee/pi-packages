@@ -64,13 +64,13 @@
     "typebox": "*"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:",
+    "@biomejs/biome": "^2.5.11",
     "@earendil-works/pi-coding-agent": "1.0.0",
     "@earendil-works/pi-tui": "1.0.0",
-    "@types/node": "catalog:",
-    "rumdl": "catalog:",
+    "@types/node": "^22.15.3",
+    "rumdl": "0.2.24",
     "typebox": "^1.2.8",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }

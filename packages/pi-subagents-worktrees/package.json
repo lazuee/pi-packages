@@ -1,7 +1,7 @@
 {
   "name": "@gotgenes/pi-subagents-worktrees",
   "version": "0.3.3",
-  "description": "Git worktree isolation for @gotgenes/pi-subagents — a WorkspaceProvider that runs subagents in isolated worktrees.",
+  "description": "Git worktree isolation for @gotgenes/pi-subagents \u2014 a WorkspaceProvider that runs subagents in isolated worktrees.",
   "keywords": [
     "pi-package",
     "pi",
@@ -62,11 +62,11 @@
     "@gotgenes/pi-subagents": ">=16.4.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:",
+    "@biomejs/biome": "^2.5.11",
     "@earendil-works/pi-coding-agent": "0.79.1",
     "@gotgenes/pi-subagents": "^16.4.0",
-    "@types/node": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "@types/node": "^22.15.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }
