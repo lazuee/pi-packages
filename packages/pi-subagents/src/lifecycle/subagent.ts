@@ -233,7 +233,9 @@ export class Subagent {
 	 * True once this agent's provider-supplied workspace has been torn down.
 	 * False for an agent that never had one, so it names the resume the session
 	 * would re-enter a removed directory for — not merely a session with a
-	 * workspace provider registered.
+	 * workspace provider registered. A workspace its provider can reopen is
+	 * disposed too, and still resumable: `resumeRefusal` is what says whether the
+	 * resume would actually run.
 	 */
 	get workspaceDisposed(): boolean { return this.workspaceBracket.wasDisposed(); }
 
@@ -299,7 +301,9 @@ export class Subagent {
 		// is checked before the session; a queued initial run has none to hold.
 		if (this.status === "queued" && this.currentRun.kind === "resume") return "resume-queued";
 		if (!this.isSessionReady()) return this._sessionReleased ? "session-released" : "no-session";
-		if (this.workspaceDisposed) return "workspace-disposed";
+		// A disposed workspace is only fatal when its provider has no way back in:
+		// one that can reopen it is resumed into the same directory by restore().
+		if (this.workspaceDisposed && !this.workspaceBracket.canResume()) return "workspace-disposed";
 		return undefined;
 	}
 
@@ -450,7 +454,8 @@ export class Subagent {
 	 * the run through its terminal transition. Always resolves.
 	 *
 	 * Nothing here awaits before the turn loop starts, so a resume reaches its
-	 * loop in the same turn as resume().
+	 * loop in the same turn as resume() — unless startResumedRun() had to restore
+	 * a disposed workspace first.
 	 */
 	private async runOnSession(run: SubagentRun, session: SubagentSession, prompt: string): Promise<void> {
 		run.attachObserver(subscribeSubagentObserver(session, this.state, {
@@ -607,8 +612,15 @@ export class Subagent {
 	/**
 	 * A resume's start, then the shared run body. Always resolves.
 	 *
-	 * Synchronous up to the turn loop, so the record reads running, and the
-	 * started notification has fired, by the time this returns its promise.
+	 * Synchronous up to the turn loop — so the record reads running, and the
+	 * started notification has fired, by the time this returns its promise —
+	 * except when the agent's workspace was torn down by a provider that can
+	 * reopen it: that restore is awaited first, because the child's session is
+	 * fixed on that directory and a turn has nowhere to run until it is back.
+	 *
+	 * A restore that rejects ends the run as an error with no turn loop, and
+	 * leaves the workspace reopenable, so the parent's next resume retries it
+	 * rather than finding the agent gone for good.
 	 */
 	private async startResumedRun(
 		run: SubagentRun,
@@ -616,6 +628,20 @@ export class Subagent {
 		prompt: string,
 		signal: AbortSignal | undefined,
 	): Promise<void> {
+		try {
+			if (this.workspaceBracket.needsRestore()) {
+				await this.workspaceBracket.restore();
+				// A stopped/released session must not leave the recreated directory alive.
+				if (!run.isActive() || this.subagentSession !== session) {
+					this.disposeHeldWorkspace();
+					return;
+				}
+			}
+			this.workspaceBracket.validateHeld();
+		} catch (err) {
+			this.fail(run, err);
+			return;
+		}
 		this.startRun(run, signal);
 		// Cancelled before it started: the turn loop takes no turn on a fired lever,
 		// so the resume ends like one aborted mid-run.

@@ -1,13 +1,16 @@
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Workspace } from "@gotgenes/pi-subagents";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ActiveWorktrees } from "#src/active-worktrees";
 import { WorktreeWorkspaceProvider } from "#src/workspace-provider";
@@ -214,6 +217,197 @@ describe("WorktreeWorkspaceProvider", () => {
         cwd: repoDir,
         stdio: "pipe",
       });
+    });
+  });
+});
+
+describe("WorktreeWorkspaceProvider — reopening a disposed worktree", () => {
+  let repoDir: string;
+
+  beforeEach(() => {
+    repoDir = initGitRepo("pi-wt-resume-");
+  });
+
+  afterEach(() => {
+    try {
+      execFileSync("git", ["worktree", "prune"], {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+    } catch {
+      /* ignore */
+    }
+    rmSync(repoDir, { recursive: true, force: true });
+  });
+
+  /** The reopenable half of the workspace seam the core calls before a resume. */
+  type ReopenableWorkspace = Workspace & { resume(): Promise<void> };
+
+  /**
+   * Narrow a prepared workspace to the reopenable shape.
+   *
+   * The core treats `resume()` as an optional member and the published types
+   * this package compiles against predate it, so the assertion lives here rather
+   * than in a cast at each call: a provider that stopped offering it should fail
+   * the test loudly.
+   */
+  function reopenable(workspace: Workspace | undefined): ReopenableWorkspace {
+    if (
+      !workspace ||
+      typeof (workspace as Partial<ReopenableWorkspace>).resume !== "function"
+    ) {
+      throw new Error("the prepared workspace is not reopenable");
+    }
+    return workspace as ReopenableWorkspace;
+  }
+
+  /** Prepare a worktree for an opted-in agent, with a stable agent id. */
+  async function prepare(agentId = "agent-1") {
+    const provider = makeProvider();
+    const workspace = await provider.prepare(
+      ctx({ agentType: "Explore", baseCwd: repoDir, agentId }),
+    );
+    return reopenable(workspace);
+  }
+
+  it("restores the same path, and marks it live again", async () => {
+    const live = new ActiveWorktrees();
+    const provider = makeProvider(live);
+    const workspace = reopenable(
+      await provider.prepare(ctx({ agentType: "Explore", baseCwd: repoDir })),
+    );
+    const wtPath = workspace.cwd;
+    const resolved = realpathSync(wtPath);
+
+    workspace.dispose({ status: "completed", description: "no work" });
+    expect(existsSync(wtPath)).toBe(false);
+    expect(live.contains(resolved)).toBe(false);
+
+    await workspace.resume();
+
+    expect(workspace.cwd).toBe(wtPath);
+    expect(existsSync(wtPath)).toBe(true);
+    expect(live.contains(resolved)).toBe(true);
+
+    workspace.dispose({ status: "completed", description: "still no work" });
+    expect(existsSync(wtPath)).toBe(false);
+  });
+
+  it("restores the exact commit cleanup recorded, not the repository's HEAD", async () => {
+    const workspace = await prepare("exact-1");
+    const wtPath = workspace.cwd;
+    writeFileSync(join(wtPath, "child-work.txt"), "the child's work");
+    const addendum = workspace.dispose({
+      status: "completed",
+      description: "did work",
+    });
+    expect(addendum?.resultAddendum).toContain("Changes saved to branch");
+
+    // The parent repository moves on after the child was disposed.
+    writeFileSync(join(repoDir, "parent-work.txt"), "parent");
+    execFileSync("git", ["add", "parent-work.txt"], {
+      cwd: repoDir,
+      stdio: "pipe",
+    });
+    execFileSync("git", ["commit", "-m", "parent moved on"], {
+      cwd: repoDir,
+      stdio: "pipe",
+    });
+
+    await workspace.resume();
+
+    expect(readFileSync(join(wtPath, "child-work.txt"), "utf8")).toBe(
+      "the child's work",
+    );
+    expect(existsSync(join(wtPath, "parent-work.txt"))).toBe(false);
+  });
+
+  it("survives repeated complete-and-reopen cycles without losing earlier work", async () => {
+    const workspace = await prepare("cycles-1");
+    const wtPath = workspace.cwd;
+
+    writeFileSync(join(wtPath, "cycle-1.txt"), "first");
+    const first = workspace.dispose({
+      status: "completed",
+      description: "first",
+    });
+    expect(first?.resultAddendum).toContain("pi-agent-cycles-1");
+
+    await workspace.resume();
+    writeFileSync(join(wtPath, "cycle-2.txt"), "second");
+    const second = workspace.dispose({
+      status: "completed",
+      description: "second",
+    });
+    expect(second?.resultAddendum).toContain("pi-agent-cycles-1");
+    expect(second?.resultAddendum).toContain("pi-agent-cycles-1-");
+
+    await workspace.resume();
+    expect(readFileSync(join(wtPath, "cycle-1.txt"), "utf8")).toBe("first");
+    expect(readFileSync(join(wtPath, "cycle-2.txt"), "utf8")).toBe("second");
+    // A cycle with nothing to save restores cleanly and leaves no new branch.
+    const third = workspace.dispose({
+      status: "completed",
+      description: "third",
+    });
+    expect(third).toBeUndefined();
+    expect(existsSync(wtPath)).toBe(false);
+  });
+
+  it("rejects a resume after a failed cleanup and leaves the worktree untouched", async () => {
+    const workspace = await prepare("failed-1");
+    const wtPath = workspace.cwd;
+    writeFileSync(join(wtPath, "precious.txt"), "work that must survive");
+    lockGitIndex(wtPath);
+
+    const result = workspace.dispose({
+      status: "completed",
+      description: "did work",
+    });
+    expect(result?.resultAddendum).toContain("left in place");
+
+    // No cleanup recorded where that work ended up, so a restore would have to
+    // guess — it refuses instead, and the preserved worktree stays as it is.
+    await expect(workspace.resume()).rejects.toThrow(/no cleanup recorded/);
+    expect(readFileSync(join(wtPath, "precious.txt"), "utf8")).toBe(
+      "work that must survive",
+    );
+
+    execFileSync("git", ["worktree", "remove", "--force", wtPath], {
+      cwd: repoDir,
+      stdio: "pipe",
+    });
+  });
+
+  it("rejects a resume whose path is occupied, leaving the occupant untouched", async () => {
+    const workspace = await prepare("occupied-1");
+    const wtPath = workspace.cwd;
+    workspace.dispose({ status: "completed", description: "no work" });
+
+    mkdirSync(wtPath);
+    writeFileSync(join(wtPath, "unknown.txt"), "not this package's");
+    try {
+      await expect(workspace.resume()).rejects.toThrow(/already exists/);
+      expect(readFileSync(join(wtPath, "unknown.txt"), "utf8")).toBe(
+        "not this package's",
+      );
+    } finally {
+      rmSync(wtPath, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a resume before any cleanup recorded where the work ended", async () => {
+    const provider = makeProvider();
+    const workspace = reopenable(
+      await provider.prepare(ctx({ agentType: "Explore", baseCwd: repoDir })),
+    );
+    const wtPath = workspace.cwd;
+
+    await expect(workspace.resume()).rejects.toThrow(/no cleanup recorded/);
+
+    execFileSync("git", ["worktree", "remove", "--force", wtPath], {
+      cwd: repoDir,
+      stdio: "pipe",
     });
   });
 });

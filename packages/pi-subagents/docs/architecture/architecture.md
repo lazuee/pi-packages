@@ -398,12 +398,12 @@ src/
 │   ├── subagent-state.ts           what spans a subagent's runs: lifetime metrics and live activity (accumulators, last progress), plus the status vocabulary and its classification predicates
 │   ├── subagent-run.ts             one run of a subagent and its outcome: kind (initial or resume), mode, status and result with their transitions, question, workspace notice, turn budget, and an update ledger that renders only what no announcement delivered; delivery carries a revocable claim per carrier (each releases only its own handle) and a one-way consumption latch; born queued with its own abort lever, it wires the caller's signal when it starts and keeps the record-observer unsubscribe until it ends
 │   ├── record-observer.ts          session-event stats observer; stamps each event as the run's last progress
-│   ├── workspace-bracket.ts        child workspace prepare/dispose lifecycle; idempotent dispose, reports a torn-down workspace
+│   ├── workspace-bracket.ts        child workspace prepare/dispose/reopen lifecycle; idempotent dispose, reports a torn-down workspace, and re-holds a disposed one whose provider offers resume() after validating that it came back at the same cwd
 │   ├── concurrency-limiter.ts       background admission gate: schedules run thunks FIFO against the limit
 │   ├── parent-snapshot.ts          immutable spawn-time parent state, including the parent's operator-authored prompt parts composed in Pi's own order
 │   ├── child-lifecycle.ts          child-execution lifecycle event publisher
 │   ├── child-shutdown.ts           bounded session_shutdown emit for a child being disposed
-│   ├── workspace.ts                workspace provider seam (generative extension surface)
+│   ├── workspace.ts                workspace provider seam (generative extension surface), with an optional resume() for a provider that can reopen a workspace it tore down
 │   └── usage.ts                    token usage tracking
 │
 ├── observation/                    reactions to the lifecycle: notification, outcome delivery, event emission
@@ -490,7 +490,7 @@ They declare this package as an optional peer dependency and use dynamic import 
 - `child-lifecycle` — publishes the child-execution lifecycle (`spawning`, `session-created` before `bindExtensions()`, `bound` after it resolves, `completed`, `disposed`) on `pi.events`.
   Reactive consumers subscribe: `@gotgenes/pi-permission-system` registers each child session on `session-created`, audits it for a permission node of its own on `bound`, and unregisters it on `disposed`.
   This replaced the former outbound `permission-bridge` (#261, [ADR-0002]) — the core no longer looks up a named consumer.
-- `workspace` — the single generative seam (#262, [ADR-0002]): a registered `WorkspaceProvider` supplies a child's cwd plus bracketed `dispose()` at run-start.
+- `workspace` — the single generative seam (#262, [ADR-0002]): a registered `WorkspaceProvider` supplies a child's cwd plus bracketed `dispose()` at run-start, and may add an optional `resume()` that reopens what `dispose()` removed so a resume continues in the same directory.
   With no provider, children run in the parent cwd (default unchanged); the git worktree strategy lives behind this seam in `@gotgenes/pi-subagents-worktrees` (#263, the seam's first consumer).
 - `session-config` — pure configuration assembler (called by `createSubagentSession`).
 - `SubagentRuntime` — session-scoped state bag with methods.

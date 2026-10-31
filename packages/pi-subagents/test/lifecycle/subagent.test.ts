@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateSubagentSessionParams } from "#src/lifecycle/create-subagent-session";
 import { Subagent, type SubagentExecution, type SubagentLifecycleObserver } from "#src/lifecycle/subagent";
 import type { RunKind } from "#src/lifecycle/subagent-run";
@@ -11,7 +14,11 @@ import type { CompactionInfo, SubagentType } from "#src/types";
 import { gatedScheduler } from "#test/helpers/gated-scheduler";
 import { makeModel } from "#test/helpers/make-model";
 import { createTestSubagent, makeStubExecution } from "#test/helpers/make-subagent";
-import { makeWorkspace, makeWorkspaceProvider } from "#test/helpers/make-workspace";
+import {
+	makeResumableWorkspace,
+	makeWorkspace,
+	makeWorkspaceProvider,
+} from "#test/helpers/make-workspace";
 import { createMockSession, createSubagentSessionStub, emitResumeUsageAndCompaction, toAgentSession, toSubagentSession } from "#test/helpers/mock-session";
 import { STUB_SNAPSHOT } from "#test/helpers/stub-ctx";
 import { createChildLifecycleMock } from "#test/helpers/subagent-session-io";
@@ -2484,5 +2491,216 @@ describe("Subagent", () => {
 			const { agent } = await run({ responseText: "Done.", observer: { onRunFinished } });
 			expect(onRunFinished).toHaveBeenLastCalledWith(agent, kind);
 		});
+	});
+});
+
+describe("Subagent — a workspace its provider can reopen", () => {
+	let wsDir: string;
+
+	beforeEach(() => {
+		wsDir = mkdtempSync(join(tmpdir(), "pi-subagent-ws-"));
+	});
+
+	afterEach(() => {
+		rmSync(wsDir, { recursive: true, force: true });
+	});
+
+	/**
+	 * Run an agent under a resumable workspace at `wsDir`, so its first run
+	 * disposes the workspace and leaves it reopenable for a resume.
+	 */
+	async function runResumableAgent(options: {
+		onResume?: () => void | Promise<void>;
+		observer?: SubagentLifecycleObserver;
+		question?: string;
+	} = {}) {
+		const workspace = makeResumableWorkspace(wsDir, { onResume: options.onResume });
+		const { factory, stub, ask } = createFactory();
+		stub.runTurnLoop.mockImplementation(
+			outcomeLoop({ responseText: "did the first part", question: options.question }, ask),
+		);
+		const agent = createRunnableAgent({
+			createSubagentSession: factory,
+			workspaceProvider: makeWorkspaceProvider(workspace),
+			observer: options.observer ?? {},
+		});
+		await agent.run();
+		return { agent, workspace, stub, factory, loopAgain };
+	}
+
+	/** Hand the same session stub a plain successful turn loop, as a resume would get. */
+	function loopAgain(stub: ReturnType<typeof createSubagentSessionStub>) {
+		stub.runTurnLoop.mockResolvedValue(turnLoopResult({ responseText: "the answer" }));
+	}
+
+	it("does not refuse the resume of a disposed workspace it can reopen", async () => {
+		const { agent } = await runResumableAgent();
+
+		expect(agent.workspaceDisposed).toBe(true);
+		expect(agent.resumeRefusal).toBeUndefined();
+	});
+
+	it("reopens the workspace before the resumed turn loop takes a turn", async () => {
+		const { agent, workspace, stub, factory } = await runResumableAgent();
+		const session = agent.subagentSession;
+		loopAgain(stub);
+
+		await agent.resume("the answer", { background: true });
+
+		expect(workspace.resume).toHaveBeenCalledOnce();
+		// The restore is what makes the frozen session's cwd exist again, so it has
+		// to land before the turn that would use it.
+		const reopenAt = workspace.resume.mock.invocationCallOrder[0];
+		const loopCalls = stub.runTurnLoop.mock.invocationCallOrder;
+		expect(reopenAt).toBeLessThan(loopCalls[loopCalls.length - 1]);
+		// The resume continues the same child: no second session, no new id.
+		expect(factory).toHaveBeenCalledOnce();
+		expect(agent.subagentSession).toBe(session);
+		expect(agent.id).toBe("run-1");
+		expect(agent.status).toBe("completed");
+		expect(agent.result).toBe("the answer");
+	});
+
+	it("disposes the reopened workspace again when the resumed run ends", async () => {
+		const { agent, workspace, stub } = await runResumableAgent();
+		loopAgain(stub);
+
+		await agent.resume("the answer", { background: true });
+
+		expect(workspace.dispose).toHaveBeenCalledTimes(2);
+		expect(agent.workspaceDisposed).toBe(true);
+		// Reopenable again, so a second resume is not refused either.
+		expect(agent.resumeRefusal).toBeUndefined();
+	});
+
+	it("survives repeated complete-and-reopen cycles", async () => {
+		const { agent, workspace, stub } = await runResumableAgent();
+		loopAgain(stub);
+
+		await agent.resume("second turn", { background: true });
+		await agent.resume("third turn", { background: true });
+
+		expect(workspace.resume).toHaveBeenCalledTimes(2);
+		expect(workspace.dispose).toHaveBeenCalledTimes(3);
+		expect(agent.status).toBe("completed");
+		expect(agent.result).toBe("the answer");
+	});
+
+	it("ends the resumed run with the restore's error and runs no turn loop", async () => {
+		const onRunFinished = vi.fn();
+		const { agent, workspace, stub } = await runResumableAgent({
+			observer: { onRunFinished },
+			onResume: () => {
+				throw new Error("the commit it was left at is gone");
+			},
+		});
+		const loopCallsAfterFirstRun = stub.runTurnLoop.mock.calls.length;
+
+		await agent.resume("the answer", { background: true });
+
+		expect(agent.status).toBe("error");
+		expect(agent.error).toBe("the commit it was left at is gone");
+		expect(stub.runTurnLoop).toHaveBeenCalledTimes(loopCallsAfterFirstRun);
+		expect(onRunFinished).toHaveBeenLastCalledWith(agent, "resume");
+		// Failed closed: nothing was held, so the error is what the parent sees.
+		expect(workspace.dispose).toHaveBeenCalledOnce();
+		expect(agent.workspaceDisposed).toBe(true);
+	});
+
+	it("lets the next resume retry a restore that failed", async () => {
+		let fail = true;
+		const { agent, workspace, stub } = await runResumableAgent({
+			onResume: () => {
+				if (fail) throw new Error("git worktree add failed");
+			},
+		});
+
+		await agent.resume("the answer", { background: true });
+		expect(agent.status).toBe("error");
+		expect(agent.resumeRefusal).toBeUndefined();
+
+		fail = false;
+		loopAgain(stub);
+		await agent.resume("the answer, again", { background: true });
+
+		expect(agent.status).toBe("completed");
+		expect(agent.result).toBe("the answer");
+		expect(workspace.resume).toHaveBeenCalledTimes(2);
+		expect(workspace.dispose).toHaveBeenCalledTimes(2);
+	});
+
+	it("rejects a restore that reports another cwd instead of running there", async () => {
+		const { agent, workspace, stub } = await runResumableAgent();
+		workspace.cwd = wsDir;
+		const loopCallsAfterFirstRun = stub.runTurnLoop.mock.calls.length;
+		const elsewhere = mkdtempSync(join(tmpdir(), "pi-subagent-ws-moved-"));
+		try {
+			workspace.resume.mockImplementation(async () => {
+				workspace.cwd = elsewhere;
+			});
+
+			await agent.resume("the answer", { background: true });
+
+			expect(agent.status).toBe("error");
+			expect(agent.error).toContain("came back at");
+			expect(stub.runTurnLoop).toHaveBeenCalledTimes(loopCallsAfterFirstRun);
+		} finally {
+			rmSync(elsewhere, { recursive: true, force: true });
+		}
+	});
+
+	it("does not start a resume stopped while its workspace was being reopened", async () => {
+		const gate = Promise.withResolvers<void>(); // eslint-disable-line @typescript-eslint/no-invalid-void-type -- Promise.withResolvers<void> is valid; rule does not allow void in generic fn call type args
+		const { agent, workspace, stub } = await runResumableAgent({ onResume: () => gate.promise });
+		loopAgain(stub);
+
+		const resuming = agent.resume("the answer", { background: true });
+		// The restore is in flight, so the record has not started the run yet.
+		expect(agent.status).toBe("queued");
+		agent.stopQueued();
+		gate.resolve();
+		await resuming;
+
+		expect(agent.status).toBe("stopped");
+		expect(stub.runTurnLoop).toHaveBeenCalledOnce();
+		// Cancellation releases the reopened directory even if session release raced it.
+		expect(workspace.dispose).toHaveBeenCalledTimes(2);
+		expect(agent.workspaceDisposed).toBe(true);
+	});
+
+	it("does not resurrect a session released while restoration was in flight", async () => {
+		const gate = Promise.withResolvers<void>();
+		const { agent, workspace, stub } = await runResumableAgent({ onResume: () => gate.promise });
+		const resuming = agent.resume("continue", { background: true });
+		agent.stopQueued();
+		await agent.releaseSession();
+		gate.resolve();
+		await resuming;
+		expect(stub.runTurnLoop).toHaveBeenCalledOnce();
+		expect(workspace.dispose).toHaveBeenCalledTimes(2);
+		expect(agent.resumeRefusal).toBe("session-released");
+	});
+
+	it("rejects a missing held directory before running a turn", async () => {
+		const { agent, workspace, stub } = await runResumableAgent({ question: "Which one?" });
+		rmSync(wsDir, { recursive: true, force: true });
+		await agent.resume("continue", { background: true });
+		expect(stub.runTurnLoop).toHaveBeenCalledOnce();
+		expect(workspace.resume).not.toHaveBeenCalled();
+		expect(agent.status).toBe("error");
+		expect(agent.error).toContain("not a directory");
+	});
+
+	it("resumes into a workspace still held by a question-ending run without rebuilding it", async () => {
+		const { agent, workspace, stub } = await runResumableAgent({ question: "Which one?" });
+		expect(agent.pendingQuestion).toBe("Which one?");
+		expect(workspace.dispose).not.toHaveBeenCalled();
+		loopAgain(stub);
+
+		await agent.resume("the first one", { background: true });
+
+		expect(workspace.resume).not.toHaveBeenCalled();
+		expect(workspace.dispose).toHaveBeenCalledOnce();
+		expect(agent.result).toBe("the answer");
 	});
 });

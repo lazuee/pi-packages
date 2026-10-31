@@ -38,6 +38,26 @@ export interface Workspace {
   /** The working directory — already exists when the workspace is handed back. */
   readonly cwd: string;
   dispose(outcome: WorkspaceDisposeOutcome): WorkspaceDisposeResult | undefined;
+  /**
+   * Bring this workspace back at the same `cwd`, after dispose() tore it down.
+   *
+   * Declaring it is how a provider says a disposed workspace can be reopened,
+   * so a resume of the settled child continues in its own directory instead of
+   * being refused as `workspace-disposed`. The contract is the *same* cwd: the
+   * child session's working directory is fixed when the session is created, so
+   * a workspace handed back at any other path is not where the resumed child
+   * would run.
+   *
+   * Rejecting is how a restore fails — the directory is gone, or the state it
+   * has to reproduce (a commit, a snapshot) is no longer available. The core
+   * then runs no turn loop and reports the rejection as the resumed run's
+   * error, and the workspace stays reopenable, so the caller can retry.
+   *
+   * Absent means "cannot be reopened": a disposed workspace ends the child's
+   * run for good, exactly as it did before this existed. That keeps the seam
+   * optional — a provider written against the older contract keeps working.
+   */
+  resume?(): Promise<void>;
 }
 
 /** The single generative seam: supplies a child's workspace. */

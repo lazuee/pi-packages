@@ -20,7 +20,7 @@ Run them in foreground or background, steer them mid-run, resume completed sessi
 - **Custom agent types** — define agents in `.pi/agents/<name>.md` with YAML frontmatter: custom system prompts, model selection, thinking levels, tool restrictions
 - **Mid-run steering** — inject messages into running agents to redirect their work without restarting
 - **Session resume** — pick up where an agent left off, preserving full conversation context.
-  An agent given an isolated workspace by a `WorkspaceProvider` is resumable while that workspace is live — which, for an agent that ended its turn with a question, lasts until you answer it
+  A workspace held open for a question-ending run is resumed into as it stands; a provider that offers `Workspace.resume()` can also reopen a cleaned workspace at the same directory before the resumed turn starts, while the original session is retained
 - **Ask-back** — an agent that needs information only you have calls `ask_parent` and ends its turn, and every result surfaces the question with the exact `resume` call that answers it; once that agent can no longer be resumed, the result says so and why instead of naming a call that would be refused
 - **Mid-run updates** — an agent that finds something material calls `notify_parent` and keeps working; the message arrives on its own while you are idle and that agent is still running, and otherwise rides that agent's own result, so you hear it exactly once and never as a stale prompt to steer an agent that has finished
 - **Turn budgets** — `max_turns` is a hard ceiling, and an agent is told how many turns it has left while it still has room to wrap up, so it answers instead of being cut off
@@ -284,6 +284,7 @@ Use `contextUsage.percent` (surfaced as `(NN%)` in the widget) for current conte
 
 Worktree isolation lives in a companion package, not this core.
 Install [`@gotgenes/pi-subagents-worktrees`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-subagents-worktrees) and list the agent types you want isolated in its `worktreeAgents` config — opted-in agents run in a temporary git worktree, and their changes are saved to a branch on completion.
+A resumed agent's worktree is recreated on the same path at the exact commit cleanup left it at, so the resumed child finds its own work rather than the parent's current HEAD.
 The earlier `isolation: "worktree"` spawn flag and `isolation:` frontmatter key were removed from the core.
 
 ## Removed: agent memory and skill preloading
@@ -390,19 +391,20 @@ Like a background spawn, it waits for a slot when the [concurrency limit](#concu
 It never throws and never rejects.
 A resume that could not start resolves to `{ kind: "refused", reason }` instead, promptly — the checks are synchronous and no turn loop runs:
 
-| `reason`             | Meaning                                                         |
-| -------------------- | --------------------------------------------------------------- |
-| `unknown-agent`      | No record answers to that id (records are cleared per session)  |
-| `still-running`      | The agent has not settled; wait, or `steer` it while it runs    |
-| `resume-queued`      | A resume is waiting for a concurrency slot; wait for its run    |
-| `no-session`         | The agent never had a session to continue                       |
-| `session-released`   | Its session was released after the retention window             |
-| `workspace-disposed` | Its isolated workspace is gone, so a resume cannot re-enter it  |
+| `reason`             | Meaning                                                        |
+| -------------------- | -------------------------------------------------------------- |
+| `unknown-agent`      | No record answers to that id (records are cleared per session) |
+| `still-running`      | The agent has not settled; wait, or `steer` it while it runs   |
+| `resume-queued`      | A resume is waiting for a concurrency slot; wait for its run   |
+| `no-session`         | The agent never had a session to continue                      |
+| `session-released`   | Its session was released after the retention window            |
+| `workspace-disposed` | Its isolated workspace is gone and cannot be reopened          |
 
 Every record's `resumeRefusal` field predicts this answer before the call, minus `unknown-agent`, which no record can carry.
 
 A resumed run that _fails_ is still `{ kind: "resumed" }`; the snapshot carries `status: "error"` and the message.
 Refused means nothing started.
+A workspace the provider cannot reopen fails the resumed run the same way, carrying the provider's message and taking no turn; the agent stays resumable, so a retry restores it again.
 
 By default the resumed outcome is announced to the parent like any other background completion.
 Pass `claimOutcome: true` to declare that your extension is delivering it, which suppresses that announcement — do this only if you will actually carry the result to the parent, or it reaches nobody.

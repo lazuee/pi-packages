@@ -188,9 +188,10 @@ describe("AgentTool — resume path", () => {
 			});
 
 			expect(textOf(result)).toBe(
-				'Agent "agent-1" ran in an isolated workspace that no longer exists; resume is ' +
-					"unavailable because the agent would re-enter a directory that has been removed. " +
-					"Spawn a new agent instead — the agent's result records where any work was saved.",
+				'Agent "agent-1" ran in an isolated workspace that is gone and cannot be ' +
+					"restored; resume is unavailable because the agent would re-enter a directory that " +
+					"no longer exists. Spawn a new agent instead — the agent's result records where " +
+					"any work was saved.",
 			);
 		});
 	});
