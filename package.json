@@ -22,13 +22,38 @@
     "fallow:dupes": "fallow dupes"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:",
-    "@vitest/coverage-istanbul": "catalog:",
-    "eslint": "catalog:",
-    "fallow": "catalog:",
-    "globals": "catalog:",
-    "rumdl": "catalog:",
-    "typescript-eslint": "catalog:",
-    "vitest": "catalog:"
+    "@biomejs/biome": "^2.5.11",
+    "@vitest/coverage-istanbul": "^4.1.11",
+    "eslint": "^10.9.1",
+    "fallow": "^3.22.0",
+    "globals": "^17.12.0",
+    "rumdl": "0.2.24",
+    "typescript-eslint": "^8.69.0",
+    "vitest": "^4.1.11"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "packages/pi-autoformat/src/extension.ts",
+      "packages/pi-colgrep/src/extension.ts",
+      "packages/pi-github-tools/src/extension.ts",
+      "packages/pi-nocd/src/index.ts",
+      "packages/pi-permission-model-judge/src/index.ts",
+      "packages/pi-permission-system/src/index.ts",
+      "packages/pi-session-tools/src/index.ts",
+      "packages/pi-subagents/src/index.ts",
+      "packages/pi-subagents-worktrees/src/index.ts"
+    ],
+    "skills": [
+      "packages/pi-colgrep/skills"
+    ]
+  },
+  "dependencies": {
+    "tree-sitter-bash": "^0.25.1",
+    "web-tree-sitter": "^0.26.9",
+    "zod": "^4.6.7"
   }
 }
