@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "prepare": "command -v prek >/dev/null 2>&1 && prek install || echo 'prek not found \u2014 skipping hook install (see README)'",
+    "prepare": "command -v prek >/dev/null 2>&1 && prek install || echo 'prek not found — skipping hook install (see README)'",
     "check": "pnpm -r run check",
     "test": "pnpm -r run test && vitest run",
     "test:scripts": "vitest run",
@@ -52,6 +52,8 @@
     ]
   },
   "dependencies": {
+    "@gotgenes/pi-permission-system": "^42.0.0",
+    "@gotgenes/pi-subagents": "^25.0.5",
     "tree-sitter-bash": "^0.25.1",
     "web-tree-sitter": "^0.26.9",
     "zod": "^4.6.7"
