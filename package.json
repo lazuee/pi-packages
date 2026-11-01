@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "prepare": "command -v prek >/dev/null 2>&1 && prek install || echo 'prek not found — skipping hook install (see README)'",
+    "prepare": "command -v prek >/dev/null 2>&1 && prek install || echo 'prek not found \u2014 skipping hook install (see README)'",
     "check": "pnpm -r run check",
     "test": "pnpm -r run test && vitest run",
     "test:scripts": "vitest run",
@@ -45,10 +45,12 @@
       "packages/pi-permission-system/src/index.ts",
       "packages/pi-session-tools/src/index.ts",
       "packages/pi-subagents/src/index.ts",
-      "packages/pi-subagents-worktrees/src/index.ts"
+      "packages/pi-subagents-worktrees/src/index.ts",
+      "packages/pi-macos-harness/src/extension.ts"
     ],
     "skills": [
-      "packages/pi-colgrep/skills"
+      "packages/pi-colgrep/skills",
+      "packages/pi-macos-harness/skills"
     ]
   },
   "dependencies": {
