@@ -313,8 +313,9 @@ export default function (pi: ExtensionAPI) {
   // pi.exec does not throw on a non-zero exit, so the exit code is the only honest signal.
   async function call(...args: string[]): Promise<boolean> {
     if (!cmd) return false;
+    const [runBin, runArgs] = withSession(cmd, args);
     try {
-      const r = await pi.exec(cmd, args, { timeout: 5000 });
+      const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
       return r.code === 0;
     } catch {
       return false;
