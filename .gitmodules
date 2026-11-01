@@ -1,0 +1,4 @@
+[submodule "packages/pi-macos-harness/upstream"]
+	path = packages/pi-macos-harness/upstream
+	url = https://github.com/lazuee/macos-harness
+	branch = fix/retina-coordinates

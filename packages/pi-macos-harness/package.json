@@ -1,0 +1,65 @@
+{
+  "name": "@lazuee/pi-macos-harness",
+  "version": "0.1.0",
+  "description": "Pi extension that lets the agent drive a Mac's real UI, on top of the macos-harness Python runtime it bundles",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "macos",
+    "computer-use",
+    "accessibility"
+  ],
+  "author": {
+    "name": "lazuee"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
+    "directory": "packages/pi-macos-harness"
+  },
+  "bugs": {
+    "url": "https://github.com/lazuee/pi-packages/issues"
+  },
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-macos-harness#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "files": [
+    "src",
+    "skills",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "lint": "biome check . && eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=1.0.0",
+    "@earendil-works/pi-coding-agent": ">=1.0.0"
+  }
+}
