@@ -31,6 +31,7 @@ const ACTIONS = [
   "paste",
   "scroll",
   "drag",
+  "move",
   "select_text",
   "perform_secondary_action",
   "list_apps",
