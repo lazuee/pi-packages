@@ -152,7 +152,8 @@ const harness = defineTool({
         "macos-harness is not on PATH. Install it with: uv tool install --python 3.12 macos-harness",
       );
 
-    const r = await api.exec(bin, buildArgs(p), { signal, timeout: 120_000 });
+    const [runBin, runArgs] = withSession(bin, buildArgs(p));
+    const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
     const out = `${r.stdout}${r.stderr}`.trim();
     // The harness says "call this tool again" for an index that went stale; pass that on.
     if (r.code !== 0)
@@ -172,10 +173,14 @@ const harness = defineTool({
     // Read the whole tree again, not a diff: a diff leaves unchanged elements out,
     // so only the full tree makes the next numbers trustworthy.
     // A failed read must not hide that the action succeeded.
+    const [afterBin, afterArgs] = withSession(bin, [
+      "get_app_state",
+      "--app",
+      String(p.app),
+      "--disableDiff",
+    ]);
     const after = await api
-      .exec(bin, ["get_app_state", "--app", String(p.app), "--disableDiff"], {
-        timeout: 60_000,
-      })
+      .exec(afterBin, afterArgs, { timeout: 60_000 })
       .catch(() => null);
     if (after?.code === 0) {
       const state = await readResult(
@@ -242,6 +247,29 @@ const SOURCE_BIN = fileURLToPath(
 // Filled on session_start so a missing binary never breaks factory load.
 let cmd: string | undefined;
 
+// One key per pi session, so two sessions (a subagent, a second window) do not count
+// as one agent: without it the harness falls back to the parent process, and one
+// session's turn end would cancel the other's action and drop its app state.
+let session: string | undefined;
+
+/** pi.exec carries no env, so the key is prefixed onto the command instead. */
+function withSession(
+  bin: string,
+  args: string[],
+): [string, string[], { timeout?: number }?] {
+  if (!session) return [bin, args];
+  // export, because sh would otherwise not pass it to the binary it starts.
+  return [
+    "/bin/sh",
+    [
+      "-c",
+      `export MACOS_HARNESS_SESSION='${session}'; exec "$0" "$@"`,
+      bin,
+      ...args,
+    ],
+  ];
+}
+
 export function buildArgs(p: Record<string, unknown>): string[] {
   const args = [String(p.action)];
   if (p.action === "list_apps") return args;
@@ -302,6 +330,8 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on("session_start", async (event, ctx) => {
+    // Before the first call, so even doctor runs under this session's key.
+    session = `${process.pid}-${Date.now().toString(36)}`;
     // The checkout first, so a local patch is live without a reinstall; the
     // installed tool is only a fallback for a machine without the source.
     cmd = undefined;
@@ -341,6 +371,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async (_e, ctx) => {
     await tell(ctx, "turn-ended", "--cancel");
     inRun = false;
+    session = undefined;
   });
 
   pi.registerTool(harness);
