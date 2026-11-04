@@ -34,6 +34,16 @@ export interface SubagentLifecycleObserver {
 	onRunStarted?(agent: Subagent, kind: RunKind): void;
 	/** Fires once the session is created — the subagent's subagentSession is now available. */
 	onSessionCreated?(agent: Subagent): void;
+	/**
+	 * Fires once a run's turn loop has returned, before the outcome is committed:
+	 * the last point an observer can veto settlement. A `{ block: true }` answer
+	 * fails the run with the given reason — the same terminal path a turn-loop
+	 * failure takes — instead of completing or aborting it.
+	 */
+	onBeforeSettle?(
+		agent: Subagent,
+		result: TurnLoopResult,
+	): Promise<{ block: true; reason: string } | undefined>;
 	/** Fires once when a run reaches a terminal state: it completed, failed, or was stopped. */
 	onRunFinished?(agent: Subagent, kind: RunKind): void;
 	/** Fires when the running agent sends its parent a mid-run message. */
@@ -457,7 +467,7 @@ export class Subagent {
 			onCompact: (info) => this.execution.observer?.onCompacted?.(this, info),
 		}));
 		try {
-			this.complete(run, await session.runTurnLoop(prompt, {
+			await this.complete(run, await session.runTurnLoop(prompt, {
 				signal: run.signal,
 				onTurnBudget: (budget) => { run.setTurnBudget(budget); },
 			}));
@@ -714,9 +724,24 @@ export class Subagent {
 		this._pendingSteers = [];
 	}
 
-	/** Complete a run: release its handles, dispose or hold the workspace, status transition, notify observer. */
-	private complete(run: SubagentRun, result: TurnLoopResult): void {
+	/**
+	 * Complete a run: release its handles, consult the pre-settle gate, dispose
+	 * or hold the workspace, status transition, notify observer.
+	 *
+	 * The gate is the last observer veto before the outcome is committed: a
+	 * block fails the run with the gate's reason, on the same terminal path a
+	 * turn-loop failure takes. A gate that crashes fails the run too — the
+	 * caller's catch is the fail-closed boundary — and one that abstains
+	 * changes nothing.
+	 */
+	private async complete(run: SubagentRun, result: TurnLoopResult): Promise<void> {
 		run.release();
+
+		const decision = await this.execution.observer?.onBeforeSettle?.(this, result);
+		if (decision?.block) {
+			this.fail(run, decision.reason);
+			return;
+		}
 
 		// The harness ending the run at its turn limit is the one way a run that
 		// returned is not complete.

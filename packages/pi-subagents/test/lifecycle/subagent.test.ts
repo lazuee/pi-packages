@@ -2485,4 +2485,78 @@ describe("Subagent", () => {
 			expect(onRunFinished).toHaveBeenLastCalledWith(agent, kind);
 		});
 	});
+
+	describe("onBeforeSettle(): the pre-settle gate", () => {
+		it("consults the gate with the agent and the turn-loop result, then settles when it allows", async () => {
+			const onBeforeSettle = vi.fn(async (_agent: Subagent, _result: TurnLoopResult) => undefined);
+			const { agent } = await runWithWorkspace({ responseText: "Done.", observer: { onBeforeSettle } });
+			expect(onBeforeSettle).toHaveBeenCalledExactlyOnceWith(
+				agent,
+				turnLoopResult({ responseText: "Done." }),
+			);
+			expect(agent.status).toBe("completed");
+			expect(agent.result).toBe(`Done.${ADDENDUM}`);
+		});
+
+		it("fails the run instead of settling when the gate blocks, dropping its question like a failure", async () => {
+			const onRunFinished = vi.fn();
+			const { agent, workspace } = await runWithWorkspace({
+				responseText: "Done.",
+				question: "Which one?",
+				observer: {
+					onBeforeSettle: async () => ({ block: true as const, reason: "unverified work" }),
+					onRunFinished,
+				},
+			});
+			expect(agent.status).toBe("error");
+			expect(agent.error).toBe("unverified work");
+			expect(agent.result).toBeUndefined();
+			// A blocked run's question is not actionable, like a failed run's is not.
+			expect(agent.pendingQuestion).toBeUndefined();
+			// The completed-path disposal never ran: the veto lands before it.
+			expect(workspace.dispose).toHaveBeenCalledExactlyOnceWith({ status: "error", description: "run test" });
+			expect(agent.workspaceNotice).toBe(ADDENDUM);
+			// The veto is a terminal transition, so the observer hears it like any other.
+			expect(onRunFinished).toHaveBeenCalledExactlyOnceWith(agent, "initial");
+		});
+
+		it("leaves settlement unchanged when no gate is supplied", async () => {
+			const { agent, workspace } = await runWithWorkspace({ responseText: "Done." });
+			expect(agent.status).toBe("completed");
+			expect(workspace.dispose).toHaveBeenCalledExactlyOnceWith({ status: "completed", description: "run test" });
+		});
+
+		it("gates a resumed run as well, failing it when the gate blocks the resume", async () => {
+			// The initial run asks a question and is allowed to settle, holding its
+			// workspace for the resume; the resumed run is then blocked.
+			const decisions: Array<{ block: true; reason: string } | undefined> = [
+				undefined,
+				{ block: true, reason: "unverified resume" },
+			];
+			const onBeforeSettle = vi.fn(async () => decisions.shift());
+			const held = await heldWorkspaceAgent({ onBeforeSettle });
+			held.stub.runTurnLoop.mockImplementation(outcomeLoop({ responseText: "More." }, held.ask));
+
+			await held.agent.resume("continue", { background: true });
+
+			expect(held.agent.status).toBe("error");
+			expect(held.agent.error).toBe("unverified resume");
+			expect(onBeforeSettle).toHaveBeenCalledTimes(2);
+		});
+
+		it("fails the run when the gate itself crashes (fail-closed)", async () => {
+			// A crashed gate is a gate that could not vouch for the work: the
+			// runOnSession catch fails the run, the same path a turn-loop error takes.
+			const { agent, workspace } = await runWithWorkspace({
+				responseText: "Done.",
+				observer: {
+					onBeforeSettle: async () => { throw new Error("gate crashed"); },
+				},
+			});
+			expect(agent.status).toBe("error");
+			expect(agent.error).toBe("gate crashed");
+			expect(agent.result).toBeUndefined();
+			expect(workspace.dispose).toHaveBeenCalledExactlyOnceWith({ status: "error", description: "run test" });
+		});
+	});
 });
