@@ -4198,6 +4198,7 @@ describe("a config deny outranks a session grant", () => {
     ["git push --force", "* --force*", "git push *"],
     ["sudo rm -rf /", "*rm -rf /*", "sudo *"],
     ["git push origin --force", "git push * --force", "git push origin *"],
+    ["rm -rf /x", "rm -rf /?", "rm -rf /*"],
   ] as const)(
     "bash: keeps a deny that overlaps the grant: %s, deny %s, grant %s",
     (command, deny, grant) => {

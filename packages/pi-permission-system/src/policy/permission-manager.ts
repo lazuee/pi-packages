@@ -458,11 +458,12 @@ function denyOutranksGrant(
   if (grant === undefined) return true;
   const options = pathMatchOptions(surface, flavor);
   const grantText = expandHomePath(grant);
-  const containsGrant =
-    deny === grant ||
-    expandHomePath(deny) === grantText ||
-    wildcardMatch(deny, grantText, options);
-  return !containsGrant;
+  if (deny === grant || expandHomePath(deny) === grantText) return false;
+  // Matching the grant's pattern text is containment only while a deny `?`
+  // never stands in for a grant wildcard: `rm -rf /?` matches the text
+  // `rm -rf /*` but covers one character where the grant covers any run.
+  if (deny.includes("?") && /[*?]/.test(grant)) return true;
+  return !wildcardMatch(deny, grantText, options);
 }
 
 /**
