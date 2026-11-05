@@ -131,6 +131,17 @@ describe("suggestBashPattern", () => {
     });
   });
 
+  describe("a shell builtin that runs nothing here", () => {
+    // A wildcard grant on the builtin's name would cover it running any
+    // command: `command *` allows `command sudo rm x`.
+    it.each(["command -v git", "command -V git", "command -pv git", "exec"])(
+      "suggests the exact command for %s",
+      (command) => {
+        expect(suggestBashPattern(command)).toBe(command);
+      },
+    );
+  });
+
   describe("a command behind a leading assignment", () => {
     it.each([
       "FOO=1 git status",

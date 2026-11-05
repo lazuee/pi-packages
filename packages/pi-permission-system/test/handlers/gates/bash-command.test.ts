@@ -1718,6 +1718,8 @@ describe("resolveBashCommandCheck: a wrapper spelled another way", () => {
     ["\\sudo rm -rf /x", "sudo rm -rf /x"],
     ['"sudo" rm -rf /x', "sudo rm -rf /x"],
     ["s\\udo rm -rf /x", "sudo rm -rf /x"],
+    ["$'sudo' rm -rf /x", "sudo rm -rf /x"],
+    ['$"sudo" rm -rf /x', "sudo rm -rf /x"],
     [
       "\\env LD_PRELOAD=/tmp/x.so sudo cat /etc/shadow",
       "env LD_PRELOAD=/tmp/x.so sudo cat /etc/shadow",
@@ -1737,6 +1739,9 @@ describe("resolveBashCommandCheck: a wrapper spelled another way", () => {
       "exec sudo rm -rf /x",
       "command -p sudo rm -rf /x",
       "exec -a x sudo rm -rf /x",
+      "exec -av sudo rm -rf /x",
+      "exec -cav sudo rm -rf /x",
+      "exec -aV sudo rm -rf /x",
     ])("keeps the floor for %s", (command) => {
       expect(decide(permissive, command).state).not.toBe("allow");
     });

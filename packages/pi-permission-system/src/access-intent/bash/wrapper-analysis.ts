@@ -60,7 +60,10 @@ export function classifyWrapperWords(
   if (commandName === undefined) return undefined;
   const args = words.slice(1).map((word) => word.text);
   if (commandName === "eval") return "opaque-payload";
-  if (SHELL_BUILTIN_RUNNERS.has(commandName) && !runsNamedCommand(args)) {
+  if (
+    SHELL_BUILTIN_RUNNERS.has(commandName) &&
+    !runsNamedCommand(commandName, args)
+  ) {
     return undefined;
   }
   if (SHELL_WRAPPER_NAMES.has(commandName) && hasShortFlagC(args)) {
@@ -844,16 +847,36 @@ const SHELL_BUILTIN_RUNNERS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * True when a builtin runner's arguments name a command to run: there is a
- * word past the options, and no `-v`/`-V` lookup flag among them.
+ * True when a builtin runner's arguments may name a command to run.
+ *
+ * Only `command` has a lookup mode (`-v`/`-V`), and its options are flags
+ * alone, so a `v` or `V` in a leading cluster always means the lookup. For
+ * `exec` and `builtin` any argument may be or lead to the command (`exec -av
+ * sudo` takes `v` as `-a`'s value and runs `sudo`), so only their bare form
+ * runs nothing.
  */
-function runsNamedCommand(args: readonly string[]): boolean {
+function runsNamedCommand(name: string, args: readonly string[]): boolean {
+  if (name !== "command") return args.length > 0;
   for (const arg of args) {
     if (arg === "--") return true;
     if (!arg.startsWith("-") || arg === "-") return true;
-    if (/^-[^-]*[vV]/.test(arg)) return false;
+    if (/[vV]/.test(arg)) return false;
   }
   return false;
+}
+
+/**
+ * True when a command's first word is a shell builtin runner in a form that
+ * runs nothing (`command -v git`, bare `exec`). A wildcard on its name would
+ * also cover it running any command, so only the exact command is a safe
+ * session grant for it.
+ */
+export function isIdleBuiltinRunner(words: readonly string[]): boolean {
+  if (words.length === 0) return false;
+  const name = basename(unquotedName(words[0]));
+  return (
+    SHELL_BUILTIN_RUNNERS.has(name) && !runsNamedCommand(name, words.slice(1))
+  );
 }
 
 /**
@@ -1297,8 +1320,12 @@ function wrapperName(words: readonly CommandWord[]): string | undefined {
 
 /** A literal command name with its quotes and backslash escapes removed. */
 function unquotedName(text: string): string {
-  if (/[$`]/.test(text)) return text;
-  return text.replace(/\\(.)/gs, "$1").replace(/['"]/g, "");
+  // `$'…'` and `$"…"` are quoting, not expansion; an ANSI-C escape inside
+  // one (`$'su\x64o'`) stays unresolved and never classifies.
+  const quoted = text.replace(/\$(['"])/g, "$1");
+  if (/[$`]/.test(quoted)) return text;
+  if (text !== quoted && quoted.includes("\\")) return text;
+  return quoted.replace(/\\(.)/gs, "$1").replace(/['"]/g, "");
 }
 
 /**
