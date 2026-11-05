@@ -3,6 +3,7 @@ import {
   commandWordNodes,
   EXECUTION_HOST_TYPES,
   forEachExecutionIn,
+  isUnlabeledAssignment,
   timedSubshellOf,
 } from "./nested-execution";
 import type { WordReader } from "./node-text";
@@ -612,7 +613,12 @@ function makeCommandUnit(
  */
 function hasAssignmentPrefix(node: TSNode): boolean {
   for (let i = 0; i < node.childCount; i++) {
-    if (node.child(i)?.type === "variable_assignment") return true;
+    const child = node.child(i);
+    if (child?.type === "variable_assignment") return true;
+    if (child?.isNamed && !REDIRECT_NODE_TYPES.has(child.type)) {
+      // Only a leading word can be an assignment the grammar did not label.
+      return isUnlabeledAssignment(child);
+    }
   }
   return false;
 }

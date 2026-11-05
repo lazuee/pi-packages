@@ -1955,3 +1955,21 @@ describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
     expect(result.floor).not.toBe("<computed-command-name>");
   });
 });
+
+describe("resolveBashCommandCheck: an assignment the grammar reads as a command name", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  // tree-sitter-bash parses `_=1` as a command name, but bash reads it as an
+  // assignment prefix and runs the next word.
+  it.each([
+    ["_=1 rm -rf /x", "deny"],
+    ["_=1 sudo rm -rf /x", "deny"],
+    ["_=1 bash -c 'ls'", "ask"],
+    ["_=1 ls", "ask"],
+  ] as const)("decides %s as %s", (command, state) => {
+    const result = decide({ "*": "allow", "rm *": "deny" }, command);
+    expect(result.state).toBe(state);
+  });
+});
