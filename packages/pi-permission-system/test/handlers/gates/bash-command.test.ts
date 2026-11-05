@@ -1590,6 +1590,17 @@ describe("resolveBashCommandCheck: a leading variable assignment", () => {
       expect(result.floor).toBe("<assignment-prefixed-command>");
     });
 
+    it("suggests a grant that covers no other command", () => {
+      const asking = decide(policy, "FOO=1 git status");
+      const grant = [
+        sessionRule("bash", suggestBashPattern(asking.command ?? "")),
+      ];
+      expect(grant[0].pattern).toBe("FOO=1 git status");
+      for (const command of ["FOO=1 rm x", "FOO=1 git status x"]) {
+        expect(decide(policy, command, grant).state).toBe("ask");
+      }
+    });
+
     it("ignores a session grant given for the bare command", () => {
       const result = decide(policy, "FOO=1 git push origin", [
         sessionRule("bash", "git push *"),
