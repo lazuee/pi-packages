@@ -1382,10 +1382,12 @@ function wrapperName(words: readonly CommandWord[]): string | undefined {
 export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
   if (words.length === 0) return false;
   const head = words[0].text;
-  if (
-    basename(unquotedName(head)) === "alias" &&
-    words.slice(1).some((word) => word.text.includes("="))
-  ) {
+  const name = basename(unquotedName(head));
+  const args = words.slice(1).map((word) => word.text);
+  if (name === "alias" && args.some((arg) => arg.includes("="))) return true;
+  // `hash -p path name` and `enable -f lib name` rebind a later command name.
+  if (name === "hash" && args.some((arg) => /^-[^-]*p/.test(arg))) return true;
+  if (name === "enable" && args.some((arg) => /^-[^-]*f/.test(arg))) {
     return true;
   }
   const quoted = head
@@ -1393,6 +1395,17 @@ export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
     .replace(/\$'([^'\\]*)'/g, "'$1'")
     .replace(/\$"([^"\\$`]*)"/g, '"$1"');
   return /[$`]/.test(quoted);
+}
+
+/**
+ * True when an assignment or declaration rebinds what a later command name
+ * runs: `PATH` picks the executable, and `BASH_ALIASES`/`BASH_CMDS` entries
+ * are aliases and hashed paths (`BASH_ALIASES[s]=sudo`, `export PATH=…`).
+ */
+export function rebindsCommandName(statementText: string): boolean {
+  return /(?:^|[\s;])(?:PATH|BASH_ALIASES|BASH_CMDS)(?:\[[^\]]*\])?\+?=/.test(
+    statementText,
+  );
 }
 
 /** A literal command name with its quotes and backslash escapes removed. */

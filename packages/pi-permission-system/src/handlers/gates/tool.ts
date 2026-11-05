@@ -15,7 +15,10 @@ import { buildToolAskPayload } from "#src/presentation/tool-ask-payload";
 import { SessionApproval } from "#src/session/session-approval";
 import type { ToolPreviewFormatter } from "#src/tool-input/tool-preview-formatter";
 import type { AskingBashUnit, PermissionCheckResult } from "#src/types";
-import { UNPARSED_SUBTREE_SENTINEL } from "./bash-command";
+import {
+  COMPUTED_NAME_SENTINEL,
+  UNPARSED_SUBTREE_SENTINEL,
+} from "./bash-command";
 import type { GateDescriptor } from "./descriptor";
 import {
   accessFactsFromPath,
@@ -127,12 +130,16 @@ function suggestValueSessionPattern(
   if (classifyToolKind(toolName) === "mcp-tool") {
     return suggestExactSessionPattern(gateSurface, toolName.trim());
   }
-  // A command the parse could not resolve keeps its floor under any wildcard
-  // grant, and on a parsed command a wildcard would grant more than the user
-  // saw, so only the exact command is offered. The matcher has no escape, so
+  // A command the parse could not resolve, or whose name the shell decides
+  // only at run time, keeps its floor under any wildcard grant, and on another
+  // command a wildcard would grant more than the user saw, so only the exact
+  // command is offered. The matcher has no escape, so
   // a command holding `*` or `?` cannot be offered exactly: it gets no
   // session option at all.
-  if (check.floor === UNPARSED_SUBTREE_SENTINEL) {
+  if (
+    check.floor === UNPARSED_SUBTREE_SENTINEL ||
+    check.floor === COMPUTED_NAME_SENTINEL
+  ) {
     const command = check.command ?? "";
     if (!command || /[*?]/.test(command)) return undefined;
     return suggestExactSessionPattern(gateSurface, command);

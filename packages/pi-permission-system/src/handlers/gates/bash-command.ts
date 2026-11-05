@@ -81,7 +81,7 @@ const ASSIGNMENT_PREFIX_SENTINEL = "<assignment-prefixed-command>";
  * The synthetic `matchedPattern` recorded when a unit whose command the shell
  * decides only at run time has its `allow` floored to `ask`.
  */
-const COMPUTED_NAME_SENTINEL = "<computed-command-name>";
+export const COMPUTED_NAME_SENTINEL = "<computed-command-name>";
 
 /**
  * The synthetic `matchedPattern` recorded when a command the parse matched

@@ -1922,6 +1922,13 @@ describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
     '"$S" rm -rf /x',
     "alias s=sudo",
     "shopt -s expand_aliases; alias s=sudo; s rm -rf /x",
+    "shopt -s expand_aliases\nBASH_ALIASES[s]=sudo\ns rm -rf /x",
+    "BASH_CMDS[ls]=/tmp/evil; ls",
+    "hash -p /tmp/evil ls; ls",
+    "enable -f /tmp/evil.so ls",
+    "PATH=/tmp/evil:$PATH; ls",
+    "export PATH=/tmp/evil:$PATH; ls",
+    "declare -x PATH=/tmp/evil; ls",
   ])("asks for %s", (command) => {
     const result = decide(permissive, command);
     expect(result.state).toBe("ask");

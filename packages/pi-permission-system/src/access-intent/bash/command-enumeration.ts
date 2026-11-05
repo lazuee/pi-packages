@@ -17,6 +17,7 @@ import {
   inlineShellPayloadIndex,
   intermediateLayersOf,
   namesCommandAtRunTime,
+  rebindsCommandName,
   type WrapperKind,
 } from "./wrapper-analysis";
 
@@ -451,10 +452,25 @@ function collectCommandsInto(
   // function_definition): emit whole, do not descend — deferred (#306).
   // A declaration, assignment, test, or `unset` still hosts executions that
   // really run (`local x=$(rm y)`, `[[ $(rm x) ]]`), so those are enumerated
-  // in addition to the statement (#742).
-  out.push(makeUnit(node.text, scope));
+  // in addition to the statement (#742). An assignment that rebinds what a
+  // later command name runs (`PATH=…`, `BASH_ALIASES[s]=…`) is floored as a
+  // command named at run time.
+  out.push(
+    makeUnit(node.text, scope, {
+      computedName:
+        REBINDING_STATEMENT_TYPES.has(node.type) &&
+        rebindsCommandName(node.text),
+    }),
+  );
   collectHostedCommands(node, scope, out);
 }
+
+/** Statements whose own text can rebind a command name ({@link rebindsCommandName}). */
+const REBINDING_STATEMENT_TYPES: ReadonlySet<string> = new Set([
+  "variable_assignment",
+  "variable_assignments",
+  "declaration_command",
+]);
 
 /**
  * Enumerate `time ( … )`: the `time` unit whole, then the subshell's commands
