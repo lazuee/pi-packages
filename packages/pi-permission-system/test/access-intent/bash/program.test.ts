@@ -610,12 +610,21 @@ describe("BashProgram", () => {
     describe("a redirect hosted inside the command", () => {
       it.each([
         ["2>/dev/null git push --force", "git push --force"],
-        ["FOO=1 2>/dev/null git push --force", "git push --force"],
         ["git <<< x push --force", "git push --force"],
         ["cat f <<< hi", "cat f"],
       ])("leaves the redirect out of %s", async (command, text) => {
         const program = await BashProgram.parse(command, normalizer);
         expect(program.commands()).toEqual([{ text }]);
+      });
+
+      it("leaves the redirect out of an assignment-prefixed command", async () => {
+        const program = await BashProgram.parse(
+          "FOO=1 2>/dev/null git push --force",
+          normalizer,
+        );
+        expect(program.commands()).toEqual([
+          { text: "git push --force", assignmentPrefix: true },
+        ]);
       });
 
       it("reads the head word past a leading redirect", async () => {
@@ -1374,13 +1383,18 @@ describe("BashProgram", () => {
         normalizer,
       );
       expect(program.commands()).toEqual([
-        { text: "aws ec2 terminate-instances --instance-ids i-1" },
+        {
+          text: "aws ec2 terminate-instances --instance-ids i-1",
+          assignmentPrefix: true,
+        },
       ]);
     });
 
     it("strips multiple leading env-var assignments", async () => {
       const program = await BashProgram.parse("A=1 B=2 aws s3 ls", normalizer);
-      expect(program.commands()).toEqual([{ text: "aws s3 ls" }]);
+      expect(program.commands()).toEqual([
+        { text: "aws s3 ls", assignmentPrefix: true },
+      ]);
     });
 
     it("strips the env-var prefix of each command in a chain", async () => {
@@ -1389,7 +1403,7 @@ describe("BashProgram", () => {
         normalizer,
       );
       expect(program.commands()).toEqual([
-        { text: "aws sts get-caller-identity" },
+        { text: "aws sts get-caller-identity", assignmentPrefix: true },
         { text: "ls" },
       ]);
     });
@@ -1433,6 +1447,7 @@ describe("BashProgram", () => {
             text: 'bash -c "rm -rf /"',
             wrapperKind: "opaque-payload",
             executedUnit: "rm -rf /",
+            assignmentPrefix: true,
             spellings: ["bash -c /projects/my-app/rm -rf "],
           },
         ]);
@@ -1506,6 +1521,7 @@ describe("BashProgram", () => {
             text: "sudo aws s3 ls",
             wrapperKind: "indirection",
             executedUnit: "aws s3 ls",
+            assignmentPrefix: true,
           },
         ]);
       });
@@ -1853,16 +1869,16 @@ describe("BashProgram", () => {
             ["xargs -I{} cat {}", "an empty brace pair is literal"],
             ["xargs -I {} cat {}", "an empty brace pair is literal"],
             ["find . -name '*.ts' -exec cat {} +", "a quoted glob is literal"],
-            ["env HOME=~ cat x", "a tilde assignment value is known"],
           ])("exempts %s (%s)", async (command) => {
             await expect(exemptions(command)).resolves.toEqual(["core-reader"]);
           });
 
-          it("exempts a modifier carrying a literal assignment", async () => {
-            await expect(exemptions("time FOO=1 pnpm test")).resolves.toEqual([
-              "execution-modifier",
-            ]);
-          });
+          it.each(["time FOO=1 pnpm test", "env HOME=~ cat x"])(
+            "withholds it from %s, whose layer passes an assignment",
+            async (command) => {
+              await expect(exemptions(command)).resolves.toEqual([undefined]);
+            },
+          );
         });
 
         describe("loses the exemption for a computed layer word", () => {

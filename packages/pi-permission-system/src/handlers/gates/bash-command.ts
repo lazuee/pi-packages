@@ -71,6 +71,12 @@ const WRAPPER_SENTINEL: Record<WrapperKind, string> = {
 const UNPARSED_SUBTREE_SENTINEL = "<unparsed-bash-subtree>";
 
 /**
+ * The synthetic `matchedPattern` recorded when a unit written behind a leading
+ * variable assignment has its `allow` floored to `ask`.
+ */
+const ASSIGNMENT_PREFIX_SENTINEL = "<assignment-prefixed-command>";
+
+/**
  * The synthetic `matchedPattern` recorded when a command the parse matched
  * nothing in is floored to `ask` (#452).
  */
@@ -183,9 +189,10 @@ function resolveCommandUnit(
       ? resolveWrapperUnit(cmd, cmd.wrapperKind, base, agentName, resolver)
       : base;
   const unparsed = floorUnparsedUnit(cmd, command, floored);
+  const prefixed = floorAssignmentPrefixedUnit(cmd, command, unparsed);
   const contextual = cmd.context
-    ? { ...unparsed, commandContext: cmd.context }
-    : unparsed;
+    ? { ...prefixed, commandContext: cmd.context }
+    : prefixed;
   return cmd.executedUnit === undefined
     ? contextual
     : { ...contextual, executedUnit: cmd.executedUnit };
@@ -228,6 +235,33 @@ function floorUnparsedUnit(
 }
 
 /**
+ * Floor a unit written behind a leading variable assignment, so the prefix the
+ * unit's text leaves out cannot ride a rule written for the bare command.
+ *
+ * The prefix changes what the command does — `GIT_*` injects git config,
+ * `LD_PRELOAD` loads a library, `PATH` picks the executable — and no pattern on
+ * the bare command can tell a harmless prefix from one of those.
+ *
+ * Only an `allow` is floored, so an explicit `deny` or `ask` on the bare
+ * command still decides. Unlike the other floors this one covers a session
+ * grant too: the grant was given for the command the user saw, and the unit's
+ * text, which the grant matched, is missing the prefix. A session-sourced
+ * `ask` takes the gate rather than `GateRunner`'s session fast path, so the
+ * floored grant prompts instead of approving.
+ *
+ * The result names the whole command, so the prompt and the session-approval
+ * suggestion show the prefix the user is approving.
+ */
+function floorAssignmentPrefixedUnit(
+  cmd: BashCommand,
+  command: string,
+  resolved: PermissionCheckResult,
+): PermissionCheckResult {
+  if (!cmd.assignmentPrefix || resolved.state !== "allow") return resolved;
+  return { ...floorToAsk(resolved, ASSIGNMENT_PREFIX_SENTINEL), command };
+}
+
+/**
  * True when the session layer decided the check. `SessionRules` records only
  * `allow`s, so this is a grant the user gave for the command it matched.
  */
@@ -239,7 +273,9 @@ function isSessionGrant(check: PermissionCheckResult): boolean {
  * Clamp a resolved check up to a synthetic `ask` naming the floor that raised
  * it.
  *
- * Never handed a session grant: both floors leave one unfloored. Drops
+ * Handed a session grant only by the assignment-prefix floor, whose `ask`
+ * keeps `source: "session"` and so still prompts (see
+ * {@link floorAssignmentPrefixedUnit}). Drops
  * `matchedSpelling`: it names what the replaced rule matched, and beside the
  * sentinel it would name a match that did not decide.
  */

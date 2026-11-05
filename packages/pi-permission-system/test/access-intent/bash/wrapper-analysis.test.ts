@@ -443,7 +443,6 @@ describe("floorExemptionOf", () => {
       "xargs -I{} basename {}",
       "xargs cat",
       "time cat x",
-      "env FOO=bar grep x",
       "sudo grep foo /etc/hosts",
       "find . -name '*.ts' -exec wc -l {} +",
       "fd -e ts -x cat",
@@ -568,7 +567,6 @@ describe("floorExemptionOf", () => {
         "stdbuf -o L pnpm test",
         "setsid pnpm test",
         "time timeout 5 pnpm test",
-        "time FOO=1 pnpm test",
         "/usr/bin/time pnpm test",
         "time ./scripts/x.sh",
         "time -f %e pnpm test",
@@ -684,7 +682,6 @@ describe("floorExemptionOf", () => {
       ["sudo --us root cat x", "an abbreviation of --user takes root"],
       ["sudo --user=root cat x", "an attached long value"],
       ["sudo -uedward cat", "an attached short value ends the cluster"],
-      ["sudo FOO=1 cat x", "sudo passes an assignment to the command"],
     ])("is transparent: %s (%s)", (unit) => {
       expect(isTransparent(unit)).toBe(true);
     });
@@ -877,10 +874,7 @@ describe("floorExemptionOf", () => {
       ["env --unset=FOO cat x", "an attached --unset value"],
       ["env --un=FOO cat x", "an attached abbreviation of --unset"],
       ["env -iu FOO cat rm x", "the cluster's -u takes FOO"],
-      ["env FOO=1 cat x", "env passes an assignment to the command"],
-      ["env -i HOME=/h cat x", "a flag, then an assignment"],
       ["env - cat x", "a lone dash clears the environment"],
-      ["env - FOO=1 cat x", "a lone dash, then an assignment"],
       ["env -0 cat x", "-0 is a flag"],
       ["env -v cat x", "-v is a flag"],
       ["env --ignore-environment cat x", "a long flag"],
@@ -895,6 +889,22 @@ describe("floorExemptionOf", () => {
       ["env --default-signal cat x", "an optional argument takes no word"],
     ])("is transparent: %s (%s)", (unit) => {
       expect(isTransparent(unit)).toBe(true);
+    });
+  });
+
+  describe("a layer passing an assignment to the inner command", () => {
+    // The assignment rewrites the inner command's environment, so neither a
+    // proven read nor an execution modifier describes what runs.
+    it.each([
+      "env FOO=bar grep x",
+      "env FOO=1 cat x",
+      "env -i HOME=/h cat x",
+      "env - FOO=1 cat x",
+      "sudo FOO=1 cat x",
+      "sudo env FOO=1 cat x",
+      "time FOO=1 pnpm test",
+    ])("has no exemption: %s", (unit) => {
+      expect(exemptionOf(unit)).toBeUndefined();
     });
   });
 
