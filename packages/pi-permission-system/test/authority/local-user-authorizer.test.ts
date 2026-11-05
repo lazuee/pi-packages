@@ -236,6 +236,28 @@ describe("LocalUserAuthorizer", () => {
     );
   });
 
+  it("withholds the session option for a forwarded ask with nothing to record", async () => {
+    const { deps, decisionFn } = makeDeps();
+    const authorizer = new LocalUserAuthorizer(deps);
+
+    await authorizer.authorize(
+      makeDetails({
+        sessionApproval: { grants: [] },
+        forwarding: {
+          requesterAgentName: "researcher",
+          requesterSessionId: "s",
+        },
+      }),
+    );
+
+    expect(decisionFn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.anything(),
+      { sessionUnavailable: true },
+    );
+  });
+
   describe("session label for a path ask that proves no direction", () => {
     it("names a bare external_directory directory approval by its contents glob", async () => {
       const { deps, decisionFn } = makeDeps();

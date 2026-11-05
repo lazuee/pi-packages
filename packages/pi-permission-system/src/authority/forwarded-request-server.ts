@@ -358,7 +358,9 @@ export class ForwardedRequestServer implements InboxProcessor {
     if (decision.state !== "approved_for_serving_session") {
       return decision;
     }
-    if (request.sessionApproval) {
+    // An empty approval offered no session option, so nothing is recorded or
+    // logged as recorded.
+    if (request.sessionApproval && request.sessionApproval.grants.length > 0) {
       const { grants } = request.sessionApproval;
       const approval = SessionApproval.forGrants(grants).atWidth(
         decision.sessionGrantWidth ?? "proven",
