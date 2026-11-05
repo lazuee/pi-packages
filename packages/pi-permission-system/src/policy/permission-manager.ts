@@ -39,6 +39,7 @@ import {
   synthesizeBaseline,
   synthesizeDefaults,
 } from "./synthesize";
+import { wildcardMatch } from "./wildcard-matcher";
 
 const SPECIAL_PERMISSION_KEYS = new Set(["external_directory", "path"]);
 
@@ -350,13 +351,28 @@ export class PermissionManager implements ScopedPermissionManager {
     const composedWithSession: Ruleset = sessionRules?.length
       ? [...composedRules, ...sessionRules]
       : composedRules;
-    // Apply the yolo rewrite post-cache so the resolved-permissions cache and
-    // the display surfaces (getComposedConfigRules / getToolPermission) stay
-    // yolo-free — only the resolution path sees the ask→allow rewrite (#526).
-    const fullRules: Ruleset = this.isYoloEnabled()
-      ? rewriteAsksToYolo(composedWithSession)
-      : composedWithSession;
+    const result = this.evaluate(intent, this.withYolo(composedWithSession));
+    if (result.source === "session" && result.state !== "deny") {
+      const configOnly = this.evaluate(intent, this.withYolo(composedRules));
+      if (denyOutranksGrant(configOnly, result)) return configOnly;
+    }
+    return result;
+  }
 
+  /**
+   * Apply the yolo rewrite post-cache so the resolved-permissions cache and
+   * the display surfaces (getComposedConfigRules / getToolPermission) stay
+   * yolo-free — only the resolution path sees the ask→allow rewrite (#526).
+   */
+  private withYolo(rules: Ruleset): Ruleset {
+    return this.isYoloEnabled() ? rewriteAsksToYolo(rules) : rules;
+  }
+
+  /** Resolve one intent against one composed ruleset. */
+  private evaluate(
+    intent: ResolvedAccessIntent,
+    fullRules: Ruleset,
+  ): PermissionCheckResult {
     if (intent.kind === "path-values") {
       const lookupValues =
         intent.values.length > 0 ? [...intent.values] : ["*"];
@@ -410,6 +426,28 @@ export class PermissionManager implements ScopedPermissionManager {
       this.flavor,
     );
   }
+}
+
+/**
+ * True when a config deny must stand against the session grant that decided.
+ *
+ * Session grants follow the config rules and the last match wins, which is
+ * how a grant opens a scope a broad deny closes (`*: deny` with `echo *`
+ * granted). But a broad grant must not reopen an exception the user carved
+ * out inside it: `rm *` granted does not lift `rm -rf /etc*: deny`. So the
+ * deny stands when its pattern lies inside the grant's — the grant matches
+ * the deny's pattern text — and is not that same pattern.
+ */
+function denyOutranksGrant(
+  configOnly: PermissionCheckResult,
+  granted: PermissionCheckResult,
+): boolean {
+  if (configOnly.state !== "deny") return false;
+  // A deny with no pattern is the surface's catch-all.
+  const deny = configOnly.matchedPattern ?? "*";
+  const grant = granted.matchedPattern;
+  if (grant === undefined) return true;
+  return deny !== grant && wildcardMatch(grant, deny);
 }
 
 /**

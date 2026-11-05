@@ -4172,3 +4172,36 @@ describe("check — a bash command evaluated with its spellings", () => {
     });
   });
 });
+
+describe("a config deny outranks a session grant", () => {
+  // Session grants are appended after the config rules, and the last match
+  // wins, so without this a broad grant (`rm *`) would override a deny the
+  // user wrote for a narrower command (`rm -rf /etc*`).
+  it.each([
+    ["rm -rf /etc", "rm *", "deny"],
+    ["rm -rf /etc/passwd", "rm *", "deny"],
+    ["rm -rf /tmp/x", "rm *", "allow"],
+  ] as const)("bash: %s under grant %s → %s", (command, grant, state) => {
+    const manager = createInMemoryManager({
+      global: { permission: { bash: { "*": "ask", "rm -rf /etc*": "deny" } } },
+    });
+    const result = manager.check(
+      { kind: "bash-command", surface: "bash", command, spellings: [] },
+      [sessionRule("bash", grant)],
+    );
+    expect(result.state).toBe(state);
+  });
+
+  it("path: a session read grant does not lift a config deny", () => {
+    const manager = createInMemoryManager({
+      global: {
+        permission: { path_read: { "*": "allow", "/etc/shadow": "deny" } },
+      },
+    });
+    const result = manager.check(
+      { kind: "path-values", surface: "path_read", values: ["/etc/shadow"] },
+      [sessionRule("path_read", "/etc/*")],
+    );
+    expect(result.state).toBe("deny");
+  });
+});
