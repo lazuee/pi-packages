@@ -103,8 +103,9 @@ function valueSessionOption(
   toolName: string,
   gateSurface: string,
   check: PermissionCheckResult,
-): SessionOption {
+): SessionOption | undefined {
   const suggestion = suggestValueSessionPattern(toolName, gateSurface, check);
+  if (suggestion === undefined) return undefined;
   return {
     approval: SessionApproval.single(suggestion.surface, suggestion.pattern),
     label: suggestion.label,
@@ -122,15 +123,19 @@ function suggestValueSessionPattern(
   toolName: string,
   gateSurface: string,
   check: PermissionCheckResult,
-): SessionApprovalSuggestion {
+): SessionApprovalSuggestion | undefined {
   if (classifyToolKind(toolName) === "mcp-tool") {
     return suggestExactSessionPattern(gateSurface, toolName.trim());
   }
   // A command the parse could not resolve keeps its floor under any wildcard
   // grant, and on a parsed command a wildcard would grant more than the user
-  // saw, so only the exact command is offered.
-  if (check.floor === UNPARSED_SUBTREE_SENTINEL && check.command) {
-    return suggestExactSessionPattern(gateSurface, check.command);
+  // saw, so only the exact command is offered. The matcher has no escape, so
+  // a command holding `*` or `?` cannot be offered exactly: it gets no
+  // session option at all.
+  if (check.floor === UNPARSED_SUBTREE_SENTINEL) {
+    const command = check.command ?? "";
+    if (!command || /[*?]/.test(command)) return undefined;
+    return suggestExactSessionPattern(gateSurface, command);
   }
   return suggestSessionPattern(
     gateSurface,
@@ -194,13 +199,13 @@ export function describeToolGate(
     surface: gateSurface,
     input: tcc.input,
     payload,
-    sessionApproval: sessionOption.approval,
+    ...(sessionOption ? { sessionApproval: sessionOption.approval } : {}),
     promptDetails: {
       source: "tool_call",
       agentName: tcc.agentName,
       toolCallId: tcc.toolCallId,
       toolName: tcc.toolName,
-      sessionLabel: sessionOption.label,
+      ...(sessionOption ? { sessionLabel: sessionOption.label } : {}),
       accessIntent,
       ...permissionLogContext,
     },
