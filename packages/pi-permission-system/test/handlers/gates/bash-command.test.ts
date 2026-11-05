@@ -1937,6 +1937,7 @@ describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
     "read PATH <<< /x; ls",
     "printf -v PATH /x; ls",
     "mapfile -t PATH <<< /x; ls",
+    "printf -vPATH /x; ls",
   ])("asks for %s", (command) => {
     const result = decide(permissive, command);
     expect(result.state).toBe("ask");
@@ -2004,17 +2005,31 @@ describe("resolveBashCommandCheck: a statement that exports the environment", ()
     "typeset -x FOO=1; ls",
     "set -a; FOO=1; ls",
     "set -o allexport; FOO=1; ls",
+    "LD_PRELOAD=/x.so; export LD_PRELOAD; ls",
+    "GIT_DIR=/x; export GIT_DIR; git status",
+    "X=1; declare -x X; ls",
+    "export $X=1; ls",
+    "set -o 'allexport'; FOO=1; ls",
+    "set -oa; FOO=1; ls",
+    "shopt -os allexport; FOO=1; ls",
+    "shopt -s -o allexport; FOO=1; ls",
   ])("asks for %s", (command) => {
     const result = decide({ "*": "allow" }, command);
     expect(result.state).toBe("ask");
     expect(result.floor).toBe("<environment-export>");
   });
 
-  it.each(["export", "export -p", "export FOO", "set -e", "declare -r X=1"])(
-    "leaves %s alone",
-    (command) => {
-      const result = decide({ "*": "allow" }, command);
-      expect(result.state).toBe("allow");
-    },
-  );
+  it.each([
+    "export",
+    "export -p",
+    "export -n FOO",
+    "set -e",
+    "set -euo pipefail",
+    "set +a",
+    "declare -r X=1",
+    "shopt -s nullglob",
+  ])("leaves %s alone", (command) => {
+    const result = decide({ "*": "allow" }, command);
+    expect(result.state).toBe("allow");
+  });
 });

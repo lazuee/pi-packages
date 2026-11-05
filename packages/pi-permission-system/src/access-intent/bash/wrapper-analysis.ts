@@ -1389,8 +1389,15 @@ export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
   // variable as surely as an assignment does.
   if (READ_INTO_BUILTINS.has(name) && args.some(isRebindingName)) return true;
   if (name === "printf") {
-    const target = args.indexOf("-v");
-    if (target !== -1 && isRebindingName(args[target + 1] ?? "")) return true;
+    // The target follows `-v` or is attached to it (`-vPATH`).
+    const target = args.findIndex((arg) => arg.startsWith("-v"));
+    const named =
+      target === -1
+        ? undefined
+        : args[target] === "-v"
+          ? args[target + 1]
+          : args[target].slice(2);
+    if (named !== undefined && isRebindingName(named)) return true;
   }
   // `hash -p path name` and `enable -f lib name` rebind a later command name.
   if (name === "hash" && args.some((arg) => /^-[^-]*p/.test(arg))) return true;
@@ -1448,28 +1455,42 @@ export function rebindsCommandName(words: readonly string[]): boolean {
 
 /**
  * True when a statement exports variables to every later command, as an
- * assignment prefix does to one: `export NAME=…`, `declare -x NAME=…`, and
- * `set -a` (or `set -o allexport`), after which every assignment is
- * exported. An `export NAME` with no value exports what is already set, and
- * is left alone.
+ * assignment prefix does to one: `export NAME[=…]` and `declare -x NAME[=…]`
+ * (a bare name exports a value set by an earlier statement, and a computed
+ * one may name anything), and `set -a`, `set -o allexport`, or
+ * `shopt -os allexport`, after which every assignment is exported.
+ * `export -p` lists and `export -n` un-exports, so neither counts.
  */
 export function exportsEnvironment(
   keyword: string,
   words: readonly string[],
 ): boolean {
   const name = basename(unquotedName(keyword));
+  const options = words.filter((word) => /^-[^-]/.test(word));
+  const operands = words.filter((word) => !word.startsWith("-"));
   if (name === "set") {
-    return words.some(
-      (word, index) =>
-        /^-[^-o]*a/.test(word) ||
-        (word === "-o" && words[index + 1] === "allexport"),
+    // Any `a` in a single-dash cluster sets allexport (`-oa`, `-ea`).
+    return (
+      options.some((word) => word.includes("a")) ||
+      words.some(
+        (word, index) =>
+          word === "-o" && unquotedName(words[index + 1] ?? "") === "allexport",
+      )
     );
   }
-  const exporting =
-    name === "export" ||
-    (["declare", "typeset", "local"].includes(name) &&
-      words.some((word) => /^-[^-]*x/.test(word)));
-  return exporting && words.some((word) => assignedName(word) !== undefined);
+  if (name === "shopt") {
+    return (
+      options.some((word) => word.includes("o")) &&
+      options.some((word) => word.includes("s")) &&
+      operands.some((word) => unquotedName(word) === "allexport")
+    );
+  }
+  if (operands.length === 0) return false;
+  if (name === "export") return !options.some((word) => word.includes("n"));
+  return (
+    ["declare", "typeset", "local"].includes(name) &&
+    options.some((word) => word.includes("x"))
+  );
 }
 
 /** A literal command name with its quotes and backslash escapes removed. */
