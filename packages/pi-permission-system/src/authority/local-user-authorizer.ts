@@ -160,6 +160,11 @@ function buildRequestOptions(
           ),
         }
       : {}),
+    // An approval carrying no grants has nothing for the session to record,
+    // so the dialog withholds the session options.
+    ...(details.sessionApproval !== undefined && grants.length === 0
+      ? { sessionUnavailable: true as const }
+      : {}),
   };
   return Object.keys(options).length > 0 ? options : undefined;
 }

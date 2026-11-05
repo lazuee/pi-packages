@@ -305,7 +305,9 @@ describe("describeToolGate", () => {
         check,
         makeFormatter(),
       );
-      expect(desc.sessionApproval).toBeUndefined();
+      // An empty approval: the dialog withholds the option, and the runner
+      // records nothing.
+      expect(desc.sessionApproval?.isRecordable).toBe(false);
       expect(desc.promptDetails.sessionLabel).toBeUndefined();
     },
   );

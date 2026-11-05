@@ -152,6 +152,11 @@ export interface RequestPermissionOptions {
     subagentLabel: string;
     servingSessionLabel: string;
   };
+  /**
+   * Set when the ask has no session grant to record: the "for this session"
+   * options are withheld, since choosing one would allow this call alone.
+   */
+  sessionUnavailable?: true;
 }
 
 /**
@@ -175,10 +180,12 @@ export async function requestPermissionDecisionFromUi(
     answer === undefined && signal?.aborted === true;
   const sessionOption = options?.sessionLabel ?? APPROVE_FOR_SESSION_OPTION;
   const widthOption = options?.sessionWidth?.label;
+  const sessionOptions = options?.sessionUnavailable
+    ? []
+    : [sessionOption, ...(widthOption ? [widthOption] : [])];
   const decisionOptions = [
     APPROVE_OPTION,
-    sessionOption,
-    ...(widthOption ? [widthOption] : []),
+    ...sessionOptions,
     DENY_OPTION,
     DENY_WITH_REASON_OPTION,
   ];
@@ -199,7 +206,10 @@ export async function requestPermissionDecisionFromUi(
     };
   }
 
-  if (selected === sessionOption || (widthOption && selected === widthOption)) {
+  if (
+    sessionOptions.length > 0 &&
+    (selected === sessionOption || (widthOption && selected === widthOption))
+  ) {
     // The two session options differ only in the width they grant; the scope
     // question below is the same for both.
     const width: SessionGrantWidth =

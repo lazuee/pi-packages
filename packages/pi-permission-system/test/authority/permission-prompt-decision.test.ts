@@ -414,6 +414,12 @@ describe("reducePrompt", () => {
     const widthLabel =
       'Yes, allow reads and writes to "/tmp/*" for this session';
 
+    it("offers no session option when there is nothing to record", () => {
+      expect(
+        visibleActions(makeConfig({ widthLabel, sessionUnavailable: true })),
+      ).toEqual(["approve", "deny", "denyWithReason"]);
+    });
+
     it("offers the width option only when the ask is widenable", () => {
       expect(visibleActions(makeConfig({ widthLabel }))).toEqual([
         "approve",

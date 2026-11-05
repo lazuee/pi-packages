@@ -53,8 +53,14 @@ const NARROW_OPTION_ORDER: readonly PromptAction[] = OPTION_ORDER.filter(
 export function visibleActions(
   config: PromptModelConfig,
 ): readonly PromptAction[] {
+  if (config.sessionUnavailable) return SESSIONLESS_OPTION_ORDER;
   return config.widthLabel ? OPTION_ORDER : NARROW_OPTION_ORDER;
 }
+
+/** The roster of an ask with no session grant to record. */
+const SESSIONLESS_OPTION_ORDER: readonly PromptAction[] = OPTION_ORDER.filter(
+  (action) => action !== "approveSession" && action !== "approveSessionBoth",
+);
 
 const OPTION_VERBS: Record<PromptAction, string> = {
   approve: "approve",
@@ -90,6 +96,11 @@ export interface PromptModelConfig {
    * default) or the whole serving session.
    */
   sessionScope?: NonNullable<RequestPermissionOptions["sessionScope"]>;
+  /**
+   * Set when the ask has no session grant to record, which withholds both
+   * session options: choosing one would allow this call alone.
+   */
+  sessionUnavailable?: boolean;
 }
 
 /** The re-render view state the component draws from. */
