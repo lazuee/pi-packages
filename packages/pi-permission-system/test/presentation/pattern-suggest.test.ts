@@ -150,6 +150,7 @@ describe("suggestBashPattern", () => {
       "CI+=x git status",
       "CI[0]=x git status",
       "_=1 rm x",
+      "2>/dev/null _=1 rm x",
       "FOO=1",
     ])("suggests the exact command for %s", (command) => {
       expect(suggestBashPattern(command)).toBe(command);

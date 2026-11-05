@@ -17,6 +17,7 @@ import type { ToolPreviewFormatter } from "#src/tool-input/tool-preview-formatte
 import type { AskingBashUnit, PermissionCheckResult } from "#src/types";
 import {
   COMPUTED_NAME_SENTINEL,
+  ENVIRONMENT_EXPORT_SENTINEL,
   UNPARSED_SUBTREE_SENTINEL,
 } from "./bash-command";
 import type { GateDescriptor } from "./descriptor";
@@ -138,7 +139,8 @@ function suggestValueSessionPattern(
   // session option at all.
   if (
     check.floor === UNPARSED_SUBTREE_SENTINEL ||
-    check.floor === COMPUTED_NAME_SENTINEL
+    check.floor === COMPUTED_NAME_SENTINEL ||
+    check.floor === ENVIRONMENT_EXPORT_SENTINEL
   ) {
     const command = check.command ?? "";
     if (!command || /[*?]/.test(command)) return undefined;

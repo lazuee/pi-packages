@@ -84,6 +84,12 @@ const ASSIGNMENT_PREFIX_SENTINEL = "<assignment-prefixed-command>";
 export const COMPUTED_NAME_SENTINEL = "<computed-command-name>";
 
 /**
+ * The synthetic `matchedPattern` recorded when a statement exporting
+ * variables to every later command has its `allow` floored to `ask`.
+ */
+export const ENVIRONMENT_EXPORT_SENTINEL = "<environment-export>";
+
+/**
  * The synthetic `matchedPattern` recorded when a command the parse matched
  * nothing in is floored to `ask` (#452).
  */
@@ -198,7 +204,8 @@ function resolveCommandUnit(
   const unparsed = floorUnparsedUnit(cmd, command, floored);
   const prefixed = floorAssignmentPrefixedUnit(cmd, command, unparsed);
   const computed = floorComputedName(cmd, prefixed);
-  const denied = denyByRunSpelling(cmd, computed, agentName, resolver);
+  const exported = floorEnvironmentExport(cmd, computed);
+  const denied = denyByRunSpelling(cmd, exported, agentName, resolver);
   const contextual = cmd.context
     ? { ...denied, commandContext: cmd.context }
     : denied;
@@ -299,6 +306,30 @@ function floorComputedName(
   }
   return {
     ...floorToAsk(resolved, COMPUTED_NAME_SENTINEL),
+    command: cmd.text,
+  };
+}
+
+/**
+ * Floor a statement that exports variables to every later command (`export
+ * GIT_DIR=…`, `set -a`), as an assignment prefix is floored for one: no rule
+ * on the statement's text says what the exported value does to them.
+ *
+ * Only a literal session grant for this exact text is left standing.
+ */
+function floorEnvironmentExport(
+  cmd: BashCommand,
+  resolved: PermissionCheckResult,
+): PermissionCheckResult {
+  if (
+    !cmd.exportsEnvironment ||
+    resolved.state !== "allow" ||
+    (isSessionGrant(resolved) && isLiteralPattern(resolved.matchedPattern))
+  ) {
+    return resolved;
+  }
+  return {
+    ...floorToAsk(resolved, ENVIRONMENT_EXPORT_SENTINEL),
     command: cmd.text,
   };
 }

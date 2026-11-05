@@ -1929,6 +1929,14 @@ describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
     "PATH=/tmp/evil:$PATH; ls",
     "export PATH=/tmp/evil:$PATH; ls",
     "declare -x PATH=/tmp/evil; ls",
+    'export "PATH=/tmp/evil"; ls',
+    "export 'PATH=/tmp/evil'; ls",
+    "export P\\ATH=/tmp/evil; ls",
+    'export "PATH"=/tmp/evil; ls',
+    "declare -n p=PATH; p=/tmp/evil; ls",
+    "read PATH <<< /x; ls",
+    "printf -v PATH /x; ls",
+    "mapfile -t PATH <<< /x; ls",
   ])("asks for %s", (command) => {
     const result = decide(permissive, command);
     expect(result.state).toBe("ask");
@@ -1950,6 +1958,10 @@ describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
     "${HOME}/bin/tool x",
     "alias",
     "alias ll",
+    'X="a PATH=b"',
+    "MYPATH=x",
+    "echo PATH=x",
+    "read LINE",
   ])("leaves %s alone", (command) => {
     const result = decide({ ...permissive, "sudo *": "allow" }, command);
     expect(result.floor).not.toBe("<computed-command-name>");
@@ -1968,8 +1980,41 @@ describe("resolveBashCommandCheck: an assignment the grammar reads as a command 
     ["_=1 sudo rm -rf /x", "deny"],
     ["_=1 bash -c 'ls'", "ask"],
     ["_=1 ls", "ask"],
+    ["_+=1 rm -rf /x", "deny"],
+    ["_[0]=1 rm -rf /x", "deny"],
+    ["_[0]+=1 rm -rf /x", "deny"],
+    ["_[x]=1 sudo rm -rf /y", "deny"],
   ] as const)("decides %s as %s", (command, state) => {
     const result = decide({ "*": "allow", "rm *": "deny" }, command);
     expect(result.state).toBe(state);
   });
+});
+
+describe("resolveBashCommandCheck: a statement that exports the environment", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  // An exported variable reaches every later command, as a prefix reaches
+  // one (`GIT_*` config, `LD_PRELOAD`, `BASH_ENV`).
+  it.each([
+    "export GIT_DIR=/tmp/x; git status",
+    "export LD_PRELOAD=/tmp/x.so; ls",
+    "declare -x BASH_ENV=/tmp/x; ls",
+    "typeset -x FOO=1; ls",
+    "set -a; FOO=1; ls",
+    "set -o allexport; FOO=1; ls",
+  ])("asks for %s", (command) => {
+    const result = decide({ "*": "allow" }, command);
+    expect(result.state).toBe("ask");
+    expect(result.floor).toBe("<environment-export>");
+  });
+
+  it.each(["export", "export -p", "export FOO", "set -e", "declare -r X=1"])(
+    "leaves %s alone",
+    (command) => {
+      const result = decide({ "*": "allow" }, command);
+      expect(result.state).toBe("allow");
+    },
+  );
 });

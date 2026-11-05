@@ -80,7 +80,7 @@ export function commandWordNodes(node: TSNode): TSNode[] {
 export function isUnlabeledAssignment(node: TSNode): boolean {
   return (
     node.type !== "variable_assignment" &&
-    /^[A-Za-z_][A-Za-z0-9_]*=/.test(node.text)
+    /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/.test(node.text)
   );
 }
 

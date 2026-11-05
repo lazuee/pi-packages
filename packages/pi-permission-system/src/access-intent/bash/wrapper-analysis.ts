@@ -1385,6 +1385,13 @@ export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
   const name = basename(unquotedName(head));
   const args = words.slice(1).map((word) => word.text);
   if (name === "alias" && args.some((arg) => arg.includes("="))) return true;
+  // `read PATH`, `printf -v PATH`, and `mapfile PATH` write a rebinding
+  // variable as surely as an assignment does.
+  if (READ_INTO_BUILTINS.has(name) && args.some(isRebindingName)) return true;
+  if (name === "printf") {
+    const target = args.indexOf("-v");
+    if (target !== -1 && isRebindingName(args[target + 1] ?? "")) return true;
+  }
   // `hash -p path name` and `enable -f lib name` rebind a later command name.
   if (name === "hash" && args.some((arg) => /^-[^-]*p/.test(arg))) return true;
   if (name === "enable" && args.some((arg) => /^-[^-]*f/.test(arg))) {
@@ -1397,15 +1404,72 @@ export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
   return /[$`]/.test(quoted);
 }
 
+/** Variables whose value decides what a later command name runs. */
+const REBINDING_NAME = /^(?:PATH|BASH_ALIASES|BASH_CMDS)(?:\[[^\]]*\])?$/;
+
+/** Builtins that write a value into each variable named as an argument. */
+const READ_INTO_BUILTINS: ReadonlySet<string> = new Set([
+  "read",
+  "mapfile",
+  "readarray",
+]);
+
+/** True when a word, unquoted, names a rebinding variable. */
+function isRebindingName(word: string): boolean {
+  return REBINDING_NAME.test(unquotedName(word));
+}
+
+/** The variable an assignment word writes, or `undefined` for another word. */
+function assignedName(word: string): string | undefined {
+  return /^([A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?)\+?=/.exec(
+    unquotedName(word),
+  )?.[1];
+}
+
 /**
  * True when an assignment or declaration rebinds what a later command name
  * runs: `PATH` picks the executable, and `BASH_ALIASES`/`BASH_CMDS` entries
- * are aliases and hashed paths (`BASH_ALIASES[s]=sudo`, `export PATH=…`).
+ * are aliases and hashed paths (`BASH_ALIASES[s]=sudo`, `export "PATH=…"`),
+ * or a nameref is bound to one of them (`declare -n p=PATH`).
+ *
+ * Read off the statement's words with their quotes removed, so a quoted name
+ * counts and a quoted value never does.
  */
-export function rebindsCommandName(statementText: string): boolean {
-  return /(?:^|[\s;])(?:PATH|BASH_ALIASES|BASH_CMDS)(?:\[[^\]]*\])?\+?=/.test(
-    statementText,
-  );
+export function rebindsCommandName(words: readonly string[]): boolean {
+  const nameref = words.some((word) => /^-[^-]*n/.test(word));
+  return words.some((word) => {
+    const name = assignedName(word);
+    if (name === undefined) return false;
+    if (REBINDING_NAME.test(name)) return true;
+    const value = unquotedName(word).slice(unquotedName(word).indexOf("=") + 1);
+    return nameref && REBINDING_NAME.test(value);
+  });
+}
+
+/**
+ * True when a statement exports variables to every later command, as an
+ * assignment prefix does to one: `export NAME=…`, `declare -x NAME=…`, and
+ * `set -a` (or `set -o allexport`), after which every assignment is
+ * exported. An `export NAME` with no value exports what is already set, and
+ * is left alone.
+ */
+export function exportsEnvironment(
+  keyword: string,
+  words: readonly string[],
+): boolean {
+  const name = basename(unquotedName(keyword));
+  if (name === "set") {
+    return words.some(
+      (word, index) =>
+        /^-[^-o]*a/.test(word) ||
+        (word === "-o" && words[index + 1] === "allexport"),
+    );
+  }
+  const exporting =
+    name === "export" ||
+    (["declare", "typeset", "local"].includes(name) &&
+      words.some((word) => /^-[^-]*x/.test(word)));
+  return exporting && words.some((word) => assignedName(word) !== undefined);
 }
 
 /** A literal command name with its quotes and backslash escapes removed. */
