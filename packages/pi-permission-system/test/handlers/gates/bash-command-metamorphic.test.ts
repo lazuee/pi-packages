@@ -400,7 +400,8 @@ describe("bash command gate — an execution modifier inherits the verdict", () 
   });
 
   // The wrapper's text never matches the `rm *` rule, so only the floor stands
-  // between these and a permissive `*`: each must ask, never allow.
+  // between these and a permissive `*`: each must ask, never allow. Where the
+  // peel reaches the `rm` that runs, its deny stands instead.
   it.each([
     "timeout --sig KILL 5 rm -rf /",
     "nice --adj 5 rm -rf /",
@@ -420,7 +421,7 @@ describe("bash command gate — an execution modifier inherits the verdict", () 
     async (command) => {
       const resolver = makePrefixResolver("rm", "deny");
 
-      expect(await decide(command, resolver)).toBe("ask");
+      expect(["ask", "deny"]).toContain(await decide(command, resolver));
     },
   );
 });

@@ -151,6 +151,50 @@ export function executedUnitOf(
 }
 
 /**
+ * The commands a multi-layer wrapper unit runs between the unit and its
+ * innermost command: `sudo nohup rm x` runs `nohup rm x` on its way to
+ * `rm x`, and `sudo bash -c '…'` runs `bash -c '…'`. Empty for a single
+ * layer, whose only inner command is {@link executedUnitOf}'s.
+ */
+export function intermediateLayersOf(
+  unitText: string,
+  words: readonly CommandWord[],
+): readonly string[] {
+  const unwrapped = unwrapIndirection(words, unitText);
+  // A shell payload is the executed unit, so every layer before it is
+  // intermediate; otherwise the last layer is the executed unit itself.
+  return unwrapped.kind === "opaque"
+    ? unwrapped.layers
+    : unwrapped.layers.slice(0, -1);
+}
+
+/**
+ * The spellings of a command text a rule could name it by: as written, with
+ * its first word's quotes and escapes removed (`"sudo"` runs as `sudo`), and
+ * with that word's directory dropped too (`/usr/bin/sudo` runs as `sudo`).
+ */
+export function headSpellingsOf(text: string): readonly string[] {
+  return [
+    ...new Set([
+      text,
+      withUnquotedHead(text, false),
+      withUnquotedHead(text, true),
+    ]),
+  ];
+}
+
+/**
+ * A command text with its first word's quotes and escapes removed, and with
+ * its directory dropped when `bare`.
+ */
+function withUnquotedHead(text: string, bare: boolean): string {
+  const match = /^(\S+)(.*)$/s.exec(text);
+  if (match === null) return text;
+  const head = unquotedName(match[1]);
+  return (bare ? basename(head) : head) + match[2];
+}
+
+/**
  * Why a wrapper unit's floor has no reason left to hold, or `undefined` when it
  * still does.
  *
@@ -495,10 +539,17 @@ function literalWordsOf(tokens: readonly string[]): CommandWord[] {
  * `sh -c '…'` would come to stand for the whole payload (#803).
  */
 type UnwrapResult =
-  | { readonly kind: "opaque"; readonly payload: string | null }
+  | {
+      readonly kind: "opaque";
+      readonly payload: string | null;
+      /** The text each peel left, outermost first, before the payload. */
+      readonly layers: readonly string[];
+    }
   | {
       readonly kind: "peeled";
       readonly text: string;
+      /** The text each peel left, outermost first; the last is `text`. */
+      readonly layers: readonly string[];
       readonly words: readonly CommandWord[];
       /**
        * Each peeled layer's words before its inner command: the wrapper name,
@@ -526,6 +577,7 @@ function unwrapIndirection(
   let text = unitText;
   let current = words;
   const peeled: (readonly CommandWord[])[] = [];
+  const layers: string[] = [];
 
   for (let depth = 0; depth < MAX_UNWRAP_DEPTH; depth++) {
     const kind = classifyWrapperWords(current);
@@ -534,7 +586,7 @@ function unwrapIndirection(
     if (kind === "opaque-payload") {
       // The payload is an inner *program*, not a slice of this command line, so
       // it is unquoted and terminal — unwrapping it further would need a parse.
-      return { kind: "opaque", payload: opaquePayload(current) };
+      return { kind: "opaque", payload: opaquePayload(current), layers };
     }
 
     const start = innerCommandIndex(current);
@@ -542,10 +594,11 @@ function unwrapIndirection(
     const end = execTerminatorIndex(current, start);
     text = sliceWords(text, current, start, end).trimEnd();
     peeled.push(current.slice(0, start));
+    layers.push(text);
     current = rebase(current, start, end);
   }
 
-  return { kind: "peeled", text, words: current, peeled };
+  return { kind: "peeled", text, words: current, peeled, layers };
 }
 
 /** How many wrapper layers to unwrap before giving up. */
