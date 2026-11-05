@@ -215,9 +215,13 @@ function resolveCommandUnit(
  * decides instead — and a wrapper unit already floored to `ask` keeps its own,
  * more specific sentinel.
  *
- * A session grant is never floored: the user approved this exact command, and
- * an `ask` carrying it would tie with a sibling unit's real ask and could
- * approve the whole chain through `GateRunner`'s session fast path (#1033).
+ * A session grant is left unfloored only when its pattern is literal, so it
+ * can match nothing but the exact text the user approved. A wildcard grant
+ * (`git push *`) was given for commands the parse could read, and here it
+ * would also cover whatever bash runs in the region the parse could not —
+ * every line before a syntax error runs. A floored grant is reported as a
+ * `bash` decision ({@link floorToAsk}), so its `ask` cannot tie with a
+ * sibling unit's as a session result (#1033).
  */
 function floorUnparsedUnit(
   cmd: BashCommand,
@@ -227,7 +231,7 @@ function floorUnparsedUnit(
   if (
     !cmd.parseUnresolved ||
     resolved.state !== "allow" ||
-    isSessionGrant(resolved)
+    (isSessionGrant(resolved) && isLiteralPattern(resolved.matchedPattern))
   ) {
     return resolved;
   }
@@ -245,9 +249,8 @@ function floorUnparsedUnit(
  * Only an `allow` is floored, so an explicit `deny` or `ask` on the bare
  * command still decides. Unlike the other floors this one covers a session
  * grant too: the grant was given for the command the user saw, and the unit's
- * text, which the grant matched, is missing the prefix. A session-sourced
- * `ask` takes the gate rather than `GateRunner`'s session fast path, so the
- * floored grant prompts instead of approving.
+ * text, which the grant matched, is missing the prefix. {@link floorToAsk}
+ * reports the floored grant as a `bash` decision, so it prompts.
  *
  * The result names the whole command, so the prompt and the session-approval
  * suggestion show the prefix the user is approving.
@@ -259,6 +262,11 @@ function floorAssignmentPrefixedUnit(
 ): PermissionCheckResult {
   if (!cmd.assignmentPrefix || resolved.state !== "allow") return resolved;
   return { ...floorToAsk(resolved, ASSIGNMENT_PREFIX_SENTINEL), command };
+}
+
+/** True when a pattern has no wildcard, so it matches one exact text. */
+function isLiteralPattern(pattern: string | undefined): boolean {
+  return pattern !== undefined && !/[*?]/.test(pattern);
 }
 
 /**
@@ -273,9 +281,10 @@ function isSessionGrant(check: PermissionCheckResult): boolean {
  * Clamp a resolved check up to a synthetic `ask` naming the floor that raised
  * it.
  *
- * Handed a session grant only by the assignment-prefix floor, whose `ask`
- * keeps `source: "session"` and so still prompts (see
- * {@link floorAssignmentPrefixedUnit}). Drops
+ * Handed a session grant by the assignment-prefix floor and, for a wildcard
+ * grant, the unparsed floor. The result is reported as a `bash` decision
+ * either way: the grant did not decide it, and a session-sourced `ask` would
+ * tie with a sibling unit's real one (#1033). Drops
  * `matchedSpelling`: it names what the replaced rule matched, and beside the
  * sentinel it would name a match that did not decide.
  */
@@ -286,6 +295,7 @@ function floorToAsk(
   const { matchedSpelling: _replaced, ...unspelled } = resolved;
   return {
     ...unspelled,
+    source: resolved.source === "session" ? "bash" : resolved.source,
     state: "ask",
     matchedPattern: sentinel,
     floor: sentinel,
