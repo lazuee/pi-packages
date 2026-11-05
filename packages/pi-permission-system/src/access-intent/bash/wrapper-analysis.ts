@@ -1371,6 +1371,30 @@ function wrapperName(words: readonly CommandWord[]): string | undefined {
   return words.length === 0 ? undefined : basename(unquotedName(words[0].text));
 }
 
+/**
+ * True when a unit's command is one the shell decides only at run time, so no
+ * rule on its written text is consent to what runs: its name holds an
+ * expansion (`$S`, `$(…)`, a backtick, an ANSI-C escape such as
+ * `$'su\x64o'`), or the unit defines an alias, which renames a later command
+ * (`alias s=sudo`). A leading `$HOME`/`${HOME}`, which the gate spells
+ * itself, and escape-free `$'…'`/`$"…"` quoting do not count.
+ */
+export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
+  if (words.length === 0) return false;
+  const head = words[0].text;
+  if (
+    basename(unquotedName(head)) === "alias" &&
+    words.slice(1).some((word) => word.text.includes("="))
+  ) {
+    return true;
+  }
+  const quoted = head
+    .replace(/^(\$HOME|\$\{HOME\})(?=\/|$)/, "")
+    .replace(/\$'([^'\\]*)'/g, "'$1'")
+    .replace(/\$"([^"\\$`]*)"/g, '"$1"');
+  return /[$`]/.test(quoted);
+}
+
 /** A literal command name with its quotes and backslash escapes removed. */
 function unquotedName(text: string): string {
   // `$'…'` and `$"…"` are quoting, not expansion; an ANSI-C escape inside

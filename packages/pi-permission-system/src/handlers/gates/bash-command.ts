@@ -78,6 +78,12 @@ export const UNPARSED_SUBTREE_SENTINEL = "<unparsed-bash-subtree>";
 const ASSIGNMENT_PREFIX_SENTINEL = "<assignment-prefixed-command>";
 
 /**
+ * The synthetic `matchedPattern` recorded when a unit whose command the shell
+ * decides only at run time has its `allow` floored to `ask`.
+ */
+const COMPUTED_NAME_SENTINEL = "<computed-command-name>";
+
+/**
  * The synthetic `matchedPattern` recorded when a command the parse matched
  * nothing in is floored to `ask` (#452).
  */
@@ -191,7 +197,8 @@ function resolveCommandUnit(
       : base;
   const unparsed = floorUnparsedUnit(cmd, command, floored);
   const prefixed = floorAssignmentPrefixedUnit(cmd, command, unparsed);
-  const denied = denyByRunSpelling(cmd, prefixed, agentName, resolver);
+  const computed = floorComputedName(cmd, prefixed);
+  const denied = denyByRunSpelling(cmd, computed, agentName, resolver);
   const contextual = cmd.context
     ? { ...denied, commandContext: cmd.context }
     : denied;
@@ -269,6 +276,31 @@ function floorAssignmentPrefixedUnit(
 /** True when a pattern has no wildcard, so it matches one exact text. */
 function isLiteralPattern(pattern: string | undefined): boolean {
   return pattern !== undefined && !/[*?]/.test(pattern);
+}
+
+/**
+ * Floor a unit whose command the shell decides only at run time (`$S rm x`,
+ * `alias s=sudo`), so no rule on its written text allows it.
+ *
+ * As with the unparsed floor, only a literal session grant — one naming this
+ * exact text — is left standing; a wildcard grant was given for something
+ * else, and the floor reports it as a `bash` decision.
+ */
+function floorComputedName(
+  cmd: BashCommand,
+  resolved: PermissionCheckResult,
+): PermissionCheckResult {
+  if (
+    !cmd.computedName ||
+    resolved.state !== "allow" ||
+    (isSessionGrant(resolved) && isLiteralPattern(resolved.matchedPattern))
+  ) {
+    return resolved;
+  }
+  return {
+    ...floorToAsk(resolved, COMPUTED_NAME_SENTINEL),
+    command: cmd.text,
+  };
 }
 
 /**

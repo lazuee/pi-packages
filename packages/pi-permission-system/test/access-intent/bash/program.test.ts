@@ -1143,7 +1143,7 @@ describe("BashProgram", () => {
         );
         expect(program.commands()).toEqual([
           { text: "if $(rm x); then echo a; fi" },
-          { text: "$(rm x)" },
+          { text: "$(rm x)", computedName: true },
           { text: "rm x", context: "command_substitution" },
           { text: "echo a" },
         ]);

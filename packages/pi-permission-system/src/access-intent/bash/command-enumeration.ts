@@ -16,6 +16,7 @@ import {
   floorExemptionOf,
   inlineShellPayloadIndex,
   intermediateLayersOf,
+  namesCommandAtRunTime,
   type WrapperKind,
 } from "./wrapper-analysis";
 
@@ -81,6 +82,12 @@ export interface BashCommand {
    * unit and its executed unit: a rule on one never allows the unit.
    */
   readonly wrapperLayers?: readonly string[];
+  /**
+   * Set when the shell decides this unit's command only at run time — an
+   * expanded name or an alias definition ({@link namesCommandAtRunTime}).
+   * Its `allow` is floored to at least `ask`.
+   */
+  readonly computedName?: true;
   /**
    * Set when this unit came from a region re-parsed out of a subtree the
    * primary parse could not resolve, rather than from the primary parse
@@ -517,6 +524,7 @@ interface UnitFacts {
   readonly spellings?: readonly string[];
   readonly assignmentPrefix?: boolean;
   readonly wrapperLayers?: readonly string[];
+  readonly computedName?: boolean;
 }
 
 function makeUnit(
@@ -546,7 +554,10 @@ function makeUnit(
     facts.wrapperLayers === undefined || facts.wrapperLayers.length === 0
       ? prefixed
       : { ...prefixed, wrapperLayers: facts.wrapperLayers };
-  return spellings === undefined ? ran : { ...ran, spellings };
+  const computed: BashCommand = facts.computedName
+    ? { ...ran, computedName: true }
+    : ran;
+  return spellings === undefined ? computed : { ...computed, spellings };
 }
 
 /**
@@ -575,6 +586,7 @@ function makeCommandUnit(
       floorExemption ?? floorExemptionOf(words, redirectedScope(node, scope)),
     assignmentPrefix: words.length > 0 && hasAssignmentPrefix(node),
     wrapperLayers: intermediateLayersOf(text, words),
+    computedName: namesCommandAtRunTime(words),
   });
 }
 

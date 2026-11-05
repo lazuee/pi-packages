@@ -1901,3 +1901,50 @@ describe("resolveBashCommandCheck: a config deny outranks every session grant", 
     expect(result.source).toBe("session");
   });
 });
+
+describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  const permissive: Record<string, PermissionState> = { "*": "allow" };
+
+  // The shell decides what these run only when it expands the name, so no
+  // rule on the written text can be consent to it.
+  it.each([
+    "$S rm -rf /x",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional literal — a braced shell expansion, not a template string
+    "${S} rm -rf /x",
+    "$(echo sudo) rm -rf /x",
+    "`echo sudo` rm -rf /x",
+    "$'su\\x64o' rm -rf /x",
+    "$'\\163udo' rm -rf /x",
+    '"$S" rm -rf /x',
+    "alias s=sudo",
+    "shopt -s expand_aliases; alias s=sudo; s rm -rf /x",
+  ])("asks for %s", (command) => {
+    const result = decide(permissive, command);
+    expect(result.state).toBe("ask");
+    expect(result.floor).toBe("<computed-command-name>");
+  });
+
+  it("keeps a deny on the rest of the chain", () => {
+    const result = decide({ "*": "allow", "rm *": "deny" }, "$S x; rm y");
+    expect(result.state).toBe("deny");
+  });
+
+  it.each([
+    "ls $DIR",
+    "echo $(date)",
+    "$'sudo' -n true",
+    "~/bin/tool x",
+    "$HOME/bin/tool x",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional literal — a braced shell expansion, not a template string
+    "${HOME}/bin/tool x",
+    "alias",
+    "alias ll",
+  ])("leaves %s alone", (command) => {
+    const result = decide({ ...permissive, "sudo *": "allow" }, command);
+    expect(result.floor).not.toBe("<computed-command-name>");
+  });
+});
