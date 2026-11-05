@@ -3758,7 +3758,9 @@ describe("mcp surface — last-match-wins across candidates", () => {
   });
 
   describe("session grants", () => {
-    it("honors a session grant matching a later candidate than the config rule", () => {
+    it("keeps a config deny on one candidate against a grant on another", () => {
+      // The grant names the generic `mcp_call` candidate, not the denied
+      // `exa_search`, so it does not lie inside the deny and cannot lift it.
       const { manager, cleanup } = createManagerWithConfig(
         { mcp: { exa_search: "deny" } },
         ["exa"],
@@ -3771,8 +3773,8 @@ describe("mcp surface — last-match-wins across candidates", () => {
           undefined,
           [sessionRule("mcp", "mcp_call")],
         );
-        expect(result.state).toBe("allow");
-        expect(result.source).toBe("session");
+        expect(result.state).toBe("deny");
+        expect(result.matchedPattern).toBe("exa_search");
       } finally {
         cleanup();
       }
@@ -4190,6 +4192,58 @@ describe("a config deny outranks a session grant", () => {
       [sessionRule("bash", grant)],
     );
     expect(result.state).toBe(state);
+  });
+
+  it.each([
+    ["git push --force", "* --force*", "git push *"],
+    ["sudo rm -rf /", "*rm -rf /*", "sudo *"],
+    ["git push origin --force", "git push * --force", "git push origin *"],
+  ] as const)(
+    "bash: keeps a deny that overlaps the grant: %s, deny %s, grant %s",
+    (command, deny, grant) => {
+      const manager = createInMemoryManager({
+        global: { permission: { bash: { "*": "ask", [deny]: "deny" } } },
+      });
+      const result = manager.check(
+        { kind: "bash-command", surface: "bash", command, spellings: [] },
+        [sessionRule("bash", grant)],
+      );
+      expect(result.state).toBe("deny");
+    },
+  );
+
+  it.each([
+    ["/proj/.env", "*.env", "/proj/*"],
+    [`${homedir()}/.ssh/id_rsa`, "~/.ssh/*", "$HOME/*"],
+  ] as const)(
+    "path: keeps a deny that overlaps the grant: %s, deny %s, grant %s",
+    (value, deny, grant) => {
+      const manager = createInMemoryManager({
+        global: { permission: { path_read: { "*": "allow", [deny]: "deny" } } },
+      });
+      const result = manager.check(
+        { kind: "path-values", surface: "path_read", values: [value] },
+        [sessionRule("path_read", grant)],
+      );
+      expect(result.state).toBe("deny");
+    },
+  );
+
+  it("path: keeps a deny that matched another alias of the value", () => {
+    const manager = createInMemoryManager({
+      global: {
+        permission: { path_read: { "*": "allow", "/real/secret/*": "deny" } },
+      },
+    });
+    const result = manager.check(
+      {
+        kind: "path-values",
+        surface: "path_read",
+        values: ["/link/secret/k", "/real/secret/k"],
+      },
+      [sessionRule("path_read", "/link/*")],
+    );
+    expect(result.state).toBe("deny");
   });
 
   it("path: a session read grant does not lift a config deny", () => {

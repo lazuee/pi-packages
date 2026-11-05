@@ -17,6 +17,7 @@ import {
   type PolicyLoaderOptions,
   type ResolvedPolicyPaths,
 } from "#src/config/policy-loader";
+import { expandHomePath } from "#src/path/expand-home";
 import { type PathFlavor, posixPathFlavor } from "#src/path/path-flavor";
 import type {
   FlatPermissionConfig,
@@ -31,6 +32,7 @@ import {
   evaluateAnyValue,
   floorAllowsToAsk,
   isSurfaceFullyDenied,
+  pathMatchOptions,
   rewriteAsksToYolo,
 } from "./rule";
 import { type MergedScopes, mergeScopesWithOrigins } from "./scope-merge";
@@ -354,7 +356,9 @@ export class PermissionManager implements ScopedPermissionManager {
     const result = this.evaluate(intent, this.withYolo(composedWithSession));
     if (result.source === "session" && result.state !== "deny") {
       const configOnly = this.evaluate(intent, this.withYolo(composedRules));
-      if (denyOutranksGrant(configOnly, result)) return configOnly;
+      if (denyOutranksGrant(configOnly, result, intent.surface, this.flavor)) {
+        return configOnly;
+      }
     }
     return result;
   }
@@ -432,22 +436,33 @@ export class PermissionManager implements ScopedPermissionManager {
  * True when a config deny must stand against the session grant that decided.
  *
  * Session grants follow the config rules and the last match wins, which is
- * how a grant opens a scope a broad deny closes (`*: deny` with `echo *`
- * granted). But a broad grant must not reopen an exception the user carved
- * out inside it: `rm *` granted does not lift `rm -rf /etc*: deny`. So the
- * deny stands when its pattern lies inside the grant's — the grant matches
- * the deny's pattern text — and is not that same pattern.
+ * how a grant opens a scope a broader deny closes (`*: deny` with `echo *`
+ * granted). It must not reopen anything a deny names that the grant does not
+ * lie wholly inside: `rm *` granted does not lift `rm -rf /etc*: deny`, and
+ * `/proj/*` granted does not lift `*.env: deny`. So the deny stands unless it
+ * is the grant's own pattern or contains it — the deny matches the grant's
+ * pattern text, read with the surface's path folding and home expansion on
+ * both sides. Where the two merely overlap, or matched different candidates,
+ * the deny wins.
  */
 function denyOutranksGrant(
   configOnly: PermissionCheckResult,
   granted: PermissionCheckResult,
+  surface: string,
+  flavor: PathFlavor,
 ): boolean {
   if (configOnly.state !== "deny") return false;
   // A deny with no pattern is the surface's catch-all.
   const deny = configOnly.matchedPattern ?? "*";
   const grant = granted.matchedPattern;
   if (grant === undefined) return true;
-  return deny !== grant && wildcardMatch(grant, deny);
+  const options = pathMatchOptions(surface, flavor);
+  const grantText = expandHomePath(grant);
+  const containsGrant =
+    deny === grant ||
+    expandHomePath(deny) === grantText ||
+    wildcardMatch(deny, grantText, options);
+  return !containsGrant;
 }
 
 /**
