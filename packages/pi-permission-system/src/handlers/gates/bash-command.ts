@@ -68,7 +68,7 @@ const WRAPPER_SENTINEL: Record<WrapperKind, string> = {
  * The synthetic `matchedPattern` recorded when a unit the parse could not
  * resolve has its `allow` floored to `ask` (ADR 0013 §10, #840).
  */
-const UNPARSED_SUBTREE_SENTINEL = "<unparsed-bash-subtree>";
+export const UNPARSED_SUBTREE_SENTINEL = "<unparsed-bash-subtree>";
 
 /**
  * The synthetic `matchedPattern` recorded when a unit written behind a leading

@@ -15,6 +15,7 @@ import { buildToolAskPayload } from "#src/presentation/tool-ask-payload";
 import { SessionApproval } from "#src/session/session-approval";
 import type { ToolPreviewFormatter } from "#src/tool-input/tool-preview-formatter";
 import type { AskingBashUnit, PermissionCheckResult } from "#src/types";
+import { UNPARSED_SUBTREE_SENTINEL } from "./bash-command";
 import type { GateDescriptor } from "./descriptor";
 import {
   accessFactsFromPath,
@@ -124,6 +125,12 @@ function suggestValueSessionPattern(
 ): SessionApprovalSuggestion {
   if (classifyToolKind(toolName) === "mcp-tool") {
     return suggestExactSessionPattern(gateSurface, toolName.trim());
+  }
+  // A command the parse could not resolve keeps its floor under any wildcard
+  // grant, and on a parsed command a wildcard would grant more than the user
+  // saw, so only the exact command is offered.
+  if (check.floor === UNPARSED_SUBTREE_SENTINEL && check.command) {
+    return suggestExactSessionPattern(gateSurface, check.command);
   }
   return suggestSessionPattern(
     gateSurface,
