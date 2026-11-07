@@ -60,6 +60,12 @@ export function classifyWrapperWords(
   if (commandName === undefined) return undefined;
   const args = words.slice(1).map((word) => word.text);
   if (commandName === "eval") return "opaque-payload";
+  if (
+    SHELL_BUILTIN_RUNNERS.has(commandName) &&
+    !runsNamedCommand(commandName, args)
+  ) {
+    return undefined;
+  }
   if (SHELL_WRAPPER_NAMES.has(commandName) && hasShortFlagC(args)) {
     return "opaque-payload";
   }
@@ -209,6 +215,7 @@ export function floorExemptionOf(
     unwrapped.kind === "opaque" ||
     unwrapped.peeled.length === 0 ||
     unwrapped.peeled.some(runsOpaqueCommandLine) ||
+    unwrapped.peeled.some(changesRoot) ||
     unwrapped.peeled.some(carriesComputedWord) ||
     unwrapped.peeled.some(passesAssignment) ||
     isEnvironmentAssignment(unwrapped.words.at(0)?.text ?? "")
@@ -260,6 +267,12 @@ function namesNoCommand(words: readonly CommandWord[]): boolean {
  */
 function passesAssignment(layer: readonly CommandWord[]): boolean {
   return layer.slice(1).some((word) => isEnvironmentAssignment(word.text));
+}
+
+/** True when a peeled layer runs its command under another root directory. */
+function changesRoot(layer: readonly CommandWord[]): boolean {
+  const name = wrapperName(layer);
+  return name !== undefined && ROOT_CHANGING_WRAPPERS.has(name);
 }
 
 /** True when a peeled layer's wrapper does not run the words the peel sees. */
@@ -813,7 +826,64 @@ const INDIRECTION_WRAPPER_NAMES = new Set([
   "stdbuf",
   "watch",
   "flock",
+  // Shell builtins that run the command they name: bash runs
+  // `command sudo rm x` and `exec sudo rm x` as `sudo rm x`. `chroot` runs its
+  // command under another root, so it never earns an exemption either
+  // (ROOT_CHANGING_WRAPPERS).
+  "command",
+  "exec",
+  "builtin",
+  "chroot",
 ]);
+
+/**
+ * Shell builtins that run the next word as a command, and only then: bare
+ * `exec` (redirections only) and `command -v name` (a lookup) run nothing.
+ */
+const SHELL_BUILTIN_RUNNERS: ReadonlySet<string> = new Set([
+  "command",
+  "exec",
+  "builtin",
+]);
+
+/**
+ * True when a builtin runner's arguments may name a command to run.
+ *
+ * Only `command` has a lookup mode (`-v`/`-V`), and its options are flags
+ * alone, so a `v` or `V` in a leading cluster always means the lookup. For
+ * `exec` and `builtin` any argument may be or lead to the command (`exec -av
+ * sudo` takes `v` as `-a`'s value and runs `sudo`), so only their bare form
+ * runs nothing.
+ */
+function runsNamedCommand(name: string, args: readonly string[]): boolean {
+  if (name !== "command") return args.length > 0;
+  for (const arg of args) {
+    if (arg === "--") return true;
+    if (!arg.startsWith("-") || arg === "-") return true;
+    if (/[vV]/.test(arg)) return false;
+  }
+  return false;
+}
+
+/**
+ * True when a command's first word is a shell builtin runner in a form that
+ * runs nothing (`command -v git`, bare `exec`). A wildcard on its name would
+ * also cover it running any command, so only the exact command is a safe
+ * session grant for it.
+ */
+export function isIdleBuiltinRunner(words: readonly string[]): boolean {
+  if (words.length === 0) return false;
+  const name = basename(unquotedName(words[0]));
+  return (
+    SHELL_BUILTIN_RUNNERS.has(name) && !runsNamedCommand(name, words.slice(1))
+  );
+}
+
+/**
+ * Wrappers that run their command under another root directory, so neither
+ * the command's effect nor the paths it names can be read off its words.
+ */
+const ROOT_CHANGING_WRAPPERS: ReadonlySet<string> = new Set(["chroot"]);
 
 /**
  * Every command name whose unit the wrapper floor can apply to by name: `eval`,
@@ -859,6 +929,8 @@ const VALUE_TAKING_FLAGS = new Map<string, ReadonlySet<string>>([
   ["stdbuf", new Set(["-i", "-o", "-e", "--input", "--output", "--error"])],
   ["watch", new Set(["-n", "--interval"])],
   ["flock", new Set(["-w", "-E", "--timeout", "--conflict-exit-code"])],
+  ["exec", new Set(["-a"])],
+  ["chroot", new Set(["--userspec", "--groups"])],
 ]);
 
 const EMPTY_FLAGS: ReadonlySet<string> = new Set<string>();
@@ -918,7 +990,10 @@ const SUDO_GRAMMAR: GetoptGrammar = {
     ["A", "flag"],
     ["B", "flag"],
     ["b", "flag"],
-    ["E", "flag"],
+    // Keeps the caller's environment, so a variable exported earlier in the
+    // program (`LD_PRELOAD`, `PATH`) reaches the command: refused like an
+    // assignment passed on the command line.
+    ["E", "refuse"],
     ["H", "flag"],
     ["K", "flag"],
     ["k", "flag"],
@@ -950,8 +1025,9 @@ const SUDO_GRAMMAR: GetoptGrammar = {
     ["list", "flag"],
     ["no-update", "flag"],
     ["non-interactive", "flag"],
-    // Its value is attached only (`--preserve-env=list`), which a flag accepts.
-    ["preserve-env", "flag"],
+    // Keeps the caller's environment, as `-E` does; refused with or without
+    // its attached list (`--preserve-env=PATH`).
+    ["preserve-env", "refuse"],
     ["preserve-groups", "flag"],
     ["remove-timestamp", "flag"],
     ["reset-timestamp", "flag"],
@@ -1209,7 +1285,7 @@ const RESERVED_WORDS: ReadonlySet<string> = new Set([
  * Wrappers whose first bare word is an operand (a duration, a lock file) rather
  * than the start of the inner command.
  */
-const LEADING_OPERAND_WRAPPERS = new Set(["timeout", "flock"]);
+const LEADING_OPERAND_WRAPPERS = new Set(["timeout", "flock", "chroot"]);
 
 /**
  * Wrappers whose executed command line is not the words the peel sees, so a
@@ -1231,9 +1307,25 @@ const EXEC_TERMINATORS = new Set([";", "+"]);
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
-/** The wrapper's command-name basename, or `undefined` for an empty unit. */
+/**
+ * The wrapper's command-name basename, or `undefined` for an empty unit.
+ *
+ * Quotes and backslash escapes are removed first, as bash removes them before
+ * it looks the name up: `\sudo`, `"env"`, and `s\udo` run `sudo` and `env`.
+ * A name holding an expansion is left as written, so it never classifies.
+ */
 function wrapperName(words: readonly CommandWord[]): string | undefined {
-  return words.length === 0 ? undefined : basename(words[0].text);
+  return words.length === 0 ? undefined : basename(unquotedName(words[0].text));
+}
+
+/** A literal command name with its quotes and backslash escapes removed. */
+function unquotedName(text: string): string {
+  // `$'…'` and `$"…"` are quoting, not expansion; an ANSI-C escape inside
+  // one (`$'su\x64o'`) stays unresolved and never classifies.
+  const quoted = text.replace(/\$(['"])/g, "$1");
+  if (/[$`]/.test(quoted)) return text;
+  if (text !== quoted && quoted.includes("\\")) return text;
+  return quoted.replace(/\\(.)/gs, "$1").replace(/['"]/g, "");
 }
 
 /**

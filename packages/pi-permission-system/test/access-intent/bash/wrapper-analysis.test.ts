@@ -713,13 +713,22 @@ describe("floorExemptionOf", () => {
       });
     });
 
-    describe("a documented option that changes nothing the peel names", () => {
+    describe("an option that keeps the caller's environment", () => {
+      // A variable exported earlier in the program reaches the command.
       it.each([
         "sudo -E cat x",
-        "sudo -H cat x",
-        "sudo -AbBkNPS cat x",
+        "sudo -EH cat x",
         "sudo --preserve-env cat x",
         "sudo --preserve-env=PATH cat x",
+      ])("is not transparent: %s", (unit) => {
+        expect(isTransparent(unit)).toBe(false);
+      });
+    });
+
+    describe("a documented option that changes nothing the peel names", () => {
+      it.each([
+        "sudo -H cat x",
+        "sudo -AbBkNPS cat x",
         "sudo -T 5 cat x",
         "sudo --command-timeout 5 cat x",
         "sudo --close-from 3 cat x",

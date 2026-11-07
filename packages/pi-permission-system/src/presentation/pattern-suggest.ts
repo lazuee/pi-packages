@@ -2,7 +2,10 @@ import {
   prefix,
   stripBashCommentLines,
 } from "#src/access-intent/bash/bash-arity";
-import { sessionCommandIndex } from "#src/access-intent/bash/wrapper-analysis";
+import {
+  isIdleBuiltinRunner,
+  sessionCommandIndex,
+} from "#src/access-intent/bash/wrapper-analysis";
 import {
   type CapabilityDirection,
   PATH_BEARING_TOOLS,
@@ -53,6 +56,7 @@ export function suggestBashPattern(command: string): string {
   // A wrapper's words are split only where bash splits them: `\s` also splits
   // on a non-breaking space or `\r`, which would read `rm<NBSP>-rf` as `rm`.
   const words = stripped.split(BASH_BLANKS);
+  if (isIdleBuiltinRunner(words)) return stripped;
   const commandIndex = sessionCommandIndex(words);
   if (commandIndex === null) return stripped;
   if (commandIndex > 0) return wrappedPattern(words, commandIndex);

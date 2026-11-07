@@ -1289,7 +1289,7 @@ describe("resolveBashCommandCheck: a sudo layer's own options", () => {
   });
 
   describe("resolves by the pure reader it runs", () => {
-    it.each(["sudo --us root cat x", "sudo -uedward cat", "sudo -E cat x"])(
+    it.each(["sudo --us root cat x", "sudo -uedward cat", "sudo -H cat x"])(
       "allows %s",
       (command) => {
         const result = decide(policy, command);
@@ -1696,5 +1696,91 @@ describe("resolveBashCommandCheck: a wildcard session grant on an unparsed unit"
       expect(result.state).toBe("ask");
       expect(result.source).not.toBe("session");
     }
+  });
+});
+
+describe("resolveBashCommandCheck: a wrapper spelled another way", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  const permissive: Record<string, PermissionState> = {
+    "*": "allow",
+    "rm *": "deny",
+  };
+
+  // bash runs each spelling as the plain wrapper, so each must be decided as
+  // the plain wrapper is, and never more loosely.
+  it.each([
+    ["\\env FOO=1 cat x", "env FOO=1 cat x"],
+    ['"env" FOO=1 cat x', "env FOO=1 cat x"],
+    ["'env' FOO=1 cat x", "env FOO=1 cat x"],
+    ["\\sudo rm -rf /x", "sudo rm -rf /x"],
+    ['"sudo" rm -rf /x', "sudo rm -rf /x"],
+    ["s\\udo rm -rf /x", "sudo rm -rf /x"],
+    ["$'sudo' rm -rf /x", "sudo rm -rf /x"],
+    ['$"sudo" rm -rf /x', "sudo rm -rf /x"],
+    [
+      "\\env LD_PRELOAD=/tmp/x.so sudo cat /etc/shadow",
+      "env LD_PRELOAD=/tmp/x.so sudo cat /etc/shadow",
+    ],
+  ])("decides %s as %s", (spelled, plain) => {
+    const expected = decide(permissive, plain);
+    expect(expected.state).not.toBe("allow");
+    expect(decide(permissive, spelled).state).toBe(expected.state);
+  });
+
+  describe("a shell builtin that runs the next command", () => {
+    it.each([
+      "command env FOO=1 cat x",
+      "exec env FOO=1 cat x",
+      "builtin eval 'rm -rf /x'",
+      "command sudo rm -rf /x",
+      "exec sudo rm -rf /x",
+      "command -p sudo rm -rf /x",
+      "exec -a x sudo rm -rf /x",
+      "exec -av sudo rm -rf /x",
+      "exec -cav sudo rm -rf /x",
+      "exec -aV sudo rm -rf /x",
+    ])("keeps the floor for %s", (command) => {
+      expect(decide(permissive, command).state).not.toBe("allow");
+    });
+
+    it.each([
+      "command cat x",
+      "exec cat x",
+      "command -v git",
+      "command -V git",
+    ])("allows %s", (command) => {
+      expect(decide(permissive, command).state).toBe("allow");
+    });
+  });
+
+  describe("chroot", () => {
+    it.each([
+      "chroot / cat x",
+      "chroot /mnt env FOO=1 cat x",
+      "chroot --userspec=a:b / cat x",
+    ])("keeps the floor for %s, which runs under another root", (command) => {
+      expect(decide(permissive, command).state).toBe("ask");
+    });
+  });
+
+  describe("sudo keeping the caller's environment", () => {
+    it.each([
+      "sudo -E cat x",
+      "sudo -EH cat x",
+      "sudo --preserve-env cat x",
+      "sudo --preserve-env=PATH cat x",
+      "export LD_PRELOAD=/tmp/x.so; sudo -E ls",
+    ])("keeps the floor for %s", (command) => {
+      expect(decide(permissive, command).state).toBe("ask");
+    });
+
+    it("still exempts sudo without it", () => {
+      const result = decide(permissive, "sudo cat x");
+      expect(result.state).toBe("allow");
+      expect(result.floorExemption).toBe("core-reader");
+    });
   });
 });
