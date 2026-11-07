@@ -17,14 +17,8 @@ vi.mock("#src/session/active-agent", () => ({
 
 // ── Test helpers ───────────────────────────────────────────────────────────
 
-import {
-  DEFAULT_EXTENSION_CONFIG as DEFAULT_EXTENSION_CONFIG_VALUE,
-  type PermissionSystemExtensionConfig,
-} from "#src/config/extension-config";
-import {
-  PERMISSION_SYSTEM_STATUS_KEY,
-  PERMISSION_SYSTEM_YOLO_STATUS_VALUE,
-} from "#src/config/status";
+import type { DEFAULT_EXTENSION_CONFIG as DEFAULT_EXTENSION_CONFIG_VALUE } from "#src/config/extension-config";
+import { PERMISSION_SYSTEM_STATUS_KEY } from "#src/config/status";
 import type { SkillPromptEntry } from "#src/exposure/skill-prompt-sanitizer";
 import { win32PathFlavor } from "#src/path/path-flavor";
 import type { PermissionSession } from "#src/session/permission-session";
@@ -34,6 +28,7 @@ import { makeCtx } from "#test/helpers/handler-fixtures";
 import {
   makeConfigStore,
   makeFakePermissionManager,
+  makePolicyPosture,
   makeRealSession,
 } from "#test/helpers/session-fixtures";
 
@@ -359,28 +354,30 @@ describe("PermissionSession", () => {
     });
 
     describe("status-bar sync", () => {
-      function yoloStore() {
-        return makeConfigStore({
-          current: vi
-            .fn<() => PermissionSystemExtensionConfig>()
-            .mockReturnValue({
-              ...DEFAULT_EXTENSION_CONFIG_VALUE,
-              yoloMode: true,
-            }),
-        });
+      const YOLO_POSTURE = makePolicyPosture({
+        asksAutoAllowed: true,
+        fallback: { action: "allow", origin: "global" },
+        ruleCounts: { allow: 0, ask: 0, deny: 2 },
+        scopes: ["global"],
+      });
+
+      function yoloManager() {
+        const permissionManager = makePermissionManager();
+        permissionManager.describePosture.mockReturnValue(YOLO_POSTURE);
+        return permissionManager;
       }
 
-      it("syncs the status from the refreshed config when the ctx has a UI", () => {
-        const { session } = createSession({ configStore: yoloStore() });
+      it("syncs the status from the enforced policy when the ctx has a UI", () => {
+        const { session } = createSession({ permissionManager: yoloManager() });
         const ctx = makeCtx({ hasUI: true });
         session.refreshConfig(ctx, true);
         expect(ctx.ui.setStatus).toHaveBeenCalledWith(
           PERMISSION_SYSTEM_STATUS_KEY,
-          PERMISSION_SYSTEM_YOLO_STATUS_VALUE,
+          "perm: no prompts (yolo) · 2 deny rules · global",
         );
       });
 
-      it("clears the status when the refreshed config leaves yolo off", () => {
+      it("clears the status when the enforced policy is the default posture", () => {
         const { session } = createSession();
         const ctx = makeCtx({ hasUI: true });
         session.refreshConfig(ctx, true);
@@ -390,8 +387,49 @@ describe("PermissionSession", () => {
         );
       });
 
+      it("reads the posture for the agent the session entries name", () => {
+        // A resumed session's agent comes from its entries; the status must
+        // describe that agent's composed policy, not global-only policy.
+        mockGetActiveAgentName.mockReturnValue("reviewer");
+        const permissionManager = yoloManager();
+        const { session } = createSession({ permissionManager });
+        session.refreshConfig(makeCtx({ hasUI: true }), true);
+        expect(permissionManager.describePosture).toHaveBeenCalledWith(
+          "reviewer",
+        );
+      });
+
+      it("flags a project that turned yolo on", () => {
+        const configStore = makeConfigStore({
+          yoloEnabledByProject: vi.fn(() => true),
+        });
+        const { session } = createSession({
+          permissionManager: yoloManager(),
+          configStore,
+        });
+        const ctx = makeCtx({ hasUI: true });
+        session.refreshConfig(ctx, true);
+        expect(ctx.ui.setStatus).toHaveBeenCalledWith(
+          PERMISSION_SYSTEM_STATUS_KEY,
+          "perm: no prompts (yolo) · 2 deny rules · global · project loosens global",
+        );
+      });
+
+      it("resyncs on reload, after the manager is reconfigured", () => {
+        const permissionManager = makePermissionManager();
+        const { session } = createSession({ permissionManager });
+        const ctx = makeCtx({ hasUI: true });
+        session.activate(ctx);
+        permissionManager.describePosture.mockReturnValue(YOLO_POSTURE);
+        session.reload(true);
+        expect(ctx.ui.setStatus).toHaveBeenCalledWith(
+          PERMISSION_SYSTEM_STATUS_KEY,
+          "perm: no prompts (yolo) · 2 deny rules · global",
+        );
+      });
+
       it("does not sync the status when the ctx has no UI", () => {
-        const { session } = createSession({ configStore: yoloStore() });
+        const { session } = createSession({ permissionManager: yoloManager() });
         const ctx = makeCtx({ hasUI: false });
         session.refreshConfig(ctx, true);
         expect(ctx.ui.setStatus).not.toHaveBeenCalled();

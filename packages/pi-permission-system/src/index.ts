@@ -138,6 +138,9 @@ export default function piPermissionSystemExtension(pi: ExtensionAPI): void {
     logger,
     coreCommandWords: PURE_READER_CORE,
     wrapperCommandWords: WRAPPER_COMMAND_NAMES,
+    syncStatus: (ctx) => {
+      session.syncStatus(ctx);
+    },
   });
 
   const prompter = new PermissionPrompter({ logger });

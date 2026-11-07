@@ -3048,3 +3048,233 @@ describe("Pi infrastructure reads", () => {
     );
   });
 });
+
+describe("footer status reports the enforced policy", () => {
+  // The footer used to show "yolo" from the `yoloMode` boolean alone, which
+  // read as unrestricted while every deny rule still blocked. It now derives
+  // from the composed policy, per agent, and follows a reload.
+
+  /** A UI ctx whose `setStatus` calls are recorded, with chosen session entries. */
+  function makeStatusCtx(
+    cwd: string,
+    sessionId: string,
+    entries: unknown[] = [],
+  ): { ctx: unknown; statuses: (string | undefined)[] } {
+    const statuses: (string | undefined)[] = [];
+    const base = makeBaseCtx(cwd, sessionId) as {
+      sessionManager: Record<string, unknown>;
+      ui: Record<string, unknown>;
+    };
+    const ctx = {
+      ...base,
+      sessionManager: { ...base.sessionManager, getEntries: () => entries },
+      ui: {
+        ...base.ui,
+        setStatus: (key: string, value: string | undefined): void => {
+          if (key === "pi-permission-system") statuses.push(value);
+        },
+      },
+    };
+    return { ctx, statuses };
+  }
+
+  function writeAgentFile(name: string, body: string): void {
+    const dir = join(agentDir, "agents");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${name}.md`), body, "utf8");
+  }
+
+  let cwd: string;
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "pi-perm-status-cwd-"));
+  });
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it("says deny rules remain under yolo instead of reading as unrestricted", async () => {
+    writeGlobalConfig({
+      yoloMode: true,
+      permission: { "*": "ask", bash: { "*": "ask", "rm *": "deny" } },
+    });
+    const pi = makeFakePi();
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+    const { ctx, statuses } = makeStatusCtx(cwd, "status-start");
+
+    await fireSessionStart(pi, ctx);
+
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · 1 deny rule · global",
+    );
+  });
+
+  it("flags a project config that loosens the global policy", async () => {
+    writeGlobalConfig({
+      yoloMode: true,
+      permission: { "*": "ask", write: "deny" },
+    });
+    writeProjectConfig(cwd, { permission: { write: "allow" } });
+    const pi = makeFakePi();
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+    const { ctx, statuses } = makeStatusCtx(cwd, "status-loosen");
+
+    await fireSessionStart(pi, ctx);
+
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · nothing denied · global+project · project loosens global",
+    );
+  });
+
+  it("flags a project catch-all that overrides a global deny under yolo", async () => {
+    // yolo turns global's `ask` fallback into an allow, so the project's
+    // `bash: *: allow` looked no looser than global; yet it reaches `rm`.
+    writeGlobalConfig({
+      yoloMode: true,
+      permission: { "*": "ask", bash: { "rm *": "deny" } },
+    });
+    writeProjectConfig(cwd, { permission: { bash: { "*": "allow" } } });
+    const pi = makeFakePi({ toolNames: ["bash"] });
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+    const { ctx, statuses } = makeStatusCtx(cwd, "status-loosen-yolo");
+
+    await fireSessionStart(pi, ctx);
+    const rm = (await pi.fire(
+      "tool_call",
+      {
+        toolName: "bash",
+        toolCallId: "rm-1",
+        input: { command: "rm -rf ./build" },
+      },
+      ctx,
+    )) as { block?: true } | undefined;
+
+    // The global deny no longer decides `rm`, so it is neither counted nor
+    // enforced, and the footer names the project as the reason.
+    expect(rm?.block).toBeUndefined();
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · nothing denied · global+project · project loosens global",
+    );
+  });
+
+  it("reports the resumed session's agent policy at session_start", async () => {
+    writeGlobalConfig({ yoloMode: true, permission: { "*": "ask" } });
+    writeAgentFile(
+      "reviewer",
+      "---\nname: reviewer\npermission:\n  write: deny\n  edit: deny\n---\n# Reviewer\n",
+    );
+    const pi = makeFakePi();
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+    const { ctx, statuses } = makeStatusCtx(cwd, "status-resume", [
+      {
+        type: "custom",
+        customType: "active_agent",
+        data: { name: "reviewer" },
+      },
+    ]);
+
+    await pi.fire("session_start", { reason: "resume" }, ctx);
+
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · 2 deny rules · global+agent",
+    );
+  });
+
+  it("follows a policy change picked up by a reload", async () => {
+    writeGlobalConfig({ yoloMode: true, permission: { "*": "ask" } });
+    const pi = makeFakePi();
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+    const { ctx, statuses } = makeStatusCtx(cwd, "status-reload");
+    await fireSessionStart(pi, ctx);
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · nothing denied · global",
+    );
+
+    writeGlobalConfig({
+      yoloMode: true,
+      permission: { "*": "ask", bash: { "git push *": "deny" }, write: "deny" },
+    });
+    await pi.fire("resources_discover", { reason: "reload" }, ctx);
+
+    expect(statuses.at(-1)).toBe(
+      "perm: no prompts (yolo) · 2 deny rules · global",
+    );
+  });
+});
+
+describe("a fail-closed scope under yolo", () => {
+  // A malformed project config fails closed: every `allow` is floored to `ask`.
+  // yolo used to rewrite that floored `ask` straight back to `allow`, so a
+  // broken project file under yolo enforced nothing while the footer said
+  // "fail-closed". The floor now holds under yolo.
+  let cwd: string;
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "pi-perm-failclosed-yolo-cwd-"));
+  });
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  async function runBash(
+    permission: Record<string, unknown>,
+    command: string,
+  ): Promise<{ blocked: boolean; prompts: string[]; status?: string }> {
+    writeGlobalConfig({ yoloMode: true, permission });
+    writeProjectConfig(cwd, { permission: { write: "deny" }, bogusKey: 1 });
+    const pi = makeFakePi({ toolNames: ["bash"] });
+    piPermissionSystemExtension(pi as unknown as ExtensionAPI);
+
+    const prompts: string[] = [];
+    const statuses: (string | undefined)[] = [];
+    const base = makeUiCtx(cwd, prompts).ctx as { ui: Record<string, unknown> };
+    const ctx = {
+      ...base,
+      ui: {
+        ...base.ui,
+        setStatus: (key: string, value: string | undefined): void => {
+          if (key === "pi-permission-system") statuses.push(value);
+        },
+      },
+    };
+    await fireSessionStart(pi, ctx);
+
+    const result = (await pi.fire(
+      "tool_call",
+      { toolName: "bash", toolCallId: "fail-closed-1", input: { command } },
+      ctx,
+    )) as { block?: true } | undefined;
+
+    return {
+      blocked: result?.block === true,
+      prompts,
+      status: statuses.at(-1),
+    };
+  }
+
+  it("prompts for a command a floored universal allow would have allowed", async () => {
+    const outcome = await runBash({ "*": "allow" }, "rm -rf ./build");
+
+    expect(outcome.blocked).toBe(false);
+    expect(outcome.prompts).toHaveLength(1);
+  });
+
+  it("prompts when a yolo-granted wrapper unit precedes a floored unit", async () => {
+    // `sudo make` resolves to a yolo `allow` that the wrapper floor turns into
+    // an ask yolo may grant; `rm -rf` is fail-closed. The chain's answer is the
+    // fail-closed one, whichever unit comes first.
+    const outcome = await runBash(
+      { "*": "allow", bash: { "*": "allow", "sudo *": "ask" } },
+      "sudo make && rm -rf ./build",
+    );
+
+    expect(outcome.blocked).toBe(false);
+    expect(outcome.prompts).toHaveLength(1);
+  });
+
+  it("says in the footer that fail-closed asks still prompt under yolo", async () => {
+    const outcome = await runBash({ "*": "allow" }, "rm -rf ./build");
+
+    expect(outcome.status).toBe(
+      "perm: yolo, fail-closed asks prompt · nothing denied · global · project invalid: fail-closed",
+    );
+  });
+});

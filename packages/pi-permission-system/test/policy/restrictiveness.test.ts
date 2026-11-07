@@ -82,6 +82,26 @@ describe("mostRestrictiveOf", () => {
     expect(mostRestrictiveOf([deny, ask, allow])).toBe(deny);
   });
 
+  it("prefers a fail-closed ask over an earlier ordinary ask", () => {
+    // Yolo approves an ordinary ask but never a fail-closed one, so the
+    // fail-closed ask is the stricter answer even though both prompt.
+    const ask = makeGateCheckResult({ state: "ask", origin: "yolo" });
+    const floored = makeGateCheckResult({
+      state: "ask",
+      origin: "fail-closed",
+    });
+    expect(mostRestrictiveOf([ask, floored])).toBe(floored);
+  });
+
+  it("still prefers deny over a fail-closed ask", () => {
+    const floored = makeGateCheckResult({
+      state: "ask",
+      origin: "fail-closed",
+    });
+    const deny = makeGateCheckResult({ state: "deny" });
+    expect(mostRestrictiveOf([floored, deny])).toBe(deny);
+  });
+
   it("keeps the first member on ties", () => {
     const ask1 = makeGateCheckResult({ state: "ask", matchedPattern: "first" });
     const ask2 = makeGateCheckResult({

@@ -305,6 +305,12 @@ export interface MergedConfigResult {
   global: UnifiedPermissionConfig;
   project: UnifiedPermissionConfig;
   merged: UnifiedPermissionConfig;
+  /**
+   * The merge of every layer below the project scope (legacy global files and
+   * the global config): the human-owned ceiling a project setting is measured
+   * against.
+   */
+  belowProject: UnifiedPermissionConfig;
   /** Every layer's `commandEffects`, shallow-merged by command, scope stamped. */
   declaredCommandEffects: DeclaredCommandEffects;
   issues: string[];
@@ -398,6 +404,7 @@ export function loadAndMergeConfigs(
   const globalConfig = globalResult.config;
   merged = mergeUnifiedConfigs(merged, globalConfig);
   foldDeclared(globalConfig, "global");
+  const belowProject = merged;
 
   // 4. Legacy project policy — skipped when the project scope is withheld.
   if (includeProjectScope && existsSync(legacyProjectPolicyPath)) {
@@ -435,6 +442,7 @@ export function loadAndMergeConfigs(
     global: globalConfig,
     project: projectConfig,
     merged,
+    belowProject,
     declaredCommandEffects: declared,
     issues: allIssues,
   };

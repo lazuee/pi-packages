@@ -22,9 +22,11 @@ import type {
   FlatPermissionConfig,
   PermissionCheckResult,
   PermissionState,
+  ScopeConfig,
 } from "#src/types";
 import { isPermissionState } from "#src/types";
 import { normalizeFlatConfig, relocateMcpToolKeyRules } from "./normalize";
+import { describePolicyPosture, type PolicyPosture } from "./policy-posture";
 import type { Rule, RuleOrigin, Ruleset } from "./rule";
 import {
   evaluate,
@@ -60,6 +62,12 @@ type ResolvedPermissions = {
    */
   composedRules: Ruleset;
   /**
+   * The same ruleset before the fail-closed floor, rule for rule: the floor
+   * maps each rule in place, so index `i` here is the rule `composedRules[i]`
+   * was floored from, still tagged with the scope that wrote it.
+   */
+  unflooredRules: Ruleset;
+  /**
    * Non-global scopes whose config file failed to load or validate. When
    * non-empty the composed ruleset has been floored allow→ask (#646); the
    * names also drive the fail-closed notice in {@link getPolicyIssues}.
@@ -93,6 +101,12 @@ export interface ScopedPermissionManager {
   getToolPermission(toolName: string, agentName?: string): PermissionState;
   isToolFullyDenied(toolName: string, agentName?: string): boolean;
   getPolicyIssues(agentName?: string): string[];
+  /**
+   * What `check()` enforces for `agentName`'s composed policy: the yolo
+   * rewrite, deny counts, contributing scopes, and any non-global loosening.
+   * Read by the status line so it reports enforcement, not a config boolean.
+   */
+  describePosture(agentName?: string): PolicyPosture;
 }
 
 export interface PermissionManagerOptions extends PolicyLoaderOptions {
@@ -127,6 +141,13 @@ export class PermissionManager implements ScopedPermissionManager {
   private readonly resolvedPermissionsCache = new Map<
     string,
     FileCacheEntry<ResolvedPermissions>
+  >();
+  // Keyed on the cached resolution, which is replaced whenever a config file
+  // the stamp covers changes, so a posture lives exactly as long as the policy
+  // it describes; yolo is read per call and must match too.
+  private readonly postureCache = new WeakMap<
+    ResolvedPermissions,
+    PolicyPosture
   >();
 
   constructor(options: PermissionManagerOptions = {}) {
@@ -202,37 +223,12 @@ export class PermissionManager implements ScopedPermissionManager {
     const agentConfig = this.loader.loadAgentConfig(agentName);
     const projectAgentConfig = this.loader.loadProjectAgentConfig(agentName);
 
-    // Merge permission objects across scopes (lowest → highest precedence),
-    // building a parallel origin map that tracks which scope contributed each
-    // (surface, pattern) entry.
-    const { mergedPermission, origins } = mergeScopesWithOrigins([
+    const { composedRules, relocatedKeys } = composeScopes([
       ["global", globalConfig],
       ["project", projectConfig],
       ["agent", agentConfig],
       ["project-agent", projectAgentConfig],
     ]);
-
-    // Extract the universal fallback from permission["*"].
-    // The "*" key feeds synthesizeDefaults() only — it is NOT included as a
-    // config rule so that extension tools fall through to source:"default".
-    const universalFallback = isPermissionState(mergedPermission["*"])
-      ? mergedPermission["*"]
-      : DEFAULT_UNIVERSAL_FALLBACK;
-    // Track which scope contributed the universal fallback.
-    const universalFallbackOrigin: RuleOrigin =
-      origins.get("*")?.get("*") ?? "builtin";
-
-    const configRules = buildConfigRules(mergedPermission, origins);
-    // A top-level `mcp__…` key now names an `mcp` candidate. The baseline reads
-    // the rules as written, so a relocated `allow` on one Pi MCP tool does not
-    // newly open the proxy's discovery targets.
-    const relocation = relocateMcpToolKeyRules(configRules);
-
-    const composedRules = composeRuleset(
-      synthesizeDefaults(universalFallback, universalFallbackOrigin),
-      synthesizeBaseline(configRules),
-      relocation.rules,
-    );
 
     // Fail closed when a non-global scope's config is invalid: floor every
     // `allow` (including one inherited from a lower scope) to `ask` so a
@@ -251,11 +247,34 @@ export class PermissionManager implements ScopedPermissionManager {
 
     const value: ResolvedPermissions = {
       composedRules: effectiveRules,
+      unflooredRules: composedRules,
       failClosedScopes,
-      legacyMcpToolKeys: [...new Set(relocation.relocatedKeys)],
+      legacyMcpToolKeys: [...new Set(relocatedKeys)],
     };
     this.resolvedPermissionsCache.set(cacheKey, { stamp, value });
     return value;
+  }
+
+  describePosture(agentName?: string): PolicyPosture {
+    const resolved = this.resolvePermissions(agentName);
+    const asksAutoAllowed = this.isYoloEnabled();
+    const cached = this.postureCache.get(resolved);
+    if (cached?.asksAutoAllowed === asksAutoAllowed) return cached;
+
+    // The ceiling a loosening is measured against: what global alone composes.
+    const globalOnly = composeScopes([
+      ["global", this.loader.loadGlobalConfig()],
+    ]).composedRules;
+    const posture = describePolicyPosture({
+      composed: resolved.composedRules,
+      unfloored: resolved.unflooredRules,
+      globalOnly,
+      failClosedScopes: resolved.failClosedScopes,
+      asksAutoAllowed,
+      flavor: this.flavor,
+    });
+    this.postureCache.set(resolved, posture);
+    return posture;
   }
 
   /**
@@ -353,6 +372,8 @@ export class PermissionManager implements ScopedPermissionManager {
     // Apply the yolo rewrite post-cache so the resolved-permissions cache and
     // the display surfaces (getComposedConfigRules / getToolPermission) stay
     // yolo-free — only the resolution path sees the ask→allow rewrite (#526).
+    // The rewrite leaves a fail-closed floored ask alone, so a malformed
+    // non-global scope keeps failing closed under yolo.
     const fullRules: Ruleset = this.isYoloEnabled()
       ? rewriteAsksToYolo(composedWithSession)
       : composedWithSession;
@@ -489,6 +510,45 @@ function formatMcpToolKeyPortNotice(keys: readonly string[]): string {
     `Top-level permission keys naming Pi MCP tools are applied as "mcp" rules: ${named}. ` +
     `Move them under "mcp" — see ${MCP_TOOL_KEY_MIGRATION_GUIDE}`
   );
+}
+
+/**
+ * Compose the ruleset the given scopes produce: synthesized defaults →
+ * baseline → config rules, each config rule tagged with the scope that
+ * contributed it. The fail-closed floor and the yolo rewrite are not applied.
+ */
+function composeScopes(
+  scopes: readonly (readonly [RuleOrigin, ScopeConfig])[],
+): { composedRules: Ruleset; relocatedKeys: string[] } {
+  // Merge permission objects across scopes (lowest → highest precedence),
+  // building a parallel origin map that tracks which scope contributed each
+  // (surface, pattern) entry.
+  const { mergedPermission, origins } = mergeScopesWithOrigins(scopes);
+
+  // Extract the universal fallback from permission["*"].
+  // The "*" key feeds synthesizeDefaults() only — it is NOT included as a
+  // config rule so that extension tools fall through to source:"default".
+  const universalFallback = isPermissionState(mergedPermission["*"])
+    ? mergedPermission["*"]
+    : DEFAULT_UNIVERSAL_FALLBACK;
+  // Track which scope contributed the universal fallback.
+  const universalFallbackOrigin: RuleOrigin =
+    origins.get("*")?.get("*") ?? "builtin";
+
+  const configRules = buildConfigRules(mergedPermission, origins);
+  // A top-level `mcp__…` key now names an `mcp` candidate. The baseline reads
+  // the rules as written, so a relocated `allow` on one Pi MCP tool does not
+  // newly open the proxy's discovery targets.
+  const relocation = relocateMcpToolKeyRules(configRules);
+
+  return {
+    composedRules: composeRuleset(
+      synthesizeDefaults(universalFallback, universalFallbackOrigin),
+      synthesizeBaseline(configRules),
+      relocation.rules,
+    ),
+    relocatedKeys: relocation.relocatedKeys,
+  };
 }
 
 /**

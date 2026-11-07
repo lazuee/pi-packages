@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockLoadAndMergeConfigs,
   mockLoadUnifiedConfig,
-  mockSyncPermissionSystemStatus,
   mockBuildResolvedConfigLogEntry,
   mockExistsSync,
   mockMkdirSync,
@@ -15,7 +14,6 @@ const {
 } = vi.hoisted(() => ({
   mockLoadAndMergeConfigs: vi.fn(),
   mockLoadUnifiedConfig: vi.fn(),
-  mockSyncPermissionSystemStatus: vi.fn(),
   mockBuildResolvedConfigLogEntry: vi.fn(),
   mockExistsSync: vi.fn<(path: string) => boolean>(),
   mockMkdirSync: vi.fn(),
@@ -27,10 +25,6 @@ const {
 vi.mock("#src/config/config-loader", () => ({
   loadAndMergeConfigs: mockLoadAndMergeConfigs,
   loadUnifiedConfig: mockLoadUnifiedConfig,
-}));
-
-vi.mock("#src/config/status", () => ({
-  syncPermissionSystemStatus: mockSyncPermissionSystemStatus,
 }));
 
 vi.mock("#src/config/config-reporter", () => ({
@@ -106,20 +100,19 @@ function makeCommandCtx(
   } as unknown as ExtensionCommandContext;
 }
 
-function makeStore(overrides: Partial<ConfigStoreDeps> = {}): {
-  store: ConfigStore;
-  logger: ReturnType<typeof makeLogger>;
-} {
+function makeStore(overrides: Partial<ConfigStoreDeps> = {}) {
   const logger = makeLogger();
+  const syncStatus = vi.fn<(ctx: ExtensionCommandContext) => void>();
   const deps: ConfigStoreDeps = {
     agentDir: "/test/agent",
     policyPaths: makePolicyPathProvider(),
     coreCommandWords: new Set(["sed"]),
     wrapperCommandWords: new Set(["xargs"]),
     logger,
+    syncStatus,
     ...overrides,
   };
-  return { store: new ConfigStore(deps), logger };
+  return { store: new ConfigStore(deps), logger, syncStatus };
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -132,7 +125,6 @@ describe("ConfigStore", () => {
       issues: [],
     });
     mockLoadUnifiedConfig.mockReset().mockReturnValue({ config: {} });
-    mockSyncPermissionSystemStatus.mockReset();
     mockBuildResolvedConfigLogEntry
       .mockReset()
       .mockReturnValue({ resolved: true });
@@ -299,9 +291,52 @@ describe("ConfigStore", () => {
     // bar even by accident, which is the point: `PermissionSession` owns the
     // status sync and `ConfigIssueReporter` owns the warning (#933).
     it("does not sync the status bar", () => {
-      const { store } = makeStore();
+      const { store, syncStatus } = makeStore();
       store.refresh("/my/project", true);
-      expect(mockSyncPermissionSystemStatus).not.toHaveBeenCalled();
+      expect(syncStatus).not.toHaveBeenCalled();
+    });
+
+    describe("yolo provenance", () => {
+      function loadYolo(global: boolean | undefined, merged: boolean): void {
+        mockLoadAndMergeConfigs.mockReturnValue({
+          declaredCommandEffects: NO_DECLARED_COMMAND_EFFECTS,
+          merged: { ...DEFAULT_EXTENSION_CONFIG, yoloMode: merged },
+          belowProject: global === undefined ? {} : { yoloMode: global },
+          issues: [],
+        });
+      }
+
+      it("reports yolo enabled by the project when only the project turns it on", () => {
+        const { store } = makeStore();
+        loadYolo(undefined, true);
+        store.refresh("/my/project", true);
+        expect(store.yoloEnabledByProject()).toBe(true);
+      });
+
+      it("does not blame the project when the global config already enables yolo", () => {
+        const { store } = makeStore();
+        loadYolo(true, true);
+        store.refresh("/my/project", true);
+        expect(store.yoloEnabledByProject()).toBe(false);
+      });
+
+      it("does not blame the project when yolo is off", () => {
+        const { store } = makeStore();
+        loadYolo(true, false);
+        store.refresh("/my/project", true);
+        expect(store.yoloEnabledByProject()).toBe(false);
+      });
+
+      it("clears the project attribution once a save writes yolo to the global file", () => {
+        const { store } = makeStore();
+        loadYolo(false, true);
+        store.refresh("/my/project", true);
+        store.save(
+          { ...DEFAULT_EXTENSION_CONFIG, yoloMode: true },
+          makeCommandCtx(),
+        );
+        expect(store.yoloEnabledByProject()).toBe(false);
+      });
     });
 
     it("carries piInfrastructureReadPaths from merged config into current()", () => {
@@ -383,14 +418,11 @@ describe("ConfigStore", () => {
       expect(store.current().debugLog).toBe(true);
     });
 
-    it("calls syncPermissionSystemStatus after a successful save", () => {
-      const { store } = makeStore();
+    it("asks the session to resync the status after a successful save", () => {
+      const { store, syncStatus } = makeStore();
       const ctx = makeCommandCtx();
       store.save({ ...DEFAULT_EXTENSION_CONFIG }, ctx);
-      expect(mockSyncPermissionSystemStatus).toHaveBeenCalledWith(
-        ctx,
-        expect.any(Object),
-      );
+      expect(syncStatus).toHaveBeenCalledWith(ctx);
     });
 
     it("writes config.saved debug log after a successful save", () => {
@@ -405,7 +437,7 @@ describe("ConfigStore", () => {
     it("notifies with error and returns early when write fails", () => {
       const mockNotify = vi.fn();
       const ctx = makeCommandCtx({ ui: { notify: mockNotify } as never });
-      const { store, logger } = makeStore();
+      const { store, logger, syncStatus } = makeStore();
       mockMkdirSync.mockImplementation(() => {
         throw new Error("disk full");
       });
@@ -416,6 +448,8 @@ describe("ConfigStore", () => {
       );
       // current() is not updated on failure
       expect(store.current()).toEqual(DEFAULT_EXTENSION_CONFIG);
+      // nothing changed, so the status line is left as it was
+      expect(syncStatus).not.toHaveBeenCalled();
       // no debug log on failure
       expect(logger.debug).not.toHaveBeenCalledWith(
         "config.saved",

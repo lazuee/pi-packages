@@ -46,7 +46,9 @@ Instead the effective policy is floored so nothing resolves more permissively th
 So a global `bash: allow` cannot remain effective behind a project scope that was meant to deny bash but contains a typo — bash prompts until the invalid config is fixed.
 A validation warning plus a distinct fail-closed notice are emitted, and a fix + reload restores the intended policy.
 An invalid **global** scope does not trigger the clamp — it is the lowest precedence, so nothing more permissive is inherited when it fails.
-This clamp is deny-preserving and, like `yoloMode`, applied at composition; when `yoloMode` is on it re-permits the floored `ask` back to `allow`, since yolo is an explicit full-permissive opt-in.
+This clamp is deny-preserving and, like `yoloMode`, applied at composition.
+It holds under `yoloMode` too: yolo still auto-approves the `ask` rules your config writes, but a floored `ask` keeps prompting, because a malformed config fails closed rather than being re-permitted by yolo.
+In a bash chain, a floored unit decides the chain's answer even when another unit is one yolo would approve.
 
 ## Full Example
 
@@ -1649,6 +1651,26 @@ Additional behaviors:
 - Permission review logs include `toolInputPreview` values for tool calls other than bash and the `mcp` proxy, with sensitive-keyed values masked and every value bounded by `reviewLogFieldMaxWidth` (see [Log file sensitivity](#log-file-sensitivity))
 - A tool whose path came from an extractor registered in an **ancestor** session rather than this one records `extractorSource: "inherited"` beside the decision; the field is absent for every path this session resolved itself.
   This happens in a subagent child when the extractor's provider was kept out of the child but the tool's own package was not — the child borrows the declaration so its `path` and `external_directory` gates still see the path (see [Subagent Integration](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/subagent-integration.md#loading-asymmetry))
+
+### Footer status
+
+The `pi-permission-system` footer entry describes the policy the gates enforce for the session's current agent, not the `yoloMode` setting alone.
+It is recomputed at session start (including a resumed session, whose agent comes from its entries), on every turn, on `/reload`, and after a `/permission-system` settings change.
+
+| Segment                               | Meaning                                                                                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `perm: no prompts (yolo)`             | `yoloMode` is on: a matched `ask` is allowed without a prompt                                                                                                                                               |
+| `perm: prompts on`                    | `ask` results still prompt                                                                                                                                                                                  |
+| `perm: yolo, fail-closed asks prompt` | `yoloMode` is on, but a scope failed closed, so its floored `ask` results still prompt                                                                                                                      |
+| `N deny rules` / `default deny`       | Deny rules that still decide their own pattern (a deny a later rule overrides is not counted), and a `deny` universal fallback; yolo keeps them                                                             |
+| `nothing denied`                      | Under yolo, no deny rule or deny fallback remains for this agent                                                                                                                                            |
+| `global+project+agent`                | The config scopes that contributed a rule; `built-in defaults` when none did                                                                                                                                |
+| `project loosens global`              | A project or agent rule decides a configured pattern more permissively than the global config alone (a deny or ask made allow, a deny made ask), judged with or without yolo; or the project turned yolo on |
+| `project invalid: fail-closed`        | A non-global scope was rejected and its policy floored `allow`→`ask`, under yolo too                                                                                                                        |
+
+For example, `perm: no prompts (yolo) · 12 deny rules · global+project · project loosens global`.
+With yolo off and nothing loosened or failed closed, the entry is cleared, as before.
+The entry covers this extension's permission gates only; it makes no claim about an OS sandbox, which this extension neither configures nor observes.
 
 ---
 

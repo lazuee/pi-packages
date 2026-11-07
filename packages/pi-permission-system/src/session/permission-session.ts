@@ -147,6 +147,8 @@ export class PermissionSession implements ToolCallGateInputs {
     // The tool-surface baseline deliberately survives a reload: a reload is
     // when a relaxed policy arrives, and reseeding from the already-filtered
     // active set would strand the tool it just un-denied (#873).
+    // The footer reports the reloaded policy, not the one it replaced.
+    if (this.context) this.syncStatus(this.context);
   }
 
   // ── Tool surface ───────────────────────────────────────────────────────
@@ -214,16 +216,32 @@ export class PermissionSession implements ToolCallGateInputs {
    * side effect of the session, keyed on the session's context: the store
    * loads and answers, and needs no ctx to do it (#933). Both drivers
    * (`session_start` and every `before_agent_start`) call this one method, so
-   * the sync has a single home rather than one copy per handler.
+   * the sync has a single home rather than one copy per handler. The line
+   * itself is derived from the composed policy, see {@link syncStatus}.
    */
   refreshConfig(
     ctx: ExtensionContext | undefined,
     projectTrusted: boolean,
   ): void {
     this.configStore.refresh(ctx?.cwd, projectTrusted);
-    if (ctx?.hasUI) {
-      syncPermissionSystemStatus(ctx, this.configStore.current());
-    }
+    if (ctx) this.syncStatus(ctx);
+  }
+
+  /**
+   * Set the footer status from the policy this session enforces for its agent:
+   * the composed ruleset under the yolo rewrite, not the `yoloMode` boolean.
+   *
+   * Resolves the agent name first, so a resumed session reports the agent
+   * scope its entries name rather than global-only policy. A ctx without a UI
+   * has no footer, and is left alone.
+   */
+  syncStatus(ctx: ExtensionContext): void {
+    if (!ctx.hasUI) return;
+    const agentName = this.resolveAgentName(ctx);
+    syncPermissionSystemStatus(ctx, {
+      posture: this.permissionManager.describePosture(agentName ?? undefined),
+      yoloEnabledByProject: this.configStore.yoloEnabledByProject(),
+    });
   }
 
   /** Write the resolved config path set to the review and debug logs. */

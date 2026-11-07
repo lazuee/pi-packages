@@ -101,12 +101,39 @@ describe("PermissionManager yolo rewrite", () => {
   });
 });
 
-describe("PermissionManager fail-closed clamp under yolo (#646)", () => {
-  it("yolo re-permits a fail-closed floored allow (allow→ask→allow)", () => {
-    // Invalid project scope floors global's `allow` to `ask` at composition;
-    // yolo then rewrites the `ask` back to `allow`. yolo is an explicit
-    // full-permissive opt-in, so yolo users are unaffected by the clamp.
+describe("PermissionManager fail-closed clamp under yolo", () => {
+  it("keeps a fail-closed floored allow as an ask under yolo", () => {
+    // Invalid project scope floors global's `allow` to `ask` at composition.
+    // A malformed config fails closed, so yolo does not lift the floor.
     const manager = makeManager({ bash: "allow" }, () => true, {
+      invalid: true,
+    });
+    const result = manager.check({
+      kind: "tool",
+      surface: "bash",
+      input: { command: "echo hi" },
+    });
+    expect(result.state).toBe("ask");
+    expect(result.origin).toBe("fail-closed");
+  });
+
+  it("keeps the floored universal allow as an ask under yolo", () => {
+    const manager = makeManager({ "*": "allow" }, () => true, {
+      invalid: true,
+    });
+    const result = manager.check({
+      kind: "tool",
+      surface: "bash",
+      input: { command: "rm -rf /tmp/x" },
+    });
+    expect(result.state).toBe("ask");
+    expect(result.origin).toBe("fail-closed");
+  });
+
+  it("still auto-allows a configured ask under yolo with an invalid scope", () => {
+    // The floor only touches `allow`; an `ask` the config wrote is yolo's to
+    // rewrite as before.
+    const manager = makeManager({ bash: "ask" }, () => true, {
       invalid: true,
     });
     const result = manager.check({

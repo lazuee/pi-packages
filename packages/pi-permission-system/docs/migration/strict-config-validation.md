@@ -27,7 +27,7 @@ Every `allow` — including one inherited from a lower scope — is clamped to `
 Alongside the per-problem validation issues, a distinct notice is reported: `Invalid <scope> configuration detected — failing closed: 'allow' rules are clamped to 'ask' …`.
 
 An invalid **global** scope does not trigger the cross-scope clamp — it is the lowest precedence, so nothing more permissive is inherited when it fails.
-The clamp is deny-preserving, and (like `yoloMode`) applied at composition; when `yoloMode` is on it re-permits the floored `ask` back to `allow`.
+The clamp is deny-preserving, and (like `yoloMode`) applied at composition; it holds under `yoloMode` too, so a floored `ask` keeps prompting while the invalid scope is unfixed.
 Fix the reported problems and reload to restore the intended policy.
 
 ## What you need to do

@@ -26,6 +26,7 @@ import type { SessionLogger } from "#src/logging/session-logger";
 import { type PathFlavor, pathFlavorForPlatform } from "#src/path/path-flavor";
 import type { ScopedPermissionManager } from "#src/policy/permission-manager";
 import { PermissionResolver } from "#src/policy/permission-resolver";
+import type { PolicyPosture } from "#src/policy/policy-posture";
 import type { Ruleset } from "#src/policy/rule";
 import { PermissionSession } from "#src/session/permission-session";
 import { SessionRules } from "#src/session/session-rules";
@@ -72,6 +73,8 @@ export function makeConfigStore(
     declaredCommandEffects:
       overrides.declaredCommandEffects ??
       vi.fn<() => DeclaredCommandEffects>(() => NO_DECLARED_COMMAND_EFFECTS),
+    yoloEnabledByProject:
+      overrides.yoloEnabledByProject ?? vi.fn<() => boolean>(() => false),
   };
 }
 
@@ -118,6 +121,24 @@ export function makeFakePermissionManager() {
       .fn<(toolName: string, agentName?: string) => boolean>()
       .mockReturnValue(false),
     getPolicyIssues: vi.fn((): string[] => []),
+    describePosture: vi.fn(
+      (_agentName?: string): PolicyPosture => makePolicyPosture(),
+    ),
+  };
+}
+
+/** A {@link PolicyPosture} for the default posture: asks prompt, nothing denied. */
+export function makePolicyPosture(
+  overrides: Partial<PolicyPosture> = {},
+): PolicyPosture {
+  return {
+    asksAutoAllowed: false,
+    fallback: { action: "ask", origin: "builtin" },
+    ruleCounts: { allow: 0, ask: 0, deny: 0 },
+    scopes: [],
+    loosenedBy: [],
+    failClosedScopes: [],
+    ...overrides,
   };
 }
 
