@@ -83,8 +83,9 @@ function asApprovalGrant(value: unknown): ApprovalGrant | undefined {
  * normalized, so a version-skewed request drops the suggestion and the serving
  * dialog offers no whole-session scope.
  *
- * An empty `grants` array is rejected too: it would record nothing while still
- * writing a `forwarded_permission.session_recorded` entry claiming it had.
+ * An empty `grants` array is kept: it says the ask has nothing to record, so
+ * the serving dialog withholds the session options. The server records and
+ * logs only a non-empty approval.
  */
 function asForwardedSessionApproval(
   value: unknown,
@@ -93,7 +94,7 @@ function asForwardedSessionApproval(
     return undefined;
   }
   const candidate = value as Partial<ForwardedSessionApproval>;
-  if (!Array.isArray(candidate.grants) || candidate.grants.length === 0) {
+  if (!Array.isArray(candidate.grants)) {
     return undefined;
   }
   const grants: ApprovalGrant[] = [];

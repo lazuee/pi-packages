@@ -54,6 +54,16 @@ describe("requestPermissionDecisionFromUi", () => {
     expect(result).toEqual({ approved: true, state: "approved" });
   });
 
+  it("offers no session option when there is nothing to record", async () => {
+    const select = vi.fn().mockResolvedValue("Yes");
+    const ui: PermissionDecisionUi = { select, input: vi.fn() };
+    await requestPermissionDecisionFromUi(ui, "Title", "Message", {
+      sessionUnavailable: true,
+    });
+    const offered = select.mock.calls[0]?.[1] as string[];
+    expect(offered.some((option) => option.includes("session"))).toBe(false);
+  });
+
   it("returns approved_for_session when user selects session option", async () => {
     const ui: PermissionDecisionUi = {
       select: vi.fn().mockResolvedValue("Yes, for this session"),

@@ -459,6 +459,11 @@ describe("readForwardedPermissionRequest — sessionApproval field", () => {
     expect(parsed?.requesterAgentName).toBe("researcher");
   });
 
+  it("keeps an empty grant list, which says there is nothing to record", () => {
+    // The serving dialog reads it to withhold the session options.
+    expect(readSessionApproval({ grants: [] })).toEqual({ grants: [] });
+  });
+
   it("rejects the pre-#810 shape rather than normalizing it", () => {
     expect(
       readSessionApproval({ surface: "bash", patterns: ["git *"] }),
@@ -469,7 +474,6 @@ describe("readForwardedPermissionRequest — sessionApproval field", () => {
     ["a non-object", "bash"],
     ["null", null],
     ["an object with no grants", {}],
-    ["an empty grant list", { grants: [] }],
     ["a non-array grants", { grants: "bash" }],
     ["a null grant", { grants: [null] }],
     ["an empty surface", { grants: [{ surface: "", pattern: "git *" }] }],

@@ -5,6 +5,7 @@ import type { PermissionPromptDecision } from "#src/authority/permission-dialog"
 import { requestPermissionDecision } from "#src/authority/permission-prompt-component";
 import type { PromptPermissionDetails } from "#src/authority/permission-prompter";
 import type { NotificationSession } from "#src/presentation/prompt-notification";
+import { SessionApproval } from "#src/session/session-approval";
 import { DECIDED_BY_HUMAN } from "#test/helpers/decision-fixtures";
 import {
   makePromptDetails,
@@ -216,6 +217,44 @@ describe("LocalUserAuthorizer", () => {
       expect.any(String),
       expect.anything(),
       { sessionLabel: "Yes, for 'read' tool" },
+    );
+  });
+
+  it("withholds the session option when the ask has nothing to record", async () => {
+    const { deps, decisionFn } = makeDeps();
+    const authorizer = new LocalUserAuthorizer(deps);
+
+    await authorizer.authorize(
+      makeDetails({ sessionApproval: SessionApproval.forGrants([]) }),
+    );
+
+    expect(decisionFn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.anything(),
+      { sessionUnavailable: true },
+    );
+  });
+
+  it("withholds the session option for a forwarded ask with nothing to record", async () => {
+    const { deps, decisionFn } = makeDeps();
+    const authorizer = new LocalUserAuthorizer(deps);
+
+    await authorizer.authorize(
+      makeDetails({
+        sessionApproval: { grants: [] },
+        forwarding: {
+          requesterAgentName: "researcher",
+          requesterSessionId: "s",
+        },
+      }),
+    );
+
+    expect(decisionFn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      expect.anything(),
+      { sessionUnavailable: true },
     );
   });
 

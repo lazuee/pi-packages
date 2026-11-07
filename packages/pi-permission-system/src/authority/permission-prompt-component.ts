@@ -221,6 +221,7 @@ export function presentInlinePermissionPrompt(
     sessionLabel: options?.sessionLabel ?? DEFAULT_SESSION_LABEL,
     widthLabel: options?.sessionWidth?.label,
     sessionScope: options?.sessionScope,
+    sessionUnavailable: options?.sessionUnavailable === true,
     keys: view.dialogKeys,
   };
   return view.ui.custom<UnattributedDecision | undefined>(

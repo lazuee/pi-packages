@@ -208,7 +208,9 @@ export function describeToolGate(
     surface: gateSurface,
     input: tcc.input,
     payload,
-    ...(sessionOption ? { sessionApproval: sessionOption.approval } : {}),
+    // No session option is an empty approval: the dialog withholds the
+    // choice, and the runner has nothing to record.
+    sessionApproval: sessionOption?.approval ?? SessionApproval.forGrants([]),
     promptDetails: {
       source: "tool_call",
       agentName: tcc.agentName,
