@@ -8,7 +8,7 @@ import {
   selectUncoveredExternalPaths,
   type UncoveredExternalPath,
 } from "./external-directory-policy";
-import { accessFactsFromPath } from "./helpers";
+import { accessFactsFromPath, reasonFromInput } from "./helpers";
 import type { ToolCallContext } from "./types";
 
 /**
@@ -114,6 +114,7 @@ export function describeBashExternalDirectoryGate(
     namesNothingOnDisk(uncoveredEntries, normalizer);
   const payload = buildBashExternalDirectoryAskPayload({
     command,
+    reason: reasonFromInput(tcc.input),
     externalPaths: disclosures,
     decidingPath: { path: worstEntry.path.value(), effect: worstEntry.effect },
     cwd: tcc.cwd,

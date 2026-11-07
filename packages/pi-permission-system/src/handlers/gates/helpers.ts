@@ -4,6 +4,7 @@ import { classifyToolKind } from "#src/access-intent/tool-kind";
 import type { ForwardedAccessFacts } from "#src/authority/permission-forwarding";
 import type { PromptPermissionDetails } from "#src/authority/permission-prompter";
 import type { PermissionDecisionResolution } from "#src/service/permission-events";
+import { getNonEmptyString, toRecord } from "#src/value-guards";
 import type { PermissionCheckResult } from "#src/types";
 import type { DecisionEventFacts } from "./descriptor";
 import type { ToolCallContext } from "./types";
@@ -18,6 +19,14 @@ type PathGateRequestFacts = Pick<
   ToolCallContext,
   "toolCallId" | "toolName" | "agentName"
 >;
+
+/**
+ * The agent's stated intent, when the tool input carries a non-empty `reason`
+ * — the field the reason-bash extension forces on every bash call.
+ */
+export function reasonFromInput(input: unknown): string | undefined {
+  return getNonEmptyString(toRecord(input).reason) ?? undefined;
+}
 
 /**
  * Build the review-log context for a path-shaped tool gate.

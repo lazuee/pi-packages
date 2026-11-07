@@ -1052,6 +1052,26 @@ For an unproven path it adds that declaring the command in [`commandEffects`](#d
 The review log records the same facts on every entry for that ask as `decidingPath`, `effect`, and `effectSource`.
 Only the deciding path is recorded, not every path the command referenced; an ask from a file tool (`read`, `write`, `edit`, or an MCP or extension tool) carries none of these, since the tool itself is what establishes its direction.
 
+#### Always allow one file from the TUI
+
+To stop the prompts for one file that never holds secrets, save an exact-path `allow` without opening the config in an editor:
+
+```text
+/permission-system allow-file <path> read|edit|both
+/permission-system remove-file <path> [read|edit|both]
+/permission-system list-files
+```
+
+- `read` writes `path_read` and `external_directory_read`, `edit` writes `path_write` and `external_directory_write`, and `both` writes all four.
+  Both families are written so the rule holds inside and outside the working directory.
+- `~` and relative paths are resolved to one absolute path; a path with `*` or `?`, or a folder, is refused.
+  Quote a path that contains spaces.
+- The `edit` tool consults both directions, so `edit` alone still prompts for the read. Use `both` for a file that you edit.
+- The rule is written last in the **global** config, so it has the final say there. The shared project `config.json` is never written.
+- The command refuses to save when a `deny` rule matches the file in that direction (a later `allow` would override it), and when the file name looks like a secret store: `.env` and `.env.*` (not `.env.example`, `.env.sample`, `.env.template`, `.env.dist`), anything under `.ssh/`, `auth.json`, `credentials`, `.netrc`, `.npmrc`, `.pypirc`, `*.pem`, `*.key`, `*.p12`, `*.pfx` and `id_rsa*`-style key files.
+- It rewrites the global config as plain JSON, so it refuses when that file has comments. Add the rule by hand then.
+- `remove-file` removes only the `allow` rules for that path; it never removes an `ask` or `deny`.
+
 #### The pure-reader command core
 
 A small, frozen set of command words is read-only for any arguments, in any implementation.

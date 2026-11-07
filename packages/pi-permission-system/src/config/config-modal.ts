@@ -10,6 +10,11 @@ import {
   DEFAULT_EXTENSION_CONFIG,
   type PermissionSystemExtensionConfig,
 } from "./extension-config";
+import {
+  FILE_APPROVAL_USAGE,
+  parseFileApprovalArgs,
+  runFileApprovalCommand,
+} from "./file-approvals";
 
 interface PermissionSystemConfigController {
   config: CommandConfigStore;
@@ -37,13 +42,28 @@ const COMMAND_ARGUMENTS = [
     description: "Restore default yolo/logging settings and persist them",
   },
   {
+    value: "allow-file",
+    label: "Always allow a file",
+    description:
+      "allow-file <path> read|edit|both: save an exact-path allow in the global config",
+  },
+  {
+    value: "remove-file",
+    label: "Remove an always-allowed file",
+    description: "remove-file <path> [read|edit|both]: remove that allow again",
+  },
+  {
+    value: "list-files",
+    label: "List always-allowed files",
+    description: "Show the exact-path allow rules in the global config",
+  },
+  {
     value: "help",
     label: "Show help",
     description: "Display command usage",
   },
 ] as const;
-const USAGE_TEXT =
-  "Usage: /permission-system [show|path|reset|help] (or run /permission-system with no args to open settings modal)";
+const USAGE_TEXT = `Usage: /permission-system [show|path|reset|help] (or run /permission-system with no args to open settings modal)\n${FILE_APPROVAL_USAGE}`;
 
 function cloneDefaultConfig(): PermissionSystemExtensionConfig {
   return {
@@ -212,6 +232,20 @@ function handleArgs(
   ctx: ExtensionCommandContext,
   controller: PermissionSystemConfigController,
 ): boolean {
+  // Before the lowercasing below: file paths keep their case.
+  const fileCommand = parseFileApprovalArgs(args);
+  if (fileCommand) {
+    runFileApprovalCommand(fileCommand, {
+      cwd: ctx.cwd,
+      configPath: controller.configPath,
+      rules: () => controller.getActiveAgentConfigRules(),
+      notify: (message, level) => {
+        ctx.ui.notify(message, level);
+      },
+    });
+    return true;
+  }
+
   const normalized = args.trim().toLowerCase();
   if (!normalized) {
     return false;

@@ -9,7 +9,7 @@ import { buildPathAskPayload } from "#src/presentation/path-ask-payload";
 import { SessionApproval } from "#src/session/session-approval";
 import type { PermissionCheckResult } from "#src/types";
 import type { GateResult } from "./descriptor";
-import { accessFactsFromPath } from "./helpers";
+import { accessFactsFromPath, reasonFromInput } from "./helpers";
 import type { ToolCallContext } from "./types";
 
 /**
@@ -138,6 +138,7 @@ export function describeBashPathGate(
   const payload = buildPathAskPayload({
     toolName: tcc.toolName,
     pathValue: worstToken,
+    reason: reasonFromInput(tcc.input),
     agentName: tcc.agentName,
     matchedPattern: worstCheck.matchedPattern,
     surface,

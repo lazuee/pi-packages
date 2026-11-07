@@ -33,6 +33,8 @@ interface PathAskFacts {
    * `kind`, which stays coarse so renderer dispatch is untouched.
    */
   surface: string;
+  /** The agent's stated intent, shown verbatim when the tool input carries one. */
+  reason?: string;
 }
 
 /** The facts the `path` gate adds when a bash token, not a tool, raised it. */
@@ -94,9 +96,11 @@ interface BashExternalDirectoryAskFacts {
   /**
    * The surface that decided — a directional member when the deciding path's
    * effect was proven, the bare family otherwise. Distinct from the payload
-   * `kind`, which stays coarse so renderer dispatch is untouched.
+   * `kind`, which stays coarse so renderer dispatch remains untouched.
    */
   surface: string;
+  /** The agent's stated intent, shown verbatim when the tool input carries one. */
+  reason?: string;
 }
 
 /** A bash ask whose command references paths outside the working directory. */
@@ -121,6 +125,7 @@ export function buildBashExternalDirectoryAskPayload(
       ),
     },
     evidence: [
+      ...reasonEvidence(facts.reason),
       workingDirectoryEvidence(facts.cwd),
       ...facts.externalPaths.map(externalPathEvidence),
     ],
@@ -154,10 +159,17 @@ function pathPayload(
       executedUnit: null,
       decidingPath,
     },
-    evidence,
+    evidence: [...reasonEvidence(facts.reason), ...evidence],
     annotations: [],
   };
 }
+/** The agent's stated intent, surfaced verbatim when the gate supplies it. */
+function reasonEvidence(reason?: string): PromptEvidence[] {
+  return reason === undefined
+    ? []
+    : [{ label: "reason", text: reason, detail: null }];
+}
+
 
 /**
  * The blame a bash path gate stamps: the deciding path and what established
