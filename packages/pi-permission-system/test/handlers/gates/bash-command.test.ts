@@ -1901,3 +1901,135 @@ describe("resolveBashCommandCheck: a config deny outranks every session grant", 
     expect(result.source).toBe("session");
   });
 });
+
+describe("resolveBashCommandCheck: a command name the gate cannot read", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  const permissive: Record<string, PermissionState> = { "*": "allow" };
+
+  // The shell decides what these run only when it expands the name, so no
+  // rule on the written text can be consent to it.
+  it.each([
+    "$S rm -rf /x",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional literal — a braced shell expansion, not a template string
+    "${S} rm -rf /x",
+    "$(echo sudo) rm -rf /x",
+    "`echo sudo` rm -rf /x",
+    "$'su\\x64o' rm -rf /x",
+    "$'\\163udo' rm -rf /x",
+    '"$S" rm -rf /x',
+    "alias s=sudo",
+    "shopt -s expand_aliases; alias s=sudo; s rm -rf /x",
+    "shopt -s expand_aliases\nBASH_ALIASES[s]=sudo\ns rm -rf /x",
+    "BASH_CMDS[ls]=/tmp/evil; ls",
+    "hash -p /tmp/evil ls; ls",
+    "enable -f /tmp/evil.so ls",
+    "PATH=/tmp/evil:$PATH; ls",
+    "export PATH=/tmp/evil:$PATH; ls",
+    "declare -x PATH=/tmp/evil; ls",
+    'export "PATH=/tmp/evil"; ls',
+    "export 'PATH=/tmp/evil'; ls",
+    "export P\\ATH=/tmp/evil; ls",
+    'export "PATH"=/tmp/evil; ls',
+    "declare -n p=PATH; p=/tmp/evil; ls",
+    "read PATH <<< /x; ls",
+    "printf -v PATH /x; ls",
+    "mapfile -t PATH <<< /x; ls",
+    "printf -vPATH /x; ls",
+  ])("asks for %s", (command) => {
+    const result = decide(permissive, command);
+    expect(result.state).toBe("ask");
+    expect(result.floor).toBe("<computed-command-name>");
+  });
+
+  it("keeps a deny on the rest of the chain", () => {
+    const result = decide({ "*": "allow", "rm *": "deny" }, "$S x; rm y");
+    expect(result.state).toBe("deny");
+  });
+
+  it.each([
+    "ls $DIR",
+    "echo $(date)",
+    "$'sudo' -n true",
+    "~/bin/tool x",
+    "$HOME/bin/tool x",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: intentional literal — a braced shell expansion, not a template string
+    "${HOME}/bin/tool x",
+    "alias",
+    "alias ll",
+    'X="a PATH=b"',
+    "MYPATH=x",
+    "echo PATH=x",
+    "read LINE",
+  ])("leaves %s alone", (command) => {
+    const result = decide({ ...permissive, "sudo *": "allow" }, command);
+    expect(result.floor).not.toBe("<computed-command-name>");
+  });
+});
+
+describe("resolveBashCommandCheck: an assignment the grammar reads as a command name", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  // tree-sitter-bash parses `_=1` as a command name, but bash reads it as an
+  // assignment prefix and runs the next word.
+  it.each([
+    ["_=1 rm -rf /x", "deny"],
+    ["_=1 sudo rm -rf /x", "deny"],
+    ["_=1 bash -c 'ls'", "ask"],
+    ["_=1 ls", "ask"],
+    ["_+=1 rm -rf /x", "deny"],
+    ["_[0]=1 rm -rf /x", "deny"],
+    ["_[0]+=1 rm -rf /x", "deny"],
+    ["_[x]=1 sudo rm -rf /y", "deny"],
+  ] as const)("decides %s as %s", (command, state) => {
+    const result = decide({ "*": "allow", "rm *": "deny" }, command);
+    expect(result.state).toBe(state);
+  });
+});
+
+describe("resolveBashCommandCheck: a statement that exports the environment", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  // An exported variable reaches every later command, as a prefix reaches
+  // one (`GIT_*` config, `LD_PRELOAD`, `BASH_ENV`).
+  it.each([
+    "export GIT_DIR=/tmp/x; git status",
+    "export LD_PRELOAD=/tmp/x.so; ls",
+    "declare -x BASH_ENV=/tmp/x; ls",
+    "typeset -x FOO=1; ls",
+    "set -a; FOO=1; ls",
+    "set -o allexport; FOO=1; ls",
+    "LD_PRELOAD=/x.so; export LD_PRELOAD; ls",
+    "GIT_DIR=/x; export GIT_DIR; git status",
+    "X=1; declare -x X; ls",
+    "export $X=1; ls",
+    "set -o 'allexport'; FOO=1; ls",
+    "set -oa; FOO=1; ls",
+    "shopt -os allexport; FOO=1; ls",
+    "shopt -s -o allexport; FOO=1; ls",
+  ])("asks for %s", (command) => {
+    const result = decide({ "*": "allow" }, command);
+    expect(result.state).toBe("ask");
+    expect(result.floor).toBe("<environment-export>");
+  });
+
+  it.each([
+    "export",
+    "export -p",
+    "export -n FOO",
+    "set -e",
+    "set -euo pipefail",
+    "set +a",
+    "declare -r X=1",
+    "shopt -s nullglob",
+  ])("leaves %s alone", (command) => {
+    const result = decide({ "*": "allow" }, command);
+    expect(result.state).toBe("allow");
+  });
+});

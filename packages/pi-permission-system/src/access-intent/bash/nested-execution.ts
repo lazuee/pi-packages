@@ -66,9 +66,22 @@ export function commandWordNodes(node: TSNode): TSNode[] {
     if (!child?.isNamed) continue;
     if (child.type === "variable_assignment") continue;
     if (REDIRECT_NODE_TYPES.has(child.type)) continue;
+    if (nodes.length === 0 && isUnlabeledAssignment(child)) continue;
     nodes.push(child);
   }
   return nodes;
+}
+
+/**
+ * True when a word in command-name position is an assignment the grammar did
+ * not label one: tree-sitter-bash reads `_=1 rm x` as a command named `_=1`,
+ * where bash reads an assignment prefix and runs `rm x`.
+ */
+export function isUnlabeledAssignment(node: TSNode): boolean {
+  return (
+    node.type !== "variable_assignment" &&
+    /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/.test(node.text)
+  );
 }
 
 /**

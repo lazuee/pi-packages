@@ -50,7 +50,9 @@ export function suggestBashPattern(command: string): string {
   // actual command, not a `# description` prefix agents often prepend.
   const stripped = stripBashCommentLines(trimmed);
   if (!stripped) return "";
-  if (LEADING_ASSIGNMENT.test(stripped)) return stripped;
+  if (LEADING_ASSIGNMENT.test(stripped.replace(LEADING_REDIRECTS, ""))) {
+    return stripped;
+  }
   const tokens = stripped.split(/\s+/);
   if (tokens.length === 1) return stripped;
   // A wrapper's words are split only where bash splits them: `\s` also splits
@@ -73,6 +75,9 @@ export function suggestBashPattern(command: string): string {
  * command, the narrowest suggestion.
  */
 const LEADING_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/;
+
+/** Redirects written before a command's first word (`2>/dev/null _=1 rm`). */
+const LEADING_REDIRECTS = /^(?:\d*[<>][>&]?\S*\s+)+/;
 
 /** The blanks bash splits a command's words on. */
 const BASH_BLANKS = /[ \t\n]+/;

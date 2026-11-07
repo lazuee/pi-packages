@@ -987,8 +987,12 @@ describe("BashProgram", () => {
         ["X=`rm q`", "rm q"],
       ])("descends into %s", async (command, inner) => {
         const program = await BashProgram.parse(command, normalizer);
+        // An `export` with a value is also marked: it reaches later commands.
+        const exported = command.startsWith("export ")
+          ? { exportsEnvironment: true }
+          : {};
         expect(program.commands()).toEqual([
-          { text: command },
+          { text: command, ...exported },
           { text: inner, context: "command_substitution" },
         ]);
       });
@@ -1143,7 +1147,7 @@ describe("BashProgram", () => {
         );
         expect(program.commands()).toEqual([
           { text: "if $(rm x); then echo a; fi" },
-          { text: "$(rm x)" },
+          { text: "$(rm x)", computedName: true },
           { text: "rm x", context: "command_substitution" },
           { text: "echo a" },
         ]);

@@ -1371,6 +1371,128 @@ function wrapperName(words: readonly CommandWord[]): string | undefined {
   return words.length === 0 ? undefined : basename(unquotedName(words[0].text));
 }
 
+/**
+ * True when a unit's command is one the shell decides only at run time, so no
+ * rule on its written text is consent to what runs: its name holds an
+ * expansion (`$S`, `$(…)`, a backtick, an ANSI-C escape such as
+ * `$'su\x64o'`), or the unit defines an alias, which renames a later command
+ * (`alias s=sudo`). A leading `$HOME`/`${HOME}`, which the gate spells
+ * itself, and escape-free `$'…'`/`$"…"` quoting do not count.
+ */
+export function namesCommandAtRunTime(words: readonly CommandWord[]): boolean {
+  if (words.length === 0) return false;
+  const head = words[0].text;
+  const name = basename(unquotedName(head));
+  const args = words.slice(1).map((word) => word.text);
+  if (name === "alias" && args.some((arg) => arg.includes("="))) return true;
+  // `read PATH`, `printf -v PATH`, and `mapfile PATH` write a rebinding
+  // variable as surely as an assignment does.
+  if (READ_INTO_BUILTINS.has(name) && args.some(isRebindingName)) return true;
+  if (name === "printf") {
+    // The target follows `-v` or is attached to it (`-vPATH`).
+    const target = args.findIndex((arg) => arg.startsWith("-v"));
+    const named =
+      target === -1
+        ? undefined
+        : args[target] === "-v"
+          ? args[target + 1]
+          : args[target].slice(2);
+    if (named !== undefined && isRebindingName(named)) return true;
+  }
+  // `hash -p path name` and `enable -f lib name` rebind a later command name.
+  if (name === "hash" && args.some((arg) => /^-[^-]*p/.test(arg))) return true;
+  if (name === "enable" && args.some((arg) => /^-[^-]*f/.test(arg))) {
+    return true;
+  }
+  const quoted = head
+    .replace(/^(\$HOME|\$\{HOME\})(?=\/|$)/, "")
+    .replace(/\$'([^'\\]*)'/g, "'$1'")
+    .replace(/\$"([^"\\$`]*)"/g, '"$1"');
+  return /[$`]/.test(quoted);
+}
+
+/** Variables whose value decides what a later command name runs. */
+const REBINDING_NAME = /^(?:PATH|BASH_ALIASES|BASH_CMDS)(?:\[[^\]]*\])?$/;
+
+/** Builtins that write a value into each variable named as an argument. */
+const READ_INTO_BUILTINS: ReadonlySet<string> = new Set([
+  "read",
+  "mapfile",
+  "readarray",
+]);
+
+/** True when a word, unquoted, names a rebinding variable. */
+function isRebindingName(word: string): boolean {
+  return REBINDING_NAME.test(unquotedName(word));
+}
+
+/** The variable an assignment word writes, or `undefined` for another word. */
+function assignedName(word: string): string | undefined {
+  return /^([A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?)\+?=/.exec(
+    unquotedName(word),
+  )?.[1];
+}
+
+/**
+ * True when an assignment or declaration rebinds what a later command name
+ * runs: `PATH` picks the executable, and `BASH_ALIASES`/`BASH_CMDS` entries
+ * are aliases and hashed paths (`BASH_ALIASES[s]=sudo`, `export "PATH=…"`),
+ * or a nameref is bound to one of them (`declare -n p=PATH`).
+ *
+ * Read off the statement's words with their quotes removed, so a quoted name
+ * counts and a quoted value never does.
+ */
+export function rebindsCommandName(words: readonly string[]): boolean {
+  const nameref = words.some((word) => /^-[^-]*n/.test(word));
+  return words.some((word) => {
+    const name = assignedName(word);
+    if (name === undefined) return false;
+    if (REBINDING_NAME.test(name)) return true;
+    const value = unquotedName(word).slice(unquotedName(word).indexOf("=") + 1);
+    return nameref && REBINDING_NAME.test(value);
+  });
+}
+
+/**
+ * True when a statement exports variables to every later command, as an
+ * assignment prefix does to one: `export NAME[=…]` and `declare -x NAME[=…]`
+ * (a bare name exports a value set by an earlier statement, and a computed
+ * one may name anything), and `set -a`, `set -o allexport`, or
+ * `shopt -os allexport`, after which every assignment is exported.
+ * `export -p` lists and `export -n` un-exports, so neither counts.
+ */
+export function exportsEnvironment(
+  keyword: string,
+  words: readonly string[],
+): boolean {
+  const name = basename(unquotedName(keyword));
+  const options = words.filter((word) => /^-[^-]/.test(word));
+  const operands = words.filter((word) => !word.startsWith("-"));
+  if (name === "set") {
+    // Any `a` in a single-dash cluster sets allexport (`-oa`, `-ea`).
+    return (
+      options.some((word) => word.includes("a")) ||
+      words.some(
+        (word, index) =>
+          word === "-o" && unquotedName(words[index + 1] ?? "") === "allexport",
+      )
+    );
+  }
+  if (name === "shopt") {
+    return (
+      options.some((word) => word.includes("o")) &&
+      options.some((word) => word.includes("s")) &&
+      operands.some((word) => unquotedName(word) === "allexport")
+    );
+  }
+  if (operands.length === 0) return false;
+  if (name === "export") return !options.some((word) => word.includes("n"));
+  return (
+    ["declare", "typeset", "local"].includes(name) &&
+    options.some((word) => word.includes("x"))
+  );
+}
+
 /** A literal command name with its quotes and backslash escapes removed. */
 function unquotedName(text: string): string {
   // `$'…'` and `$"…"` are quoting, not expansion; an ANSI-C escape inside

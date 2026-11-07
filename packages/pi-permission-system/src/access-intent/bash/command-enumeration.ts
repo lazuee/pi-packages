@@ -3,6 +3,7 @@ import {
   commandWordNodes,
   EXECUTION_HOST_TYPES,
   forEachExecutionIn,
+  isUnlabeledAssignment,
   timedSubshellOf,
 } from "./nested-execution";
 import type { WordReader } from "./node-text";
@@ -13,9 +14,12 @@ import {
   type CommandWord,
   classifyWrapperWords,
   executedUnitOf,
+  exportsEnvironment,
   floorExemptionOf,
   inlineShellPayloadIndex,
   intermediateLayersOf,
+  namesCommandAtRunTime,
+  rebindsCommandName,
   type WrapperKind,
 } from "./wrapper-analysis";
 
@@ -81,6 +85,18 @@ export interface BashCommand {
    * unit and its executed unit: a rule on one never allows the unit.
    */
   readonly wrapperLayers?: readonly string[];
+  /**
+   * Set when the shell decides this unit's command only at run time — an
+   * expanded name or an alias definition ({@link namesCommandAtRunTime}).
+   * Its `allow` is floored to at least `ask`.
+   */
+  readonly computedName?: true;
+  /**
+   * Set when this statement exports variables to every later command
+   * (`export NAME=…`, `declare -x`, `set -a`; {@link exportsEnvironment}).
+   * Its `allow` is floored to at least `ask`.
+   */
+  readonly exportsEnvironment?: true;
   /**
    * Set when this unit came from a region re-parsed out of a subtree the
    * primary parse could not resolve, rather than from the primary parse
@@ -444,10 +460,45 @@ function collectCommandsInto(
   // function_definition): emit whole, do not descend — deferred (#306).
   // A declaration, assignment, test, or `unset` still hosts executions that
   // really run (`local x=$(rm y)`, `[[ $(rm x) ]]`), so those are enumerated
-  // in addition to the statement (#742).
-  out.push(makeUnit(node.text, scope));
+  // in addition to the statement (#742). An assignment that rebinds what a
+  // later command name runs (`PATH=…`, `BASH_ALIASES[s]=…`) is floored as a
+  // command named at run time.
+  const rebinding = REBINDING_STATEMENT_TYPES.has(node.type);
+  const words = rebinding ? statementWords(node) : [];
+  out.push(
+    makeUnit(node.text, scope, {
+      computedName: rebinding && rebindsCommandName(words),
+      exportsEnvironment:
+        node.type === "declaration_command" &&
+        exportsEnvironment(node.child(0)?.text ?? "", words),
+    }),
+  );
   collectHostedCommands(node, scope, out);
 }
+
+/**
+ * The words of an assignment or declaration statement: the assignment itself,
+ * or a declaration's arguments, with any nested assignment list flattened.
+ */
+function statementWords(node: TSNode): string[] {
+  if (node.type === "variable_assignment") return [node.text];
+  const words: string[] = [];
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (!child?.isNamed) continue;
+    if (child.type === "variable_assignments")
+      words.push(...statementWords(child));
+    else words.push(child.text);
+  }
+  return words;
+}
+
+/** Statements whose own text can rebind a command name ({@link rebindsCommandName}). */
+const REBINDING_STATEMENT_TYPES: ReadonlySet<string> = new Set([
+  "variable_assignment",
+  "variable_assignments",
+  "declaration_command",
+]);
 
 /**
  * Enumerate `time ( … )`: the `time` unit whole, then the subshell's commands
@@ -517,6 +568,8 @@ interface UnitFacts {
   readonly spellings?: readonly string[];
   readonly assignmentPrefix?: boolean;
   readonly wrapperLayers?: readonly string[];
+  readonly computedName?: boolean;
+  readonly exportsEnvironment?: boolean;
 }
 
 function makeUnit(
@@ -546,7 +599,13 @@ function makeUnit(
     facts.wrapperLayers === undefined || facts.wrapperLayers.length === 0
       ? prefixed
       : { ...prefixed, wrapperLayers: facts.wrapperLayers };
-  return spellings === undefined ? ran : { ...ran, spellings };
+  const computed: BashCommand = facts.computedName
+    ? { ...ran, computedName: true }
+    : ran;
+  const exported: BashCommand = facts.exportsEnvironment
+    ? { ...computed, exportsEnvironment: true }
+    : computed;
+  return spellings === undefined ? exported : { ...exported, spellings };
 }
 
 /**
@@ -575,6 +634,13 @@ function makeCommandUnit(
       floorExemption ?? floorExemptionOf(words, redirectedScope(node, scope)),
     assignmentPrefix: words.length > 0 && hasAssignmentPrefix(node),
     wrapperLayers: intermediateLayersOf(text, words),
+    computedName: namesCommandAtRunTime(words),
+    exportsEnvironment:
+      words.length > 0 &&
+      exportsEnvironment(
+        words[0].text,
+        words.slice(1).map((word) => word.text),
+      ),
   });
 }
 
@@ -584,7 +650,12 @@ function makeCommandUnit(
  */
 function hasAssignmentPrefix(node: TSNode): boolean {
   for (let i = 0; i < node.childCount; i++) {
-    if (node.child(i)?.type === "variable_assignment") return true;
+    const child = node.child(i);
+    if (child?.type === "variable_assignment") return true;
+    if (child?.isNamed && !REDIRECT_NODE_TYPES.has(child.type)) {
+      // Only a leading word can be an assignment the grammar did not label.
+      return isUnlabeledAssignment(child);
+    }
   }
   return false;
 }

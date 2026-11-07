@@ -277,6 +277,21 @@ describe("describeToolGate", () => {
     expect(desc.sessionApproval?.grants[0]?.pattern).toBe(command);
   });
 
+  it("suggests the exact command for an ask on a computed command name", () => {
+    const command = "$S rm -rf /x";
+    const check = makeCheckResult("ask", {
+      toolName: "bash",
+      command,
+      floor: "<computed-command-name>",
+    });
+    const desc = describeToolGate(
+      makeTcc({ toolName: "bash", input: { command } }),
+      check,
+      makeFormatter(),
+    );
+    expect(desc.sessionApproval?.grants[0]?.pattern).toBe(command);
+  });
+
   it.each(['rm * "', "ls ?\n)"])(
     "offers no session option for an unresolved %j, which holds a wildcard",
     (command) => {
