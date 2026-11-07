@@ -260,6 +260,41 @@ describe("describeToolGate", () => {
     expect(desc.sessionApproval?.grants).toHaveLength(1);
   });
 
+  it("suggests the exact command for an ask the parse could not resolve", () => {
+    // A wildcard grant never covers such a command again (the floor holds),
+    // and on parsed commands it would grant more than the user saw.
+    const command = "git status\nrm -rf /tmp/x\n)";
+    const check = makeCheckResult("ask", {
+      toolName: "bash",
+      command,
+      floor: "<unparsed-bash-subtree>",
+    });
+    const desc = describeToolGate(
+      makeTcc({ toolName: "bash", input: { command } }),
+      check,
+      makeFormatter(),
+    );
+    expect(desc.sessionApproval?.grants[0]?.pattern).toBe(command);
+  });
+
+  it.each(['rm * "', "ls ?\n)"])(
+    "offers no session option for an unresolved %j, which holds a wildcard",
+    (command) => {
+      const check = makeCheckResult("ask", {
+        toolName: "bash",
+        command,
+        floor: "<unparsed-bash-subtree>",
+      });
+      const desc = describeToolGate(
+        makeTcc({ toolName: "bash", input: { command } }),
+        check,
+        makeFormatter(),
+      );
+      expect(desc.sessionApproval).toBeUndefined();
+      expect(desc.promptDetails.sessionLabel).toBeUndefined();
+    },
+  );
+
   it("binds a current-directory file's session approval to the cwd subtree", () => {
     const check = makeCheckResult("ask", { toolName: "edit" });
     const desc = describeToolGate(

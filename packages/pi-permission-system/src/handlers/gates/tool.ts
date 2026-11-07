@@ -15,6 +15,7 @@ import { buildToolAskPayload } from "#src/presentation/tool-ask-payload";
 import { SessionApproval } from "#src/session/session-approval";
 import type { ToolPreviewFormatter } from "#src/tool-input/tool-preview-formatter";
 import type { AskingBashUnit, PermissionCheckResult } from "#src/types";
+import { UNPARSED_SUBTREE_SENTINEL } from "./bash-command";
 import type { GateDescriptor } from "./descriptor";
 import {
   accessFactsFromPath,
@@ -102,8 +103,9 @@ function valueSessionOption(
   toolName: string,
   gateSurface: string,
   check: PermissionCheckResult,
-): SessionOption {
+): SessionOption | undefined {
   const suggestion = suggestValueSessionPattern(toolName, gateSurface, check);
+  if (suggestion === undefined) return undefined;
   return {
     approval: SessionApproval.single(suggestion.surface, suggestion.pattern),
     label: suggestion.label,
@@ -121,9 +123,19 @@ function suggestValueSessionPattern(
   toolName: string,
   gateSurface: string,
   check: PermissionCheckResult,
-): SessionApprovalSuggestion {
+): SessionApprovalSuggestion | undefined {
   if (classifyToolKind(toolName) === "mcp-tool") {
     return suggestExactSessionPattern(gateSurface, toolName.trim());
+  }
+  // A command the parse could not resolve keeps its floor under any wildcard
+  // grant, and on a parsed command a wildcard would grant more than the user
+  // saw, so only the exact command is offered. The matcher has no escape, so
+  // a command holding `*` or `?` cannot be offered exactly: it gets no
+  // session option at all.
+  if (check.floor === UNPARSED_SUBTREE_SENTINEL) {
+    const command = check.command ?? "";
+    if (!command || /[*?]/.test(command)) return undefined;
+    return suggestExactSessionPattern(gateSurface, command);
   }
   return suggestSessionPattern(
     gateSurface,
@@ -187,13 +199,13 @@ export function describeToolGate(
     surface: gateSurface,
     input: tcc.input,
     payload,
-    sessionApproval: sessionOption.approval,
+    ...(sessionOption ? { sessionApproval: sessionOption.approval } : {}),
     promptDetails: {
       source: "tool_call",
       agentName: tcc.agentName,
       toolCallId: tcc.toolCallId,
       toolName: tcc.toolName,
-      sessionLabel: sessionOption.label,
+      ...(sessionOption ? { sessionLabel: sessionOption.label } : {}),
       accessIntent,
       ...permissionLogContext,
     },
