@@ -144,7 +144,7 @@ describe("BashProgram.parseSync commands", () => {
 
       it("withholds the spelling under a prefix assignment of HOME", () => {
         expect(commandsOf("HOME=/tmp/evil ~/bin/x")).toEqual([
-          { text: "~/bin/x" },
+          { text: "~/bin/x", assignmentPrefix: true },
         ]);
       });
 

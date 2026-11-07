@@ -130,6 +130,24 @@ describe("suggestBashPattern", () => {
       });
     });
   });
+
+  describe("a command behind a leading assignment", () => {
+    it.each([
+      "FOO=1 git status",
+      "CI=1 pnpm test --run",
+      "A=1 B=2 git push origin",
+      "CI+=x git status",
+      "CI[0]=x git status",
+      "_=1 rm x",
+      "FOO=1",
+    ])("suggests the exact command for %s", (command) => {
+      expect(suggestBashPattern(command)).toBe(command);
+    });
+
+    it("still suggests a wildcard for an assignment-like argument", () => {
+      expect(suggestBashPattern("git push origin FOO=1")).toBe("git push *");
+    });
+  });
 });
 
 describe("suggestMcpPattern", () => {

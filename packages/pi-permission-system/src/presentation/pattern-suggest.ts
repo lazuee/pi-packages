@@ -35,6 +35,10 @@ export interface SessionApprovalSuggestion {
  *   then a space wildcard (`sudo -u root nohup mytool *`).
  * - Wrapper whose inner command cannot be proven: the exact command, with no
  *   wildcard (`watch mytool x`).
+ * - Command behind a leading assignment (`FOO=1 git status`): the exact
+ *   command. The gate floors such a command whatever rule matches it, so a
+ *   wildcard grant could never allow it again, and a first-word wildcard
+ *   (`FOO=1 *`) would match any command that variable prefixes.
  */
 export function suggestBashPattern(command: string): string {
   const trimmed = command.trim();
@@ -43,6 +47,7 @@ export function suggestBashPattern(command: string): string {
   // actual command, not a `# description` prefix agents often prepend.
   const stripped = stripBashCommentLines(trimmed);
   if (!stripped) return "";
+  if (LEADING_ASSIGNMENT.test(stripped)) return stripped;
   const tokens = stripped.split(/\s+/);
   if (tokens.length === 1) return stripped;
   // A wrapper's words are split only where bash splits them: `\s` also splits
@@ -57,6 +62,13 @@ export function suggestBashPattern(command: string): string {
   }
   return `${meaningful.join(" ")} *`;
 }
+
+/**
+ * A first word bash may read as an assignment: `NAME=`, `NAME+=`, or a
+ * subscripted `NAME[…]=` / `NAME[…]+=`. Over-matching only yields the exact
+ * command, the narrowest suggestion.
+ */
+const LEADING_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/;
 
 /** The blanks bash splits a command's words on. */
 const BASH_BLANKS = /[ \t\n]+/;

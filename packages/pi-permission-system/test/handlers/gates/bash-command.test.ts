@@ -1536,3 +1536,107 @@ const normalizer = new PathNormalizer(
 function commandsOf(command: string): BashCommand[] | null {
   return BashProgram.parseSync(command, normalizer)?.commands() ?? null;
 }
+
+describe("resolveBashCommandCheck: a leading variable assignment", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  // An assignment in front of a command changes what that command does
+  // (config injection, library preload, executable search path), so a rule
+  // written for the bare command must not allow it.
+  const policy: Record<string, PermissionState> = {
+    "*": "ask",
+    "git status*": "allow",
+    "git push *": "allow",
+    "ls *": "allow",
+    "cat *": "allow",
+  };
+
+  describe("floors an allow to ask", () => {
+    it.each([
+      ["GIT_DIR=/tmp/x git status", "a GIT_* variable"],
+      ["GIT_SSH_COMMAND=x git push origin", "a GIT_* variable"],
+      ["LD_PRELOAD=/tmp/x.so ls -la", "a library preload"],
+      ["PATH=/tmp/bin:$PATH ls", "the executable search path"],
+      ["FOO=1 git status", "any assignment"],
+      ["A=1 B=2 git status", "several assignments"],
+      ["git status && FOO=1 git status", "a later unit of a chain"],
+      ["ls $(FOO=1 git status)", "a command substitution"],
+    ])("for %s (%s)", (command) => {
+      const result = decide(policy, command);
+      expect(result.state).toBe("ask");
+      expect(result.floor).toBe("<assignment-prefixed-command>");
+    });
+
+    // The wrapper floor's exemption is consulted only once the wrapper's own
+    // text is allowed, so these need a permissive catch-all to reach it.
+    it.each([
+      ["FOO=1 sudo cat x", "a prefix on a wrapper the floor would exempt"],
+      ["env FOO=1 cat x", "env passing an assignment"],
+      ["env -i LD_PRELOAD=/tmp/x.so cat x", "env -i passing an assignment"],
+      ["sudo FOO=1 cat x", "sudo passing an assignment"],
+      ["sudo env FOO=1 cat x", "a nested layer passing an assignment"],
+    ])("for %s under a permissive catch-all (%s)", (command) => {
+      const result = decide({ "*": "allow" }, command);
+      expect(result.state).toBe("ask");
+    });
+
+    it("names the whole command and its floor", () => {
+      const command = "FOO=1 git status";
+      const result = decide(policy, command);
+      expect(result.command).toBe(command);
+      expect(result.matchedPattern).toBe("<assignment-prefixed-command>");
+      expect(result.floor).toBe("<assignment-prefixed-command>");
+    });
+
+    it("suggests a grant that covers no other command", () => {
+      const asking = decide(policy, "FOO=1 git status");
+      const grant = [
+        sessionRule("bash", suggestBashPattern(asking.command ?? "")),
+      ];
+      expect(grant[0].pattern).toBe("FOO=1 git status");
+      for (const command of ["FOO=1 rm x", "FOO=1 git status x"]) {
+        expect(decide(policy, command, grant).state).toBe("ask");
+      }
+    });
+
+    it("ignores a session grant given for the bare command", () => {
+      const result = decide(policy, "FOO=1 git push origin", [
+        sessionRule("bash", "git push *"),
+      ]);
+      expect(result.state).toBe("ask");
+    });
+  });
+
+  describe("keeps a stricter decision", () => {
+    it("denies when the bare command is denied", () => {
+      const result = decide(
+        { ...policy, "git status*": "deny" },
+        "FOO=1 git status",
+      );
+      expect(result.state).toBe("deny");
+    });
+  });
+
+  describe("leaves commands without an assignment alone", () => {
+    it.each([
+      "git status",
+      "git status --short",
+      "ls -la",
+      "git push origin FOO=1",
+    ])("allows %s", (command) => {
+      const result = decide(policy, command);
+      expect(result.state).toBe("allow");
+    });
+
+    it.each(["env -i cat x", "env -u FOO cat x", "sudo cat x"])(
+      "keeps the reader exemption for %s",
+      (command) => {
+        const result = decide({ "*": "allow" }, command);
+        expect(result.state).toBe("allow");
+        expect(result.floorExemption).toBe("core-reader");
+      },
+    );
+  });
+});

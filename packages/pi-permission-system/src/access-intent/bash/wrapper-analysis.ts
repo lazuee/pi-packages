@@ -172,7 +172,11 @@ export function executedUnitOf(
  *    value, operand, and `NAME=value` word. The shell splits or expands a
  *    computed one before the wrapper runs, so one of the words it becomes may
  *    be the command that really runs — `sudo -u $U cat x` with
- *    `U="root rm y"` runs `rm y cat x` as root.
+ *    `U="root rm y"` runs `rm y cat x` as root. No layer may pass a
+ *    `NAME=value` word at all, literal or not, and the inner command may not
+ *    start with one: an assignment rewrites the inner command's environment,
+ *    so `env GIT_DIR=… git status` is not the read `git status` is
+ *    ({@link passesAssignment}).
  * 4. The inner command *proves* a read — bare-basename core word, retraction
  *    guards applied, so `xargs sort -o /tmp/x` and `xargs find . -delete` are
  *    not transparent.
@@ -205,7 +209,9 @@ export function floorExemptionOf(
     unwrapped.kind === "opaque" ||
     unwrapped.peeled.length === 0 ||
     unwrapped.peeled.some(runsOpaqueCommandLine) ||
-    unwrapped.peeled.some(carriesComputedWord)
+    unwrapped.peeled.some(carriesComputedWord) ||
+    unwrapped.peeled.some(passesAssignment) ||
+    isEnvironmentAssignment(unwrapped.words.at(0)?.text ?? "")
   ) {
     return undefined;
   }
@@ -241,6 +247,19 @@ function namesNoCommand(words: readonly CommandWord[]): boolean {
     getoptWalkEnd(words, grammar) === words.length &&
     !carriesComputedWord(words)
   );
+}
+
+/**
+ * True when a peeled layer hands the inner command a `NAME=value` assignment
+ * (`env GIT_DIR=x git status`, `sudo LD_PRELOAD=x cat`).
+ *
+ * The assignment changes what the inner command does, so the unit cannot
+ * inherit that command's verdict: neither a proven read nor an execution
+ * modifier holds once its environment is rewritten. Over-matching a value
+ * that only looks like an assignment keeps the floor, the fail-closed side.
+ */
+function passesAssignment(layer: readonly CommandWord[]): boolean {
+  return layer.slice(1).some((word) => isEnvironmentAssignment(word.text));
 }
 
 /** True when a peeled layer's wrapper does not run the words the peel sees. */

@@ -66,6 +66,14 @@ export interface BashCommand {
    */
   readonly parseUnresolved?: true;
   /**
+   * Set when the command was written behind a leading `variable_assignment`
+   * prefix (`NAME=value cmd …`), which {@link text} leaves out. The prefix
+   * changes what the command does (`GIT_*` config, `LD_PRELOAD`, `PATH`), so
+   * the unit's decision is floored to at least `ask`: a rule written for the
+   * bare command never consented to it.
+   */
+  readonly assignmentPrefix?: true;
+  /**
    * Set when this unit came from a region re-parsed out of a subtree the
    * primary parse could not resolve, rather than from the primary parse
    * itself (#875).
@@ -499,6 +507,7 @@ interface UnitFacts {
   readonly executedUnit?: string;
   readonly floorExemption?: FloorExemption;
   readonly spellings?: readonly string[];
+  readonly assignmentPrefix?: boolean;
 }
 
 function makeUnit(
@@ -521,7 +530,10 @@ function makeUnit(
   const salvaged: BashCommand = scope.salvaged
     ? { ...marked, salvaged: true }
     : marked;
-  return spellings === undefined ? salvaged : { ...salvaged, spellings };
+  const prefixed: BashCommand = facts.assignmentPrefix
+    ? { ...salvaged, assignmentPrefix: true }
+    : salvaged;
+  return spellings === undefined ? prefixed : { ...prefixed, spellings };
 }
 
 /**
@@ -548,7 +560,19 @@ function makeCommandUnit(
     executedUnit: executedUnitOf(text, words) ?? undefined,
     floorExemption:
       floorExemption ?? floorExemptionOf(words, redirectedScope(node, scope)),
+    assignmentPrefix: words.length > 0 && hasAssignmentPrefix(node),
   });
+}
+
+/**
+ * True when a `command` node carries a `variable_assignment` child, the
+ * `NAME=value` prefix {@link readCommandUnit} leaves out of the unit's text.
+ */
+function hasAssignmentPrefix(node: TSNode): boolean {
+  for (let i = 0; i < node.childCount; i++) {
+    if (node.child(i)?.type === "variable_assignment") return true;
+  }
+  return false;
 }
 
 /**
@@ -585,7 +609,9 @@ function redirectedScope(node: TSNode, scope: UnitScope): UnitScope {
  *
  * - An env-var prefix (`AWS_PROFILE=prod aws …`, `PGPASSWORD=…`), which is part
  *   of the `command` node's text but must not defeat a rule that gates the
- *   underlying command.
+ *   underlying command. Leaving it out lets a `deny` on the bare command
+ *   still match, and {@link makeCommandUnit} marks the unit
+ *   {@link BashCommand.assignmentPrefix} so an `allow` for it is floored.
  * - A redirect, wherever it sits (`2>/dev/null git push`, `git <<< x push`).
  *   Bash accepts one anywhere in a simple command, and its position does not
  *   change which command runs, so it must not change which rule applies either
