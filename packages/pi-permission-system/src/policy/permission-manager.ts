@@ -17,6 +17,7 @@ import {
   type PolicyLoaderOptions,
   type ResolvedPolicyPaths,
 } from "#src/config/policy-loader";
+import { expandHomePath } from "#src/path/expand-home";
 import { type PathFlavor, posixPathFlavor } from "#src/path/path-flavor";
 import type {
   FlatPermissionConfig,
@@ -33,6 +34,7 @@ import {
   evaluateAnyValue,
   floorAllowsToAsk,
   isSurfaceFullyDenied,
+  pathMatchOptions,
   rewriteAsksToYolo,
 } from "./rule";
 import { type MergedScopes, mergeScopesWithOrigins } from "./scope-merge";
@@ -41,6 +43,7 @@ import {
   synthesizeBaseline,
   synthesizeDefaults,
 } from "./synthesize";
+import { wildcardMatch } from "./wildcard-matcher";
 
 const SPECIAL_PERMISSION_KEYS = new Set(["external_directory", "path"]);
 
@@ -378,6 +381,30 @@ export class PermissionManager implements ScopedPermissionManager {
       ? rewriteAsksToYolo(composedWithSession)
       : composedWithSession;
 
+    const result = this.evaluate(intent, fullRules);
+    if (result.source === "session" && result.state !== "deny") {
+      const configOnly = this.evaluate(intent, this.withYolo(composedRules));
+      if (denyOutranksGrant(configOnly, result, intent.surface, this.flavor)) {
+        return configOnly;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Apply the yolo rewrite post-cache so the resolved-permissions cache and
+   * the display surfaces (getComposedConfigRules / getToolPermission) stay
+   * yolo-free — only the resolution path sees the ask→allow rewrite (#526).
+   */
+  private withYolo(rules: Ruleset): Ruleset {
+    return this.isYoloEnabled() ? rewriteAsksToYolo(rules) : rules;
+  }
+
+  /** Resolve one intent against one composed ruleset. */
+  private evaluate(
+    intent: ResolvedAccessIntent,
+    fullRules: Ruleset,
+  ): PermissionCheckResult {
     if (intent.kind === "path-values") {
       const lookupValues =
         intent.values.length > 0 ? [...intent.values] : ["*"];
@@ -431,6 +458,40 @@ export class PermissionManager implements ScopedPermissionManager {
       this.flavor,
     );
   }
+}
+
+/**
+ * True when a config deny must stand against the session grant that decided.
+ *
+ * Session grants follow the config rules and the last match wins, which is
+ * how a grant opens a scope a broader deny closes (`*: deny` with `echo *`
+ * granted). It must not reopen anything a deny names that the grant does not
+ * lie wholly inside: `rm *` granted does not lift `rm -rf /etc*: deny`, and
+ * `/proj/*` granted does not lift `*.env: deny`. So the deny stands unless it
+ * is the grant's own pattern or contains it — the deny matches the grant's
+ * pattern text, read with the surface's path folding and home expansion on
+ * both sides. Where the two merely overlap, or matched different candidates,
+ * the deny wins.
+ */
+function denyOutranksGrant(
+  configOnly: PermissionCheckResult,
+  granted: PermissionCheckResult,
+  surface: string,
+  flavor: PathFlavor,
+): boolean {
+  if (configOnly.state !== "deny") return false;
+  // A deny with no pattern is the surface's catch-all.
+  const deny = configOnly.matchedPattern ?? "*";
+  const grant = granted.matchedPattern;
+  if (grant === undefined) return true;
+  const options = pathMatchOptions(surface, flavor);
+  const grantText = expandHomePath(grant);
+  if (deny === grant || expandHomePath(deny) === grantText) return false;
+  // Matching the grant's pattern text is containment only while a deny `?`
+  // never stands in for a grant wildcard: `rm -rf /?` matches the text
+  // `rm -rf /*` but covers one character where the grant covers any run.
+  if (deny.includes("?") && /[*?]/.test(grant)) return true;
+  return !wildcardMatch(deny, grantText, options);
 }
 
 /**

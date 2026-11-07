@@ -1868,3 +1868,36 @@ describe("resolveBashCommandCheck: a deny reaches the command however it is spel
     expect(result.state).toBe(state);
   });
 });
+
+describe("resolveBashCommandCheck: a config deny outranks every session grant", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  const policy: Record<string, PermissionState> = {
+    "*": "ask",
+    "rm -rf /etc*": "deny",
+  };
+
+  it.each([
+    ["rm -rf /etc", ["rm *"]],
+    ["nohup rm -rf /etc", ["nohup *", "rm *"]],
+    ["sudo rm -rf /etc", ["sudo *", "rm *"]],
+  ] as const)("denies %s under grants %j", (command, grants) => {
+    const result = decide(
+      policy,
+      command,
+      grants.map((pattern) => sessionRule("bash", pattern)),
+    );
+    expect(result.state).toBe("deny");
+    expect(result.matchedPattern).toBe("rm -rf /etc*");
+  });
+
+  it("still allows what the grant covers and no deny names", () => {
+    const result = decide(policy, "rm -rf /tmp/x", [
+      sessionRule("bash", "rm *"),
+    ]);
+    expect(result.state).toBe("allow");
+    expect(result.source).toBe("session");
+  });
+});
