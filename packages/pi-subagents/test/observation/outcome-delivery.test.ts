@@ -107,9 +107,9 @@ describe("renderQuestionAffordance", () => {
 			);
 		});
 
-		it("names a removed workspace as the reason", () => {
+		it("names a workspace that cannot be restored as the reason", () => {
 			expect(renderQuestionAffordance("agent-7", "Which config?", "workspace-disposed")).toContain(
-				"it ran in an isolated workspace that has since been removed",
+				"it ran in an isolated workspace that is gone and cannot be restored",
 			);
 		});
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { makeWorkspace, makeWorkspaceProvider } from "#test/helpers/make-workspace";
+import {
+	makeResumableWorkspace,
+	makeWorkspace,
+	makeWorkspaceProvider,
+} from "#test/helpers/make-workspace";
 
 const outcome = { status: "completed" as const, description: "test agent" };
 
@@ -43,5 +47,31 @@ describe("makeWorkspaceProvider", () => {
 		const ctx = { agentId: "a", agentType: "general-purpose" as const, baseCwd: "/p" };
 		await provider.prepare(ctx);
 		expect(provider.prepare).toHaveBeenCalledWith(ctx);
+	});
+});
+
+describe("makeResumableWorkspace", () => {
+	it("exposes the cwd it was built with", () => {
+		expect(makeResumableWorkspace("/ws/dir").cwd).toBe("/ws/dir");
+	});
+
+	it("records every resume", async () => {
+		const workspace = makeResumableWorkspace("/ws/dir");
+		await workspace.resume();
+		await workspace.resume();
+		expect(workspace.resume).toHaveBeenCalledTimes(2);
+	});
+
+	it("runs the supplied onResume hook", async () => {
+		const workspace = makeResumableWorkspace("/ws/dir", {
+			onResume: () => { workspace.cwd = "/ws/moved"; },
+		});
+		await workspace.resume();
+		expect(workspace.cwd).toBe("/ws/moved");
+	});
+
+	it("disposes to the supplied result", () => {
+		const workspace = makeResumableWorkspace("/ws/dir", { disposeResult: { resultAddendum: "\n\n---\nsaved" } });
+		expect(workspace.dispose(outcome)).toEqual({ resultAddendum: "\n\n---\nsaved" });
 	});
 });

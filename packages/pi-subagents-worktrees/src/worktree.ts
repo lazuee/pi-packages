@@ -25,42 +25,58 @@ export const AGENT_WORKTREE_PREFIX = "pi-agent-";
 export interface WorktreeInfo {
   /** Absolute path to the worktree directory. */
   path: string;
-  /** Branch name created for this worktree (if changes exist). */
+  /** Preferred branch name for the work it holds (a collision gets a suffix). */
   branch: string;
+  /**
+   * The commit this worktree currently descends from: the one it was created at,
+   * then the one a resume restored it at. Cleanup compares the worktree's HEAD
+   * with it to tell a run that changed nothing from one that committed its own
+   * work.
+   */
+  commit: string;
 }
 
 /** How a worktree's cleanup ended. Each outcome carries only its own data. */
 export type WorktreeCleanupResult =
-  /** Nothing to save; the worktree was removed. */
-  | { outcome: "clean" }
   /**
-   * Changes were committed to `branch`; the worktree was removed.
+   * Nothing was saved: the worktree was removed, and `commit` is the state it
+   * held (the commit it started at, when the child changed nothing).
+   */
+  | { outcome: "clean"; commit: string }
+  /**
+   * Changes were committed to `branch`, at `commit`; the worktree was removed.
    * `hooksBypassed` records whether the commit hooks had to be skipped.
    */
-  | { outcome: "committed"; branch: string; hooksBypassed: boolean }
+  | {
+      outcome: "committed";
+      branch: string;
+      commit: string;
+      hooksBypassed: boolean;
+    }
   /** Cleanup failed partway; the worktree was left at `path` for recovery. */
   | { outcome: "failed"; path: string; error: string };
 
 /**
- * Create a temporary git worktree for an agent.
+ * Create a temporary git worktree for an agent, detached at the repository's
+ * current commit.
  * Returns the worktree path, or undefined if not in a git repo.
  */
 export function createWorktree(
   cwd: string,
   agentId: string,
 ): WorktreeInfo | undefined {
-  // Verify we're in a git repo with at least one commit (HEAD must exist)
+  // Verify we're in a git repo with at least one commit (HEAD must exist), and
+  // take that commit as the worktree's baseline: restoring from it, rather than
+  // from whatever HEAD is at the time of the restore, is what makes a reopened
+  // worktree the state the child left, not the parent's newer one.
+  let commit: string;
   try {
     execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
       cwd,
       stdio: "pipe",
       timeout: 5000,
     });
-    execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd,
-      stdio: "pipe",
-      timeout: 5000,
-    });
+    commit = revParseHead(cwd);
   } catch (err) {
     debugLog("createWorktree git rev-parse", err);
     return undefined;
@@ -71,13 +87,13 @@ export function createWorktree(
   const worktreePath = join(tmpdir(), `${branch}-${suffix}`);
 
   try {
-    // Create detached worktree at HEAD
-    execFileSync("git", ["worktree", "add", "--detach", worktreePath, "HEAD"], {
+    // Create detached worktree at the commit taken above
+    execFileSync("git", ["worktree", "add", "--detach", worktreePath, commit], {
       cwd,
       stdio: "pipe",
       timeout: 30000,
     });
-    return { path: worktreePath, branch };
+    return { path: worktreePath, branch, commit };
   } catch (err) {
     debugLog("git worktree add", err);
     return undefined;
@@ -85,10 +101,38 @@ export function createWorktree(
 }
 
 /**
+ * Recreate a removed worktree at its own path, detached at exactly `commit`.
+ *
+ * The path is reused because the child's session is fixed on it — a restore
+ * anywhere else would not be where the resumed child runs. It is never
+ * overwritten: a directory already at that path may be a preserved worktree
+ * holding work no branch reaches, another repository's worktree, or something
+ * that has nothing to do with this package, so its presence fails the restore
+ * rather than being cleared. Git's own refusal (a commit the object database no
+ * longer has, a path it considers occupied) propagates for the same reason.
+ */
+export function restoreWorktree(
+  cwd: string,
+  worktreePath: string,
+  commit: string,
+): void {
+  if (existsSync(worktreePath)) {
+    throw new Error(
+      `Cannot reopen the worktree at \`${worktreePath}\`: the path already exists. ` +
+        "Leaving it untouched — remove it yourself if you are sure it holds no work you need.",
+    );
+  }
+  runGit(cwd, ["worktree", "add", "--detach", worktreePath, commit], 30000);
+}
+
+/**
  * Clean up a worktree after agent completion.
- * - If no changes: remove the worktree entirely.
- * - If changes exist: commit them to a branch, then remove the worktree.
- *   A commit hook that rejects the commit is retried past with `--no-verify`.
+ * - If the tree is clean and still at the commit it started from: remove the
+ *   worktree entirely.
+ * - If the tree is clean but its HEAD moved — the child committed its own work —
+ *   or has changes: commit what is left, save it to a branch, then remove the
+ *   worktree.
+ *   A commit hook that rejects the rescue commit is retried past with `--no-verify`.
  * - If any of that fails: leave the worktree in place and report the error.
  */
 export function cleanupWorktree(
@@ -97,14 +141,29 @@ export function cleanupWorktree(
   agentDescription: string,
 ): WorktreeCleanupResult {
   if (!existsSync(worktree.path)) {
-    return { outcome: "clean" };
+    return { outcome: "failed", path: worktree.path, error: "Worktree disappeared before its changes could be saved." };
   }
 
   try {
     if (!statusPorcelain(worktree.path)) {
+      // A clean tree says nothing about commits: a child that ran `git commit`
+      // itself leaves no status behind, and removing the worktree would drop the
+      // only reference to that work. Anything past the commit this run started
+      // from is the child's, so it is saved to a branch like a dirty tree.
+      const head = revParseHead(worktree.path);
+      if (head !== worktree.commit) {
+        const branch = createBranch(worktree.path, worktree.branch);
+        removeWorktree(cwd, worktree.path);
+        return {
+          outcome: "committed",
+          branch,
+          commit: head,
+          hooksBypassed: false,
+        };
+      }
       // No changes — remove worktree
       removeWorktree(cwd, worktree.path);
-      return { outcome: "clean" };
+      return { outcome: "clean", commit: head };
     }
 
     // Changes exist — stage, commit, and create a branch
@@ -113,11 +172,13 @@ export function cleanupWorktree(
     const safeDesc = agentDescription.slice(0, 200);
     const hooksBypassed = commitStaged(worktree.path, `pi-agent: ${safeDesc}`);
     const branch = createBranch(worktree.path, worktree.branch);
+    // Read the commit before the worktree goes: it is what a resume restores.
+    const commit = revParseHead(worktree.path);
 
     // Remove the worktree (branch persists in main repo)
     removeWorktree(cwd, worktree.path);
 
-    return { outcome: "committed", branch, hooksBypassed };
+    return { outcome: "committed", branch, commit, hooksBypassed };
   } catch (err) {
     // Never remove a worktree whose fate is uncertain: it can hold work that
     // was never written to the object database, which no `git fsck` recovers.
@@ -166,6 +227,11 @@ function statusPorcelain(worktreePath: string): string {
   return runGit(worktreePath, ["status", "--porcelain"]).trim();
 }
 
+/** The commit a worktree's HEAD points at. */
+function revParseHead(worktreePath: string): string {
+  return runGit(worktreePath, ["rev-parse", "HEAD"]).trim();
+}
+
 /** Stage every change in the worktree, including untracked files. */
 function stageAll(worktreePath: string): void {
   runGit(worktreePath, ["add", "-A"]);
@@ -191,10 +257,7 @@ function commitStaged(worktreePath: string, message: string): boolean {
   }
 }
 
-/**
- * Create a branch at the worktree's HEAD, returning the name actually used.
- * If the preferred name is taken, a timestamp suffix avoids overwriting previous work.
- */
+/** Save an immutable result branch, using the native collision suffix when needed. */
 function createBranch(worktreePath: string, preferred: string): string {
   try {
     runGit(worktreePath, ["branch", preferred], 5000);
@@ -223,7 +286,7 @@ export function discardWorktree(cwd: string, worktreePath: string): void {
 }
 
 /**
- * Force-remove a worktree as part of cleanup, where failure is not actionable.
+ * Remove a saved worktree; propagate failure so cleanup cannot claim it is gone.
  */
 function removeWorktree(cwd: string, worktreePath: string): void {
   try {
@@ -239,6 +302,7 @@ function removeWorktree(cwd: string, worktreePath: string): void {
     } catch (pruneErr) {
       debugLog("git worktree prune", pruneErr);
     }
+    throw err;
   }
 }
 

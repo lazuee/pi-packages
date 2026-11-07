@@ -88,7 +88,8 @@ const RESUME_REFUSAL_CLAUSES: Record<Exclude<ResumeRefusal, "still-running" | "r
 	// colon, and "resume:" is the exact token the parent must not see here.
 	"no-session": "it has no active session",
 	"session-released": "its session was released after its retention window",
-	"workspace-disposed": "it ran in an isolated workspace that has since been removed",
+	"workspace-disposed":
+		"it ran in an isolated workspace that is gone and cannot be restored",
 };
 
 /**

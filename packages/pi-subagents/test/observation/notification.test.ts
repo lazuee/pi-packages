@@ -305,7 +305,9 @@ describe("NotificationManager", () => {
 
     const content = (args.sendMessage.mock.calls[0][0] as { content: string }).content;
     expect(content).toContain("Which config?");
-    expect(content).toContain("it ran in an isolated workspace that has since been removed");
+    expect(content).toContain(
+      "it ran in an isolated workspace that is gone and cannot be restored",
+    );
     expect(content).not.toContain("resume:");
   });
 

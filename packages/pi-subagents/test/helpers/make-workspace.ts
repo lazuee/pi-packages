@@ -36,3 +36,32 @@ export function makeWorkspaceProvider(workspace: Workspace | undefined) {
 		),
 	};
 }
+
+/**
+ * A Workspace stub that can also be reopened: `onResume` runs on every
+ * `resume()`, so a test can recreate the directory the workspace reports,
+ * hand it back at another cwd, or reject to fail the restore.
+ *
+ * The shape is a plain object rather than a `Workspace`, for the same reason as
+ * makeWorkspace: the `Mock` methods are what the tests assert on.
+ */
+export function makeResumableWorkspace(
+	cwd: string,
+	options: {
+		disposeResult?: WorkspaceDisposeResult;
+		onResume?: () => void | Promise<void>;
+	} = {},
+) {
+	const { disposeResult, onResume } = options;
+	return {
+		// Writable on purpose: one test asserts what the bracket does when a
+		// restore hands the workspace back at a different directory.
+		cwd,
+		dispose: vi.fn(
+			(_outcome: WorkspaceDisposeOutcome): WorkspaceDisposeResult | undefined => disposeResult,
+		),
+		resume: vi.fn(async (): Promise<void> => {
+			await onResume?.();
+		}),
+	};
+}

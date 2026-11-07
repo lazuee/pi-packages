@@ -46,6 +46,10 @@ An agent type not in `worktreeAgents` runs in the parent working directory, exac
   A question you never answer keeps the worktree until the subagents core releases the child's session.
 - When the child finishes with no changes, the worktree is removed.
 - When the child finishes with changes, they are committed to a branch (`pi-agent-<id>`), and the child's result gains a note: `Changes saved to branch \`<branch>\`. Merge with: \`git merge <branch>\``.
+  The same happens when the tree is clean but the child committed its own work: `git status` says nothing about commits, and removing the worktree would leave that work reachable only by its dangling commit.
+  Each cycle saves a separate result branch when necessary; existing result branches are never overwritten.
+- A resumed child is recreated in its own worktree at the same path and the exact commit cleanup left it at — never at the parent's current `HEAD`, which would run it in a tree without its own work.
+  A resume whose cleanup failed, or whose path is now occupied, fails with an error instead of rebuilding over anything.
 - If a commit hook rejects that commit, it is retried once with `--no-verify`, because the commit exists to rescue work the child already did and a rejecting hook would otherwise cost you that work.
   Files a hook rewrote before failing are re-staged, so a formatter's corrections are committed rather than discarded.
   The note then gains a second line reading `Commit hooks were bypassed to save this work — review the commit before merging.`

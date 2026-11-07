@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -14,7 +15,9 @@ import {
   createWorktree,
   discardWorktree,
   pruneWorktrees,
+  restoreWorktree,
   type WorktreeCleanupResult,
+  type WorktreeInfo,
 } from "#src/worktree";
 import {
   initGitRepo,
@@ -32,6 +35,13 @@ function assertOutcome<T extends WorktreeCleanupResult["outcome"]>(
       `expected outcome "${outcome}", got "${result.outcome}": ${JSON.stringify(result)}`,
     );
   }
+}
+
+/** The sha a ref points at, resolved in `cwd`. */
+function revParse(cwd: string, ref: string): string {
+  return execFileSync("git", ["rev-parse", ref], { cwd, stdio: "pipe" })
+    .toString()
+    .trim();
 }
 
 describe("worktree", () => {
@@ -157,7 +167,10 @@ describe("worktree", () => {
       const wt = worktreeFor("clean-1");
 
       const result = cleanupWorktree(repoDir, wt, "test cleanup");
-      expect(result).toEqual({ outcome: "clean" });
+      assertOutcome(result, "clean");
+      // Nothing was saved, so the commit a resume restores is the one the run
+      // started from.
+      expect(result.commit).toBe(wt.commit);
     });
 
     it("commits changes and creates branch when changes exist", () => {
@@ -237,7 +250,8 @@ describe("worktree", () => {
       rmSync(wt.path, { recursive: true, force: true });
 
       const result = cleanupWorktree(repoDir, wt, "already gone");
-      expect(result).toEqual({ outcome: "clean" });
+      assertOutcome(result, "failed");
+      expect(result.error).toContain("disappeared");
     });
 
     it("bypasses hooks to save the work when the rescue commit is rejected", () => {
@@ -292,6 +306,124 @@ describe("worktree", () => {
       );
     });
 
+    it("reports failed removal truthfully and preserves the saved worktree", () => {
+      const wt = worktreeFor("locked-removal");
+      writeFileSync(join(wt.path, "precious.txt"), "keep this");
+      execFileSync("git", ["worktree", "lock", wt.path], { cwd: repoDir, stdio: "pipe" });
+      try {
+        const result = cleanupWorktree(repoDir, wt, "locked removal");
+        assertOutcome(result, "failed");
+        expect(existsSync(wt.path)).toBe(true);
+        expect(readFileSync(join(wt.path, "precious.txt"), "utf8")).toBe("keep this");
+        expect(revParse(repoDir, wt.branch)).toBe(revParse(wt.path, "HEAD"));
+      } finally {
+        execFileSync("git", ["worktree", "unlock", wt.path], { cwd: repoDir, stdio: "pipe" });
+      }
+    });
+
+    it("saves a child's own commit even though its tree is clean", () => {
+      const wt = worktreeFor("self-commit-1");
+      writeFileSync(join(wt.path, "committed.txt"), "the child committed this");
+      execFileSync("git", ["add", "-A"], { cwd: wt.path, stdio: "pipe" });
+      execFileSync("git", ["commit", "-m", "the child's own commit"], {
+        cwd: wt.path,
+        stdio: "pipe",
+      });
+      const head = revParse(wt.path, "HEAD");
+      // Clean by `git status`, and holding the only reference to that commit:
+      // removing the worktree here would drop the child's work on the floor.
+      expect(
+        execFileSync("git", ["status", "--porcelain"], {
+          cwd: wt.path,
+          stdio: "pipe",
+        })
+          .toString()
+          .trim(),
+      ).toBe("");
+
+      const result = cleanupWorktree(repoDir, wt, "clean but committed");
+
+      assertOutcome(result, "committed");
+      expect(result.branch).toBe("pi-agent-self-commit-1");
+      expect(result.commit).toBe(head);
+      expect(result.hooksBypassed).toBe(false);
+      expect(existsSync(wt.path)).toBe(false);
+      expect(revParse(repoDir, result.branch)).toBe(head);
+      expect(
+        execFileSync("git", ["show", `${result.branch}:committed.txt`], {
+          cwd: repoDir,
+          stdio: "pipe",
+        }).toString(),
+      ).toBe("the child committed this");
+    });
+
+    it("reports the commit it saved, so a resume can restore exactly that state", () => {
+      const wt = worktreeFor("exact-1");
+      writeFileSync(join(wt.path, "work.txt"), "child work");
+      const result = cleanupWorktree(repoDir, wt, "did work");
+      assertOutcome(result, "committed");
+      expect(revParse(repoDir, result.branch)).toBe(result.commit);
+    });
+
+    it("saves each resumed cycle without moving the previous result branch", () => {
+      const wt = worktreeFor("cycle-1");
+      writeFileSync(join(wt.path, "a.txt"), "first cycle");
+      const first = cleanupWorktree(repoDir, wt, "first");
+      assertOutcome(first, "committed");
+
+      // The next cycle: the worktree is reopened at the saved commit, as a resume
+      // does, and the child works on from there.
+      restoreWorktree(repoDir, wt.path, first.commit);
+      const second: WorktreeInfo = {
+        ...wt,
+        commit: first.commit,
+      };
+      writeFileSync(join(wt.path, "b.txt"), "second cycle");
+      const result = cleanupWorktree(repoDir, second, "second");
+
+      assertOutcome(result, "committed");
+      expect(result.branch).not.toBe(first.branch);
+      expect(revParse(repoDir, first.branch)).toBe(first.commit);
+      expect(result.commit).not.toBe(first.commit);
+      expect(
+        execFileSync("git", ["show", `${result.branch}:a.txt`], {
+          cwd: repoDir,
+          stdio: "pipe",
+        }).toString(),
+      ).toBe("first cycle");
+      expect(
+        execFileSync("git", ["show", `${result.branch}:b.txt`], {
+          cwd: repoDir,
+          stdio: "pipe",
+        }).toString(),
+      ).toBe("second cycle");
+    });
+
+    it("does not move a saved branch that has since moved", () => {
+      const wt = worktreeFor("moved-1");
+      // Someone else owns that branch name now, and it points at unrelated work.
+      const elsewhere = revParse(repoDir, "HEAD");
+      execFileSync("git", ["branch", wt.branch, elsewhere], {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+      writeFileSync(join(wt.path, "work.txt"), "new work");
+
+      const result = cleanupWorktree(
+        repoDir,
+        {
+          ...wt,
+          commit: "0000000000000000000000000000000000000000",
+        },
+        "moved on",
+      );
+
+      assertOutcome(result, "committed");
+      expect(result.branch).not.toBe(wt.branch);
+      expect(result.branch).toContain(`${wt.branch}-`);
+      expect(revParse(repoDir, wt.branch)).toBe(elsewhere);
+    });
+
     it("truncates commit message at 200 chars", () => {
       const wt = worktreeFor("long-msg");
       writeFileSync(join(wt.path, "change.txt"), "something");
@@ -311,6 +443,87 @@ describe("worktree", () => {
         .trim();
       // "pi-agent: " prefix (10 chars) + 200 chars of x = 210 total max
       expect(log.length).toBeLessThanOrEqual(220); // some slack for hash prefix
+    });
+  });
+
+  describe("restoreWorktree", () => {
+    /** Worktrees a test restored; the suite's afterEach only prunes admin entries. */
+    let restored: string[];
+
+    beforeEach(() => {
+      restored = [];
+    });
+
+    afterEach(() => {
+      for (const path of restored) {
+        try {
+          execFileSync("git", ["worktree", "remove", "--force", path], {
+            cwd: repoDir,
+            stdio: "pipe",
+          });
+        } catch {
+          /* already gone */
+        }
+      }
+    });
+
+    it("recreates the worktree at exactly the commit it was left at", () => {
+      const wt = createWorktree(repoDir, "restore-1")!;
+      restored.push(wt.path);
+      writeFileSync(join(wt.path, "work.txt"), "child work");
+      const result = cleanupWorktree(repoDir, wt, "did work");
+      assertOutcome(result, "committed");
+      expect(existsSync(wt.path)).toBe(false);
+
+      // The parent repository moves on after the child was disposed.
+      writeFileSync(join(repoDir, "later.txt"), "parent work");
+      execFileSync("git", ["add", "later.txt"], {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+      execFileSync("git", ["commit", "-m", "parent moved on"], {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
+
+      restoreWorktree(repoDir, wt.path, result.commit);
+
+      // The resumed child finds its own work, and none of the parent's newer one.
+      expect(readFileSync(join(wt.path, "work.txt"), "utf8")).toBe(
+        "child work",
+      );
+      expect(existsSync(join(wt.path, "later.txt"))).toBe(false);
+      expect(revParse(wt.path, "HEAD")).toBe(result.commit);
+    });
+
+    it("refuses to restore over a directory that already exists", () => {
+      const occupied = join(tmpdir(), `pi-agent-occupied-${Date.now()}`);
+      mkdirSync(occupied);
+      writeFileSync(join(occupied, "unknown.txt"), "not this package's");
+      try {
+        expect(() =>
+          restoreWorktree(repoDir, occupied, revParse(repoDir, "HEAD")),
+        ).toThrow(/already exists/);
+        // Fail closed: whatever was there is still there, untouched.
+        expect(readFileSync(join(occupied, "unknown.txt"), "utf8")).toBe(
+          "not this package's",
+        );
+      } finally {
+        rmSync(occupied, { recursive: true, force: true });
+      }
+    });
+
+    it("fails when the commit it was asked to restore is gone", () => {
+      const target = join(tmpdir(), `pi-agent-nocommit-${Date.now()}`);
+      restored.push(target);
+      expect(() =>
+        restoreWorktree(
+          repoDir,
+          target,
+          "0000000000000000000000000000000000000000",
+        ),
+      ).toThrow();
+      expect(existsSync(target)).toBe(false);
     });
   });
 
