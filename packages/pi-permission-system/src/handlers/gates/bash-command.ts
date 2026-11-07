@@ -2,6 +2,7 @@ import type {
   BashCommand,
   WrapperKind,
 } from "#src/access-intent/bash/command-enumeration";
+import { headSpellingsOf } from "#src/access-intent/bash/wrapper-analysis";
 import type { ScopedPermissionResolver } from "#src/policy/permission-resolver";
 import { pickMostRestrictive } from "#src/policy/restrictiveness";
 import type { PermissionCheckResult } from "#src/types";
@@ -190,9 +191,10 @@ function resolveCommandUnit(
       : base;
   const unparsed = floorUnparsedUnit(cmd, command, floored);
   const prefixed = floorAssignmentPrefixedUnit(cmd, command, unparsed);
+  const denied = denyByRunSpelling(cmd, prefixed, agentName, resolver);
   const contextual = cmd.context
-    ? { ...prefixed, commandContext: cmd.context }
-    : prefixed;
+    ? { ...denied, commandContext: cmd.context }
+    : denied;
   return cmd.executedUnit === undefined
     ? contextual
     : { ...contextual, executedUnit: cmd.executedUnit };
@@ -267,6 +269,36 @@ function floorAssignmentPrefixedUnit(
 /** True when a pattern has no wildcard, so it matches one exact text. */
 function isLiteralPattern(pattern: string | undefined): boolean {
   return pattern !== undefined && !/[*?]/.test(pattern);
+}
+
+/**
+ * Deny a unit when a rule denies any command it runs, however it is spelled
+ * or wrapped (`"sudo" rm x`, `command sudo rm x`, `nohup rm x`).
+ *
+ * The unit's own text is what an `allow` is judged by, so a rule matching
+ * only a run spelling never allows anything; a `deny` names a command that
+ * really runs, so it stands whatever the unit's own decision was. The result
+ * names the unit, so the review log shows what the agent asked to run.
+ */
+function denyByRunSpelling(
+  cmd: BashCommand,
+  resolved: PermissionCheckResult,
+  agentName: string | undefined,
+  resolver: ScopedPermissionResolver,
+): PermissionCheckResult {
+  if (resolved.state === "deny") return resolved;
+  const runs = [
+    cmd.text,
+    ...(cmd.wrapperLayers ?? []),
+    ...(cmd.executedUnit === undefined ? [] : [cmd.executedUnit]),
+  ];
+  const spellings = new Set(runs.flatMap((text) => headSpellingsOf(text)));
+  spellings.delete(cmd.text);
+  for (const spelling of spellings) {
+    const check = resolveOnBashSurface(spelling, [], agentName, resolver);
+    if (check.state === "deny") return { ...check, command: cmd.text };
+  }
+  return resolved;
 }
 
 /**

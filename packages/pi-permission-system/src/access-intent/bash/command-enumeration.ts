@@ -15,6 +15,7 @@ import {
   executedUnitOf,
   floorExemptionOf,
   inlineShellPayloadIndex,
+  intermediateLayersOf,
   type WrapperKind,
 } from "./wrapper-analysis";
 
@@ -73,6 +74,13 @@ export interface BashCommand {
    * bare command never consented to it.
    */
   readonly assignmentPrefix?: true;
+  /**
+   * The commands a multi-layer wrapper unit runs between {@link text} and
+   * {@link executedUnit} (`nohup rm x` in `sudo nohup rm x`), outermost
+   * first. Absent for a single layer. Consulted for a `deny` only, with the
+   * unit and its executed unit: a rule on one never allows the unit.
+   */
+  readonly wrapperLayers?: readonly string[];
   /**
    * Set when this unit came from a region re-parsed out of a subtree the
    * primary parse could not resolve, rather than from the primary parse
@@ -508,6 +516,7 @@ interface UnitFacts {
   readonly floorExemption?: FloorExemption;
   readonly spellings?: readonly string[];
   readonly assignmentPrefix?: boolean;
+  readonly wrapperLayers?: readonly string[];
 }
 
 function makeUnit(
@@ -533,7 +542,11 @@ function makeUnit(
   const prefixed: BashCommand = facts.assignmentPrefix
     ? { ...salvaged, assignmentPrefix: true }
     : salvaged;
-  return spellings === undefined ? prefixed : { ...prefixed, spellings };
+  const ran: BashCommand =
+    facts.wrapperLayers === undefined || facts.wrapperLayers.length === 0
+      ? prefixed
+      : { ...prefixed, wrapperLayers: facts.wrapperLayers };
+  return spellings === undefined ? ran : { ...ran, spellings };
 }
 
 /**
@@ -561,6 +574,7 @@ function makeCommandUnit(
     floorExemption:
       floorExemption ?? floorExemptionOf(words, redirectedScope(node, scope)),
     assignmentPrefix: words.length > 0 && hasAssignmentPrefix(node),
+    wrapperLayers: intermediateLayersOf(text, words),
   });
 }
 

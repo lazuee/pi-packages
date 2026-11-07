@@ -452,8 +452,10 @@ describe("resolveBashCommandCheck", () => {
     });
 
     it.each(["deny", "ask"] as const)(
-      "leaves an explicit %s on the wrapper untouched, consulting no inner rule",
+      "leaves an explicit %s on the wrapper untouched",
       (state) => {
+        // An `ask` consults the inner command for a deny only, which no rule
+        // here raises, so it can never come out weaker.
         const resolver = makeResolver(
           bashResult(state, "xargs grep -l foo", "xargs *"),
         );
@@ -467,7 +469,7 @@ describe("resolveBashCommandCheck", () => {
 
         expect(result.state).toBe(state);
         expect(result.matchedPattern).toBe("xargs *");
-        expect(resolver.resolve).toHaveBeenCalledTimes(1);
+        if (state === "deny") expect(resolver.resolve).toHaveBeenCalledTimes(1);
       },
     );
 
@@ -1277,14 +1279,23 @@ describe("resolveBashCommandCheck: a sudo layer's own options", () => {
       ["sudo -ne cat", "a cluster carrying e is sudoedit"],
       ["sudo --ed cat", "an abbreviation of --edit is sudoedit"],
       ["timeout 5 sudo -e cat", "sudoedit behind an outer wrapper"],
-      ["sudo -nu cat rm x", "the cluster's -u takes cat, so rm runs"],
-      ["sudo --user cat rm x", "--user takes cat, so rm runs"],
       ["sudo -D /etc cat shadow", "cat reads /etc/shadow, not ./shadow"],
       ["sudo -s cat x", "a root shell runs the operand"],
     ])("for %s (%s)", (command) => {
       const result = decide(policy, command);
       expect(result.state).toBe("ask");
       expect(result.matchedPattern).toBe("<indirection-bash-wrapper>");
+    });
+  });
+
+  describe("denies the command that really runs", () => {
+    it.each([
+      ["sudo -nu cat rm x", "the cluster's -u takes cat, so rm runs"],
+      ["sudo --user cat rm x", "--user takes cat, so rm runs"],
+    ])("for %s (%s)", (command) => {
+      const result = decide(policy, command);
+      expect(result.state).toBe("deny");
+      expect(result.matchedPattern).toBe("rm *");
     });
   });
 
@@ -1311,16 +1322,25 @@ describe("resolveBashCommandCheck: env, xargs, and doas option grammars", () => 
     "rm *": "deny",
   };
 
-  describe("keeps the floor", () => {
+  describe("denies the command that really runs", () => {
     it.each([
-      ["xargs -J cat rm x", "-J takes cat as its replstr, so rm runs"],
-      ["xargs -J % cat %", "-J may put input in the utility position"],
       ["xargs -i rm cat x", "GNU -i takes no following word, so rm runs"],
       ["xargs -l rm cat x", "GNU -l takes no following word, so rm runs"],
       [
         "xargs --max-lines rm cat x",
         "GNU --max-lines takes no following word, so rm runs",
       ],
+    ])("for %s (%s)", (command) => {
+      const result = decide(policy, command);
+      expect(result.state).toBe("deny");
+      expect(result.matchedPattern).toBe("rm *");
+    });
+  });
+
+  describe("keeps the floor", () => {
+    it.each([
+      ["xargs -J cat rm x", "-J takes cat as its replstr, so rm runs"],
+      ["xargs -J % cat %", "-J may put input in the utility position"],
       ["env -P cat rm x", "rm runs, searched for in cat"],
       ["env --unset rm cat x", "BSD env reads -u nset, so rm runs"],
       ["env -Srm cat", "-S splits rm into the command"],
@@ -1782,5 +1802,69 @@ describe("resolveBashCommandCheck: a wrapper spelled another way", () => {
       expect(result.state).toBe("allow");
       expect(result.floorExemption).toBe("core-reader");
     });
+  });
+});
+
+describe("resolveBashCommandCheck: a deny reaches the command however it is spelled or wrapped", () => {
+  beforeAll(async () => {
+    await warmBashParser();
+  });
+
+  it.each([
+    '"sudo" rm x',
+    "\\sudo rm x",
+    "s\\udo rm x",
+    "$'sudo' rm x",
+    "command sudo rm x",
+    "exec sudo rm x",
+    "nohup sudo rm x",
+    "env FOO=1 sudo rm x",
+  ])("denies %s under a sudo deny", (command) => {
+    const result = decide({ "*": "allow", "sudo *": "deny" }, command);
+    expect(result.state).toBe("deny");
+  });
+
+  it.each([
+    "sudo rm x",
+    "nohup rm x",
+    "command rm x",
+    "exec rm x",
+    "chroot / rm x",
+    "env FOO=1 rm x",
+    "time rm x",
+    '"rm" x',
+    "r\\m x",
+    "$'rm' x",
+    "sudo -u root nohup rm x",
+  ])("denies %s under an rm deny", (command) => {
+    const result = decide({ "*": "allow", "rm *": "deny" }, command);
+    expect(result.state).toBe("deny");
+    expect(result.matchedPattern).toBe("rm *");
+  });
+
+  it("denies a shell payload's wrapper when the shell is denied", () => {
+    const result = decide(
+      { "*": "allow", "bash *": "deny" },
+      "sudo bash -c 'ls'",
+    );
+    expect(result.state).toBe("deny");
+  });
+
+  it.each([
+    ["sudo cat x", "allow"],
+    ["nohup git status", "ask"],
+    ["sudo rm x", "deny"],
+  ] as const)("leaves %s at %s otherwise", (command, state) => {
+    const result = decide(
+      {
+        "*": "ask",
+        "cat *": "allow",
+        "git status*": "allow",
+        "rm *": "deny",
+        "sudo *": "allow",
+      },
+      command,
+    );
+    expect(result.state).toBe(state);
   });
 });
