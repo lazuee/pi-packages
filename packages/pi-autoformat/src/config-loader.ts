@@ -778,8 +778,10 @@ function validateCustomMutationToolFields(
   seenToolNames: Set<string>,
 ) {
   let toolName: string | undefined;
-  const pathSettings: Pick<CustomMutationToolSpec, "pathField" | "pathFields"> =
-    {};
+  const pathSettings: Pick<
+    CustomMutationToolSpec,
+    "pathField" | "pathFields" | "patchField"
+  > = {};
   let hasUnknown = false;
 
   for (const [key, entry] of Object.entries(value)) {
@@ -796,7 +798,8 @@ function validateCustomMutationToolFields(
         break;
       }
 
-      case "pathField": {
+      case "pathField":
+      case "patchField": {
         const path = validateNonEmptyString(
           `${fieldPath}.${key}`,
           entry,
@@ -881,7 +884,7 @@ function resolveCustomMutationTool(
   issues: ConfigValidationIssue[],
   sourcePath?: string,
 ): CustomMutationToolSpec | undefined {
-  const { toolName, pathField, pathFields } = fields;
+  const { toolName, pathField, pathFields, patchField } = fields;
 
   if (!toolName) {
     pushIssue(
@@ -893,14 +896,14 @@ function resolveCustomMutationTool(
     return undefined;
   }
 
-  const settingCount = [pathField, pathFields].filter(
+  const settingCount = [pathField, pathFields, patchField].filter(
     (setting) => setting !== undefined,
   ).length;
   if (settingCount !== 1) {
     pushIssue(
       issues,
       fieldPath,
-      "Expected exactly one of `pathField` or `pathFields`.",
+      "Expected exactly one of `pathField`, `pathFields`, or `patchField`.",
       sourcePath,
     );
     return undefined;
@@ -911,6 +914,9 @@ function resolveCustomMutationTool(
   }
   if (pathFields !== undefined) {
     return { toolName, pathFields };
+  }
+  if (patchField !== undefined) {
+    return { toolName, patchField };
   }
   return undefined;
 }
