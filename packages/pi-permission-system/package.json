@@ -6,7 +6,12 @@
   "exports": {
     ".": {
       "types": "./dist/public.d.ts",
+      "@gotgenes/source": "./src/service.ts",
       "default": "./src/service.ts"
+    },
+    "./*": {
+      "@gotgenes/source": "./src/*",
+      "default": "./src/*"
     }
   },
   "imports": {

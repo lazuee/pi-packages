@@ -1,4 +1,4 @@
-# @lazuee/pi-macos-harness
+# @gotgenes/pi-macos-harness
 
 Pi extension that lets the agent drive this Mac's real UI.
 It ships the [`macos-harness`](https://github.com/browser-use/macos-harness) runtime as a git submodule and exposes one tool over it.

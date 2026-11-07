@@ -1,5 +1,5 @@
 {
-  "name": "@lazuee/pi-macos-harness",
+  "name": "@gotgenes/pi-macos-harness",
   "version": "0.1.0",
   "description": "Pi extension that lets the agent drive a Mac's real UI, on top of the macos-harness Python runtime it bundles",
   "keywords": [

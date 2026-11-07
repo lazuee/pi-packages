@@ -1,11 +1,21 @@
 packages:
   - "packages/*"
+  # A bare clone of vercel-labs/agent-desktop kept for exploration; it has no
+  # package.json of its own, so it would otherwise match the glob and import as
+  # an empty workspace project.
+  - "!packages/pi-agent-desktop"
 
-# pi-subagents-* extension packages consume their siblings from the npm registry
-# (the published tarball ships the bundled dist/public.d.ts), not via workspace
-# symlinks — a symlinked sibling would resolve exports.types to the gitignored,
-# unbuilt dist on a fresh checkout. Cross-package links must opt in explicitly
-# with the workspace: protocol.
+# Cross-package links use the workspace: protocol explicitly, so a sibling
+# always resolves to its source here rather than to whatever npm last published.
+# `linkWorkspacePackages: false` makes that opt-in mandatory: with the default,
+# a plain `*` or `^1.2.3` specifier silently resolves from the registry even
+# when the sibling is in this workspace.
+#
+# Linking means a consumer compiles the sibling's `src`, but its `exports.types`
+# points at the gitignored, unbuilt `dist/`. The `@gotgenes/source` export
+# condition (see tsconfig.base.json) bridges that: `types` wins once `dist`
+# exists, and each consumer's `check` builds it first. Published consumers are
+# unaffected — a tarball ships its `dist/public.d.ts`.
 linkWorkspacePackages: false
 
 # Centralize version management across all packages.

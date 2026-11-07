@@ -5,10 +5,12 @@
   "exports": {
     ".": {
       "types": "./dist/public.d.ts",
+      "@gotgenes/source": "./src/service/service.ts",
       "default": "./src/service/service.ts"
     },
     "./settings": {
       "types": "./dist/settings.d.ts",
+      "@gotgenes/source": "./src/layered-settings.ts",
       "default": "./src/layered-settings.ts"
     }
   },
