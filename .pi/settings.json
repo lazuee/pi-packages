@@ -1,6 +1,7 @@
 {
   "packages": [
     "../packages/pi-colgrep",
+    "../packages/pi-agent-desktop",
     "../packages/pi-github-tools",
     "../packages/pi-autoformat",
     "../packages/pi-permission-system",

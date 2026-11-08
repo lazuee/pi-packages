@@ -20,7 +20,7 @@
 // repairable characters and still fails on the rest.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -267,7 +267,12 @@ function trackedFiles() {
   const listing = execFileSync("git", ["ls-files", "-z"], {
     maxBuffer: 64 * 1024 * 1024,
   }).toString("utf8");
-  return listing.split("\0").filter((path) => path !== "" && existsSync(path));
+  // A submodule is tracked as a gitlink and exists on disk as a directory, so
+  // an existence check alone hands `readFileSync` a directory and throws EISDIR.
+  return listing
+    .split("\0")
+    .filter((path) => path !== "" && existsSync(path))
+    .filter((path) => !statSync(path).isDirectory());
 }
 
 /**

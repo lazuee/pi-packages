@@ -37,6 +37,7 @@
   "license": "MIT",
   "pi": {
     "extensions": [
+      "packages/pi-agent-desktop/src/extension.ts",
       "packages/pi-autoformat/src/extension.ts",
       "packages/pi-colgrep/src/extension.ts",
       "packages/pi-github-tools/src/extension.ts",
@@ -50,7 +51,8 @@
     ],
     "skills": [
       "packages/pi-colgrep/skills",
-      "packages/pi-macos-harness/skills"
+      "packages/pi-macos-harness/skills",
+      "packages/pi-agent-desktop/skills"
     ]
   },
   "dependencies": {
