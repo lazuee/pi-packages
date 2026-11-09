@@ -1,5 +1,5 @@
 [global]
-exclude = ["**/CHANGELOG.md"]
+exclude = ["**/CHANGELOG.md", "packages/*/upstream/**"]
 disable = ["MD041"]
 extend-enable = ["MD060"]
 
