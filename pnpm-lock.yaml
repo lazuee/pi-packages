@@ -70,6 +70,27 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@22.19.19)(@vitest/coverage-istanbul@4.1.11)(vite@8.0.13(@types/node@22.19.19)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
+  packages/pi-agent-desktop:
+    dependencies:
+      '@earendil-works/pi-ai':
+        specifier: '>=1.0.0'
+        version: 1.0.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.10.2)(zod@4.6.7)
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 'catalog:'
+        version: 2.5.11
+      '@earendil-works/pi-coding-agent':
+        specifier: 1.0.0
+        version: 1.0.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(zod@4.6.7)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.19
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+
   packages/pi-ask:
     devDependencies:
       '@biomejs/biome':

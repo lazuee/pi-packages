@@ -18,9 +18,11 @@ Some packages (like pi-permission-system) are designed for broad use; others scr
 | [@gotgenes/pi-ask](./packages/pi-ask/)                                     | Structured `ask_user` clarification questions for the agent     | [![npm](https://img.shields.io/npm/dm/@gotgenes/pi-ask)](https://www.npmjs.com/package/@gotgenes/pi-ask)                                     |
 | [@gotgenes/pi-nocd](./packages/pi-nocd/)                                     | System-prompt guard against cd-prefixing the working directory  | [![npm](https://img.shields.io/npm/dm/@gotgenes/pi-nocd)](https://www.npmjs.com/package/@gotgenes/pi-nocd)                                     |
 | [@gotgenes/pi-macos-harness](./packages/pi-macos-harness/)                   | Drive this Mac's real UI; bundles the macos-harness runtime     | —                                                                                                                                              |
-
+| [@gotgenes/pi-agent-desktop](./packages/pi-agent-desktop/)                   | Drive desktop UIs on macOS, Windows and Linux via accessibility | —                                                                                                                                              |
 
 Each package has its own README with setup instructions, usage, and configuration details.
+
+`pi-agent-desktop` wraps a separate CLI and needs `npm install -g agent-desktop` first; `pi-macos-harness` ships its runtime.
 
 ## Install
 

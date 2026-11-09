@@ -2,3 +2,7 @@
 	path = packages/pi-macos-harness/upstream
 	url = https://github.com/lazuee/macos-harness
 	branch = fix/retina-coordinates
+[submodule "packages/pi-agent-desktop/upstream"]
+	path = packages/pi-agent-desktop/upstream
+	url = https://github.com/vercel-labs/agent-desktop
+	branch = main

@@ -9,6 +9,7 @@ body:
       description: Which package is affected? Choose repo-wide for build, CI, tooling, or cross-package docs.
       multiple: true
       options:
+        - pi-agent-desktop
         - pi-autoformat
         - pi-colgrep
         - pi-github-tools

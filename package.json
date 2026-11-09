@@ -38,6 +38,7 @@
   "pi": {
     "extensions": [
       "packages/pi-ask/src/index.ts",
+      "packages/pi-agent-desktop/src/extension.ts",
       "packages/pi-autoformat/src/extension.ts",
       "packages/pi-colgrep/src/extension.ts",
       "packages/pi-continue/src/extension.ts",
@@ -52,7 +53,8 @@
     ],
     "skills": [
       "packages/pi-colgrep/skills",
-      "packages/pi-macos-harness/skills"
+      "packages/pi-macos-harness/skills",
+      "packages/pi-agent-desktop/skills"
     ]
   },
   "dependencies": {

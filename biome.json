@@ -14,6 +14,7 @@
       "!!**/coverage",
       "!!packages/*/docs/fallow-snapshot.json",
       "!!packages/pi-macos-harness/upstream",
+      "!!packages/pi-agent-desktop/upstream",
       "!!packages/pi-autoformat/docs/assets/logo.svg",
       "!!packages/pi-permission-system/docs/assets/logo.svg"
     ]

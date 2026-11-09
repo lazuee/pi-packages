@@ -1,0 +1,65 @@
+{
+  "name": "@gotgenes/pi-agent-desktop",
+  "version": "0.1.0",
+  "description": "Pi extension that drives macOS, Windows and Linux desktop apps by their native accessibility trees, on top of the agent-desktop CLI",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "computer-use",
+    "desktop-automation",
+    "accessibility"
+  ],
+  "author": {
+    "name": "lazuee"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
+    "directory": "packages/pi-agent-desktop"
+  },
+  "bugs": {
+    "url": "https://github.com/lazuee/pi-packages/issues"
+  },
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-agent-desktop#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "files": [
+    "src",
+    "skills",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check . && eslint ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=1.0.0",
+    "@earendil-works/pi-coding-agent": ">=1.0.0"
+  }
+}
