@@ -12,7 +12,6 @@
  */
 
 import { join } from "node:path";
-import { Type } from "@earendil-works/pi-ai";
 import {
   defineTool,
   type ExtensionAPI,
@@ -21,6 +20,7 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
 import { selectEntries } from "./entry-selection.js";
 import {
   formatSummaryText,

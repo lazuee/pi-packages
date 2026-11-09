@@ -39,6 +39,7 @@ function fakeTerminal(columns: number, rows: number): Terminal {
 		clearFromCursor: () => {},
 		clearScreen: () => {},
 		setTitle: () => {},
+		setProgramStatus: () => {},
 		setProgress: () => {},
 	};
 }

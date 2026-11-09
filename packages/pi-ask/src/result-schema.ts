@@ -31,7 +31,9 @@ const QuestionSummarySchema = Type.Object({
   id: Type.String(),
   label: Type.String(),
   prompt: Type.String(),
-  type: StringEnum(["single", "multi"] as const),
+  type: Type.Unsafe<"single" | "multi">(
+    StringEnum(["single", "multi"] as const),
+  ),
   presentedType: AskQuestionSchema.properties.type,
 });
 

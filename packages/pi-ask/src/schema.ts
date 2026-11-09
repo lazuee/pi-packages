@@ -40,10 +40,12 @@ export const AskQuestionSchema = Type.Object({
     }),
   ),
   type: Type.Optional(
-    StringEnum(["single", "multi"] as const, {
-      description:
-        "`single` (default) accepts one option. `multi` accepts several.",
-    }),
+    Type.Unsafe<"single" | "multi">(
+      StringEnum(["single", "multi"] as const, {
+        description:
+          "`single` (default) accepts one option. `multi` accepts several.",
+      }),
+    ),
   ),
   options: Type.Array(AskOptionSchema, {
     description:

@@ -141,7 +141,11 @@ export function cleanupWorktree(
   agentDescription: string,
 ): WorktreeCleanupResult {
   if (!existsSync(worktree.path)) {
-    return { outcome: "failed", path: worktree.path, error: "Worktree disappeared before its changes could be saved." };
+    return {
+      outcome: "failed",
+      path: worktree.path,
+      error: "Worktree disappeared before its changes could be saved.",
+    };
   }
 
   try {

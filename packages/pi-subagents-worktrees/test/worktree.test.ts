@@ -309,15 +309,23 @@ describe("worktree", () => {
     it("reports failed removal truthfully and preserves the saved worktree", () => {
       const wt = worktreeFor("locked-removal");
       writeFileSync(join(wt.path, "precious.txt"), "keep this");
-      execFileSync("git", ["worktree", "lock", wt.path], { cwd: repoDir, stdio: "pipe" });
+      execFileSync("git", ["worktree", "lock", wt.path], {
+        cwd: repoDir,
+        stdio: "pipe",
+      });
       try {
         const result = cleanupWorktree(repoDir, wt, "locked removal");
         assertOutcome(result, "failed");
         expect(existsSync(wt.path)).toBe(true);
-        expect(readFileSync(join(wt.path, "precious.txt"), "utf8")).toBe("keep this");
+        expect(readFileSync(join(wt.path, "precious.txt"), "utf8")).toBe(
+          "keep this",
+        );
         expect(revParse(repoDir, wt.branch)).toBe(revParse(wt.path, "HEAD"));
       } finally {
-        execFileSync("git", ["worktree", "unlock", wt.path], { cwd: repoDir, stdio: "pipe" });
+        execFileSync("git", ["worktree", "unlock", wt.path], {
+          cwd: repoDir,
+          stdio: "pipe",
+        });
       }
     });
 

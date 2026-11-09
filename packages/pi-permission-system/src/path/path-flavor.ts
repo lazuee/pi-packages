@@ -1,5 +1,8 @@
-import type { PlatformPath } from "node:path";
 import { posix as posixPath, win32 as winPath } from "node:path";
+
+/** `node:path`'s platform-bound flavor; the type name itself is no longer exported. */
+type PlatformPath = typeof posixPath;
+
 import { fileURLToPath } from "node:url";
 
 import {

@@ -27,50 +27,51 @@ import { createBashTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 export default function (pi: ExtensionAPI) {
-	const bash = createBashTool(process.cwd());
+  const bash = createBashTool(process.cwd());
 
-	pi.registerTool({
-		...bash,
-		description:
-			"Execute a bash command in the current working directory. " +
-			"You MUST provide a concise 'reason' stating the intent of this command " +
-			"and what it accomplishes.",
-		parameters: Type.Object({
-			command: Type.String({ description: "The command line to execute" }),
-			reason: Type.String({
-				description:
-					"Concise reason this command is run and what it accomplishes. Required on every call.",
-			}),
-			timeout: Type.Optional(
-				Type.Number({ description: "Timeout in seconds (optional)" }),
-			),
-		}),
-		async execute(toolCallId, params, signal, onUpdate, ctx) {
-			return bash.execute(
-				toolCallId,
-				{
-					command: params.command,
-					...(params.timeout != null ? { timeout: params.timeout } : {}),
-				},
-				signal,
-				onUpdate,
-				ctx,
-			);
-		},
-	});
+  pi.registerTool({
+    ...bash,
+    description:
+      "Execute a bash command in the current working directory. " +
+      "You MUST provide a concise 'reason' stating the intent of this command " +
+      "and what it accomplishes.",
+    parameters: Type.Object({
+      command: Type.String({ description: "The command line to execute" }),
+      reason: Type.String({
+        description:
+          "Concise reason this command is run and what it accomplishes. Required on every call.",
+      }),
+      timeout: Type.Optional(
+        Type.Number({ description: "Timeout in seconds (optional)" }),
+      ),
+    }),
+    async execute(toolCallId, params, signal, onUpdate, ctx) {
+      return bash.execute(
+        toolCallId,
+        {
+          command: params.command,
+          ...(params.timeout != null ? { timeout: params.timeout } : {}),
+        },
+        signal,
+        onUpdate,
+        ctx,
+      );
+    },
+  });
 
-	pi.on("tool_call", async (event) => {
-		if (event.toolName !== "exec_command") return undefined;
-		const input = event.input;
-		const reason =
-			typeof input === "object" && input !== null && "reason" in input
-				? (input as { reason?: unknown }).reason
-				: undefined;
-		if (typeof reason === "string" && reason.trim().length > 0) return undefined;
-		return {
-			block: true,
-			reason:
-				"exec_command requires a 'reason' field. Retry the same call with a concise 'reason' stating the intent of the command and what it accomplishes.",
-		};
-	});
+  pi.on("tool_call", async (event) => {
+    if (event.toolName !== "exec_command") return undefined;
+    const input = event.input;
+    const reason =
+      typeof input === "object" && input !== null && "reason" in input
+        ? (input as { reason?: unknown }).reason
+        : undefined;
+    if (typeof reason === "string" && reason.trim().length > 0)
+      return undefined;
+    return {
+      block: true,
+      reason:
+        "exec_command requires a 'reason' field. Retry the same call with a concise 'reason' stating the intent of the command and what it accomplishes.",
+    };
+  });
 }

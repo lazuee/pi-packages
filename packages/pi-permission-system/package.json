@@ -85,23 +85,23 @@
     ]
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=1.0.0",
-    "@earendil-works/pi-tui": ">=1.0.0"
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "@earendil-works/pi-tui": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
-    "@earendil-works/pi-coding-agent": "1.0.0",
-    "@earendil-works/pi-tui": "1.0.0",
-    "@types/node": "^22.15.3",
-    "rollup": "^4.63.1",
-    "rollup-plugin-dts": "^6.5.1",
-    "rumdl": "0.2.24",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "@biomejs/biome": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "@earendil-works/pi-tui": "catalog:",
+    "@types/node": "catalog:",
+    "rollup": "catalog:",
+    "rollup-plugin-dts": "catalog:",
+    "rumdl": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "dependencies": {
     "tree-sitter-bash": "^0.25.1",
     "web-tree-sitter": "^0.26.9",
-    "zod": "^4.6.7"
+    "zod": "catalog:"
   }
 }

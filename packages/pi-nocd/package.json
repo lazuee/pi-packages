@@ -47,13 +47,13 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
-    "@earendil-works/pi-coding-agent": "1.0.0",
-    "@types/node": "^22.15.3",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "@biomejs/biome": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=1.0.0"
+    "@earendil-works/pi-coding-agent": "catalog:"
   }
 }

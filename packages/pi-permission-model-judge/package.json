@@ -60,21 +60,21 @@
     "lint": "biome check . && eslint . && pnpm run lint:md"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": ">=0.84.3",
-    "@earendil-works/pi-coding-agent": ">=0.84.3",
+    "@earendil-works/pi-ai": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
     "@gotgenes/pi-permission-system": ">=27.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
-    "@earendil-works/pi-ai": "1.0.0",
-    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@biomejs/biome": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
     "@gotgenes/pi-permission-system": "workspace:^",
-    "@types/node": "^22.15.3",
-    "rumdl": "0.2.24",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "@types/node": "catalog:",
+    "rumdl": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "dependencies": {
-    "zod": "^4.6.7"
+    "zod": "catalog:"
   }
 }

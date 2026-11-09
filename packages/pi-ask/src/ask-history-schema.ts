@@ -4,7 +4,9 @@ import { QueuedAnswerSchema } from "./background-ask-state";
 import { AnswerSchema } from "./result-schema";
 import { AskQuestionSchema } from "./schema";
 
-const QuestionType = StringEnum(["single", "multi"] as const);
+const QuestionType = Type.Unsafe<"single" | "multi">(
+  StringEnum(["single", "multi"] as const),
+);
 export const HistoryQuestionSchema = Type.Object({
   ...AskQuestionSchema.properties,
   label: Type.String(),
@@ -37,16 +39,25 @@ export const HistoryRecordSchema = Type.Object({
   background: Type.Boolean(),
   createdAt: Type.String(),
   question: HistoryQuestionSchema,
-  status: StringEnum([
-    "waiting",
-    "answered",
-    "skipped",
-    "cancelled",
-    "error",
-  ] as const),
+  status: Type.Unsafe<HistoryStatusValue>(
+    StringEnum([
+      "waiting",
+      "answered",
+      "skipped",
+      "cancelled",
+      "error",
+    ] as const),
+  ),
   answer: Type.Optional(AnswerSchema),
   error: Type.Optional(Type.String()),
 });
+type HistoryStatusValue =
+  | "waiting"
+  | "answered"
+  | "skipped"
+  | "cancelled"
+  | "error";
+
 export type HistoryKey = Static<typeof HistoryKeySchema>;
 export type HistoryRecord = Static<typeof HistoryRecordSchema>;
 export type HistoryRequest = Static<typeof HistoryRequestSchema>;

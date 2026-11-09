@@ -84,6 +84,7 @@ export function makePromptOptions(
 ): NormalizedBuildSystemPromptOptions {
   return {
     cwd: "/test/project",
+    hiddenTools: [],
     selectedTools: [],
     toolSnippets: {},
     toolGuidelines: {},

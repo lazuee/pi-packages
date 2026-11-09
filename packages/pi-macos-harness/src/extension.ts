@@ -14,12 +14,12 @@
 // action the run still needs.
 
 import { fileURLToPath } from "node:url";
-import { Type } from "@earendil-works/pi-ai";
 import {
   defineTool,
   type ExtensionAPI,
   type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 // Two calls share app state (read, act, read), so they must not interleave.
 const ACTIONS = [

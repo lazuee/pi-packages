@@ -218,14 +218,14 @@ describe("TranscriptPane", () => {
       stripAnsi(makePane({ keys }).render(width).at(-1) ?? "");
 
     it("carries the scroll position on the left and the key hints on the right", () => {
-      const footer = footerAt(80);
+      const footer = footerAt(100);
       expect(footer.startsWith("── 3 lines · 100% ─")).toBe(true);
-      expect(footer.endsWith(" ↑↓ scroll · PageUp/PageDown · Home/End · Esc close ──")).toBe(true);
+      expect(footer.endsWith(" ↑↓ scroll · PageUp/PageDown · Ctrl+Home/Ctrl+End · Esc close ──")).toBe(true);
     });
 
     it("names the keys the operator bound", () => {
-      const footer = footerAt(80, keysWith({ "tui.altScreen.pageUp": "ctrl+b" }));
-      expect(footer.endsWith(" ↑↓ scroll · Ctrl+B/PageDown · Home/End · Esc close ──")).toBe(true);
+      const footer = footerAt(100, keysWith({ "tui.altScreen.pageUp": "ctrl+b" }));
+      expect(footer.endsWith(" ↑↓ scroll · Ctrl+B/PageDown · Ctrl+Home/Ctrl+End · Esc close ──")).toBe(true);
     });
 
     it("omits a pair the operator left unbound", () => {
@@ -262,8 +262,8 @@ describe("TranscriptPane", () => {
     const PAGE = 26;
     const PG_UP = "\x1b[5~";
     const PG_DN = "\x1b[6~";
-    const HOME = "\x1b[H";
-    const END = "\x1b[F";
+    const HOME = "\x1b[7^";
+    const END = "\x1b[8^";
 
     /** The numbered rows the pane shows, in order. */
     const visibleRows = (pane: TranscriptPane): number[] =>

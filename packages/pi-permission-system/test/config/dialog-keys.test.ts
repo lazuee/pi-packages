@@ -29,21 +29,21 @@ describe("BINDABLE_DIALOG_KEY_CHARACTERS", () => {
     }
   });
 
-  it("admits exactly pi-tui's symbol keys, minus the one its matcher cannot see", () => {
+  it("admits exactly pi-tui's symbol keys", () => {
     const symbols = piTuiSymbolKeys();
     // Guard the derivation itself: an empty list would make the claim vacuous.
     expect(symbols.length).toBeGreaterThan(20);
     const admitted = symbols.filter((symbol) =>
       BINDABLE_DIALOG_KEY_CHARACTERS.has(symbol),
     );
-    expect(admitted).toEqual(symbols.filter((symbol) => symbol !== "+"));
+    expect(admitted).toEqual(symbols);
   });
 
-  it("excludes `+` because pi-tui reads it as a modifier separator", () => {
-    // `parseKeyId` splits the identifier on `+`, leaving no key name behind, so
-    // a `+` binding would match nothing at all.
-    expect(matchesKey("+", "+")).toBe(false);
-    expect(BINDABLE_DIALOG_KEY_CHARACTERS.has("+")).toBe(false);
+  it("admits a bare `+`, which pi-tui reads as the key itself", () => {
+    // `parseKeyId` only splits `+` when it separates a modifier from its key,
+    // so `"+"` stays a symbol and a `+` binding matches the keystroke.
+    expect(matchesKey("+", "+")).toBe(true);
+    expect(BINDABLE_DIALOG_KEY_CHARACTERS.has("+")).toBe(true);
   });
 
   it("holds only characters pi-tui's matcher accepts", () => {
@@ -69,7 +69,6 @@ describe("isBindableDialogKey", () => {
     ["two characters", "yy"],
     ["an uppercase letter", "A"],
     ["a non-ASCII character", "é"],
-    ["the modifier separator", "+"],
     ["a named key", "escape"],
     ["a modifier combination", "ctrl+g"],
     ["a space", " "],
@@ -140,7 +139,6 @@ describe("resolveDialogKeys", () => {
       ["more than one character", "yy"],
       ["an uppercase letter", "A"],
       ["a non-ASCII character", "é"],
-      ["the modifier separator", "+"],
       ["a named key", "escape"],
     ])("keeps the default and reports %s", (_name, value) => {
       const resolution = resolve({ approve: value });

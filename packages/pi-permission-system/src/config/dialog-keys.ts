@@ -59,15 +59,16 @@ const LOWERCASE_LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const DIGITS = "0123456789";
 
 /**
- * pi-tui's symbol keys, minus `+`.
+ * pi-tui's symbol keys.
  *
- * `+` separates a modifier from its key in a key identifier, so pi-tui's
- * parser splits `"+"` into two empty halves and the binding matches nothing.
+ * A bare `"+"` is the symbol itself: pi-tui's identifier parser treats a lone
+ * `+` as a key and only splits `+` when it separates a modifier from its key,
+ * so the binding matches the keystroke.
  * A parity test in `test/config/dialog-keys.test.ts` derives this roster from
  * pi-tui's exported `Key` constant and fails if the two drift; keeping the
  * literal here is what lets this module stay free of SDK imports.
  */
-const SYMBOLS = "`-=[]\\;',./!@#$%^&*()_|~{}:<>?";
+const SYMBOLS = "`-=[]\\;',./!@#$%^&*()_+|}{~:<>?";
 
 /**
  * Every character a decision may be bound to.

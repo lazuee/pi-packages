@@ -53,13 +53,15 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
-    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@earendil-works/pi-coding-agent": "catalog:",
     "@types/node": "catalog:",
+    "typebox": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-ai": ">=1.0.0",
-    "@earendil-works/pi-coding-agent": ">=1.0.0"
+    "@earendil-works/pi-ai": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "typebox": "catalog:"
   }
 }

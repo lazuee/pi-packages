@@ -14,7 +14,9 @@ export interface AskDraft {
   state: AskState;
 }
 
-const QuestionTypeSchema = StringEnum(["single", "multi"] as const);
+const QuestionTypeSchema = Type.Unsafe<"single" | "multi">(
+  StringEnum(["single", "multi"] as const),
+);
 const DraftQuestionSchema = Type.Object({
   ...AskQuestionSchema.properties,
   label: Type.String(),
@@ -119,15 +121,16 @@ export function restoreAskDraft(
   } catch {
     return;
   }
+  const draft: AskDraft = value as AskDraft;
   if (
-    value.state.title !== (params.title?.trim() ?? undefined) ||
-    !hasValidQuestions(value.state, questions) ||
-    !hasValidNavigation(value.state) ||
-    !hasValidAnswers(value.state)
+    draft.state.title !== (params.title?.trim() ?? undefined) ||
+    !hasValidQuestions(draft.state, questions) ||
+    !hasValidNavigation(draft.state) ||
+    !hasValidAnswers(draft.state)
   ) {
     return;
   }
-  return value;
+  return draft;
 }
 
 function hasValidQuestions(state: AskState, originals: AskQuestion[]): boolean {
