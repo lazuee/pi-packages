@@ -15,7 +15,8 @@ export const AskOptionSchema = Type.Object({
   ),
   recommended: Type.Optional(
     Type.Boolean({
-      description: "Marks this option as your recommendation",
+      description:
+        "Marks this option as your recommendation. Put a recommended option first: options render in array order, so list them priority first and least priority last; the free-form answer always sits after them",
     }),
   ),
 });
@@ -47,10 +48,12 @@ export const AskQuestionSchema = Type.Object({
       }),
     ),
   ),
-  options: Type.Array(AskOptionSchema, {
-    description:
-      "Choices for this question. The user can always type their own answer instead.",
-  }),
+  options: Type.Optional(
+    Type.Array(AskOptionSchema, {
+      description:
+        "Choices for this question, priority first. Omit for a free-form-only question: the user always gets a 'Type your own' field, so options add suggestions rather than gating the answer.",
+    }),
+  ),
 });
 
 export const AskParamsSchema = Type.Object({
@@ -66,7 +69,8 @@ export const AskParamsSchema = Type.Object({
     }),
   ),
   questions: Type.Array(AskQuestionSchema, {
-    description: "Questions to ask together",
+    description:
+      "Questions to ask together, each with a unique id and a non-empty prompt",
   }),
 });
 

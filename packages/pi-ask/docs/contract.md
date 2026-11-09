@@ -21,7 +21,7 @@ How often to ask and how to run an interview are left to the user's instructions
     prompt: string;
     context?: string;
     type?: "single" | "multi";
-    options: Array<{
+    options?: Array<{
       value: string;
       label: string;
       description?: string;
@@ -33,16 +33,36 @@ How often to ask and how to run an interview are left to the user's instructions
 
 ## Input rules
 
-- at least one question is required
-- every question must have non-empty trimmed `id` and `prompt`
-- every question must have at least one option
+Write the payload as one object with a `questions` array of objects; never hand-write the array as a string or leave a bracket open, since Pi parses the arguments as JSON before any of the rules below run.
+The shape of one question, every field in the order it belongs:
+
+```json
+{
+  "id": "scope",
+  "prompt": "Which scope should this cover?",
+  "options": [
+    { "value": "small", "label": "Small", "recommended": true },
+    {
+      "value": "large",
+      "label": "Large",
+      "description": "Touches every module"
+    }
+  ]
+}
+```
+
+- every key is double-quoted, every string is a string, and no trailing comma follows the last array element
+- `id` and `prompt` are the only required question fields
+- `options` is optional but, when present, must hold at least one option; to ask for free-form text only, omit it entirely rather than sending an empty array
+- options render in array order, so an agent lists them by priority, most preferred first, with `recommended` set on the one it suggests
+- a recommended option sorts ahead of the rest regardless of its array position, keeping recommended options in relative order
 - question ids must be unique within one tool call
 - option `value`s must be unique within a question
 - blank optional `title`, question `label`, question `context`, and option `description` fields are treated as omitted
 - question `label` falls back to `Q1`, `Q2`, ...
 - option `label` is required in the public schema; before schema validation, a missing or blank string label is derived from a non-empty `value` by replacing hyphens and underscores with spaces and capitalizing the first character
 - `recommended` is optional presentation metadata; zero, one, or multiple options may set it to `true`
-- recommended options render warning-colored `(recommended)` followed by muted `| <description>`, or only `(recommended)` when no description exists, but are not preselected
+- recommended options render warning-colored `(recommended)` followed by muted `| <description>`, or only `(recommended)` when no description exists, but are not preselected; the free-form `Type your own` field always renders after the listed options
 - `type` defaults to `single`
 - `context` is shown beside the options, or below them on narrow screens, where it is hidden while the custom answer is selected; it is the same for every option; saved option notes and custom text stay visible under their rows, whether or not the option is focused or selected
 - a single-line absolute path in `context` is read as a regular, non-empty UTF-8 text file and shown instead of the path; any other value is shown as text

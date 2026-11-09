@@ -56,7 +56,7 @@ function renderRecord(record: HistoryRecord, index: number): string {
     field("Question", question.prompt),
     field("Context", question.context),
     `Type: ${question.type}\n\nPresented type: ${question.presentedType ?? question.type}`,
-    ...question.options.map(renderOption),
+    ...(question.options ?? []).map(renderOption),
     ...(record.answer ? renderAnswer(record.answer) : ["No committed answer."]),
     field("Error", record.error),
   ]

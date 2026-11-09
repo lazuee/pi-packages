@@ -16,6 +16,7 @@ interface ValidationOptions {
   presentSingleAsMulti?: boolean;
 }
 
+/** Question id and prompt are the only required fields; `options` is a suggestion list. */
 export function normalizeQuestions(
   params: AskParams,
   options: ValidationOptions = {},
@@ -156,8 +157,15 @@ function normalizeQuestion(
     ...(presentedType === requestedType
       ? {}
       : { requestedType, presentedType }),
-    options: question.options.map(normalizeOption),
+    options: orderOptions(question.options).map(normalizeOption),
   };
+}
+
+/** Options render in array order, so a recommended option sorts ahead of the rest. */
+function orderOptions(options: AskOption[] | undefined): AskOption[] {
+  return [...(options ?? [])].sort(
+    (a, b) => Number(b.recommended === true) - Number(a.recommended === true),
+  );
 }
 
 function normalizeOption(option: AskOption): AskOption {
@@ -222,15 +230,15 @@ function validateQuestion(
     `${questionPath}.prompt`,
     `Question ${questionNumber}: prompt is required`,
   );
-  assertHasItems(
+  assertOptionsPresent(
     question.options,
     collector,
     `${questionPath}.options`,
-    `Question ${questionNumber}: at least one option is required`,
+    `Question ${questionNumber}: options is required`,
   );
 
   const optionValues = new Set<string>();
-  for (const [optionIndex, option] of question.options.entries()) {
+  for (const [optionIndex, option] of (question.options ?? []).entries()) {
     validateOption(
       option,
       optionIndex,
@@ -301,13 +309,15 @@ function validateQuestionType(
   }
 }
 
-function assertHasItems(
-  items: unknown[],
+function assertOptionsPresent(
+  options: AskOption[] | undefined,
   collector: IssueCollector,
   path: string,
   message: string,
 ) {
-  if (items.length === 0) {
+  // A caller reaching this without the schema has to say "no options" by sending
+  // `[]`; an absent field is the schema's own required-field error, not ours.
+  if (options !== undefined && options.length === 0) {
     collector.add(path, message);
   }
 }

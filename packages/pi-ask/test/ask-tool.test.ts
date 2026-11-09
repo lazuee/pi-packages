@@ -85,7 +85,7 @@ test("ask tool saves file context text for replay and keeps option labels", asyn
   assert.equal(result.details.error, undefined);
   const saved = (entries[0].data as { params: AskParams }).params.questions[0];
   assert(saved.context?.includes("Context loaded from a local file"));
-  assert.equal(saved.options[0].label, "Accept");
+  assert.equal(saved.options?.[0].label, "Accept");
 });
 
 test("ask tool rejects unreadable context files before UI and payload storage", async () => {
@@ -636,7 +636,7 @@ test("ask tool prepares missing and blank option labels before schema validation
   const prepared = tool.prepareArguments(raw) as AskParams;
   assert.equal(Value.Check(AskParamsSchema, prepared), true);
   assert.deepEqual(
-    prepared.questions[0]?.options.map((option) => option.label),
+    prepared.questions[0]?.options?.map((option) => option.label),
     ["Region local kms reencrypt dek", "Follow up", "Existing label"],
   );
 
@@ -654,7 +654,7 @@ test("public schema requires semantic identifiers and labels", () => {
   const { tool } = registerMockTool();
   assert.deepEqual(tool.parameters.required, ["questions"]);
   const questionSchema = tool.parameters.properties.questions.items;
-  assert.deepEqual(questionSchema.required, ["id", "prompt", "options"]);
+  assert.deepEqual(questionSchema.required, ["id", "prompt"]);
   assert.deepEqual(questionSchema.properties.options.items.required, [
     "value",
     "label",
@@ -670,6 +670,11 @@ test("public schema requires semantic identifiers and labels", () => {
     ],
   };
   assert.equal(Value.Check(AskParamsSchema, missingLabel), false);
+
+  const freeFormOnly = {
+    questions: [{ id: "scope", prompt: "Pick scope" }],
+  };
+  assert.equal(Value.Check(AskParamsSchema, freeFormOnly), true);
 });
 
 test("ask tool transcript renderers summarize call and cancelled result", () => {

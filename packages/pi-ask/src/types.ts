@@ -12,7 +12,8 @@ export interface AskQuestionInput {
   context?: string;
   id: string;
   label?: string;
-  options: AskOption[];
+  /** Suggested choices; omit for a free-form-only question. */
+  options?: AskOption[];
   prompt: string;
   type?: AskQuestionType;
 }
@@ -34,8 +35,10 @@ export interface AskValidationError {
   kind: "invalid_input";
 }
 
-export interface AskQuestion extends Omit<AskQuestionInput, "type" | "label"> {
+export interface AskQuestion
+  extends Omit<AskQuestionInput, "type" | "label" | "options"> {
   label: string;
+  options: AskOption[];
   presentedType?: AskQuestionType;
   requestedType?: AskQuestionType;
   type: AskQuestionType;

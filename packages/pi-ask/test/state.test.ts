@@ -198,7 +198,7 @@ test("normalize treats blank optional presentation text as absent", () => {
   });
 });
 
-test("normalization preserves any number of recommended options without selecting them", () => {
+test("normalization sorts recommended options first without selecting them", () => {
   const state = createInitialState({
     questions: [
       {
@@ -214,10 +214,22 @@ test("normalization preserves any number of recommended options without selectin
   });
 
   assert.deepEqual(
+    state.questions[0].options.map((option) => option.value),
+    ["small", "large", "medium"],
+  );
+  assert.deepEqual(
     state.questions[0].options.map((option) => option.recommended),
-    [true, false, true],
+    [true, true, false],
   );
   assert.deepEqual(state.answers, {});
+});
+
+test("normalization accepts a question with no options", () => {
+  const state = createInitialState({
+    questions: [{ id: "scope", prompt: "What scope?" }],
+  });
+
+  assert.deepEqual(state.questions[0].options, []);
 });
 
 test("single-select number shortcut stores answer and advances to next tab", () => {

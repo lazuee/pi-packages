@@ -12,56 +12,6 @@
     "../packages/pi-ask",
     "../packages/pi-session-tools",
     "../packages/pi-nocd",
-    {
-      "source": "npm:@lazuee/pi-colgrep",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-github-tools",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-autoformat",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-permission-system",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-permission-model-judge",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-subagents",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-subagents-worktrees",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-session-tools",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-nocd",
-      "extensions": [],
-      "skills": []
-    },
-    {
-      "source": "npm:@lazuee/pi-ask",
-      "extensions": [],
-      "skills": []
-    },
     "npm:pi-prompt-template-model"
   ]
 }

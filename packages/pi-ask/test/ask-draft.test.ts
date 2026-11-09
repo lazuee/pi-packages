@@ -442,7 +442,7 @@ for (const [name, change] of invalidStates) {
 
 test("a draft cannot be restored against another request with reused IDs", () => {
   const other = structuredClone(params);
-  other.questions[0].options[0].label = "Approve a different action";
+  other.questions[0].options![0].label = "Approve a different action";
 
   assert.equal(restoreAskDraft(roundTrip(draft()), other), undefined);
   assert.equal(

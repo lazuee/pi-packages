@@ -71,6 +71,9 @@ A commented cancellation reaches the agent as a cancellation, not approval.
 The agent can call `wait_for_answers` to wait for your answers.
 Hiding the panel or sending a normal message releases that wait without cancelling the questions.
 
+A question can be free-form only (no options, just your own answer), and the options an agent does send come most-preferred first, with `(recommended)` on the one it suggests.
+`docs/contract.md` carries the payload template.
+
 Want the agent to stay available instead of waiting?
 Run `/ask-mode` and opt into Background-only, globally or for a trusted project.
 Every question then uses the queue, and the agent has no wait tool.
