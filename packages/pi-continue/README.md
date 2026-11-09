@@ -2,7 +2,7 @@
 
 Keeps an unattended pi run moving.
 
-When a run **stops without finishing** — an empty reply, a response cut off at the output-token limit, a provider error pi could not retry, or prose that trails off mid-sentence — pi-continue nudges the agent back into motion at the settle boundary, exactly as if you had typed `continue`.
+When a run **stops without finishing** — an empty reply, a response cut off at the output-token limit, a provider error pi could not retry, or prose that ends without a full stop — pi-continue nudges the agent back into motion at the settle boundary, exactly as if you had typed `continue`.
 
 It is bounded, and it gets out of the way.
 
@@ -16,21 +16,38 @@ pi fires `agent_end` **before** its own retry, compaction and continuation handl
 An extension that recovers on `agent_end` competes with pi's retry budget.
 
 pi-continue latches the run at `agent_end` and decides at `agent_settled`, the point where pi has confirmed that no retry, compaction recovery or queued continuation is left.
-Verified against `agent-session.js` in the pinned host: the run flag is already cleared when `agent_settled` emits, so a "wait until idle" loop would never terminate — settlement *is* the idle boundary.
+Verified against `agent-session.js` in the pinned host: the run flag is already cleared when `agent_settled` emits, so a "wait until idle" loop would never terminate — settlement _is_ the idle boundary.
 
 The nudge is delivered as a `followUp`, which inside the settle window lands in pi's deferred-settled queue, so it cannot race a concurrent prompt.
 
 ## What it counts as a stall
 
-| Row                                 | Decided by        | Without a judge                       | With a judge        |
-| ----------------------------------- | ----------------- | ------------------------------------- | ------------------- |
-| `toolUse` / `pending` stop          | deterministic     | not a stall                           | not a stall         |
-| Response cut off at the token limit | deterministic     | **recover**, asking for shorter steps | same                |
-| Empty or thinking-only reply        | deterministic     | **recover**                           | same, no judge call |
-| Provider error pi already retried   | deterministic     | not a stall                           | not a stall         |
-| Provider error pi did **not** retry | deterministic     | **recover**                           | same                |
-| `stop` with prose that trails off   | deterministic     | **recover**                           | judge decides       |
-| `stop` with clean prose             | heuristic / judge | not a stall                           | judge decides       |
+| Row                                                 | Decided by        | Without a judge                       | With a judge        |
+| --------------------------------------------------- | ----------------- | ------------------------------------- | ------------------- |
+| `toolUse` / `pending` stop                          | deterministic     | not a stall                           | not a stall         |
+| Response cut off at the token limit                 | deterministic     | **recover**, asking for shorter steps | same                |
+| Empty or thinking-only reply                        | deterministic     | **recover**                           | same, no judge call |
+| Provider error pi already retried                   | deterministic     | not a stall                           | not a stall         |
+| Provider error pi did **not** retry                 | deterministic     | **recover**                           | same                |
+| `stop` with an unclosed fence or half-written table | deterministic     | **recover**                           | same                |
+| `stop` with a trailing comma, colon or connector    | deterministic     | **recover**                           | same                |
+| `stop` with no sentence terminator at the end       | deterministic     | **recover**                           | same                |
+| `stop` on a bare word, number or `code` span        | heuristic         | not a stall                           | judge decides       |
+| `stop` with clean prose                             | heuristic / judge | not a stall                           | judge decides       |
+
+A **sentence terminator** is `.`, `!` or `?`, optionally behind a closing quote, bracket or backtick.
+A reply whose last paragraph does not end on one is the shape of a cut-off reply, and recoverable.
+
+Two things soften that, because a missing full stop is not proof on its own:
+
+- A trailing mark with a finished sentence behind it is layout, not a promise.
+  `"Whitespace-only reflow. `@types/node`:\n\n"` is a complete reply — the colon introduces a list that was never needed, but `reflow.` already closed the thought.
+  A bare lead-in with no sentence behind it — `"Next up:"` — is still a stall.
+- A reply that stops dead on a letter, number or `code` span passes without a judge.
+  `3`, `v1.2.0`, `@types/node` and a line of prose under a house style that forbids trailing full stops all look like that when they are complete, so nudging every one would be noise.
+  A judge still gets to disagree.
+
+A `<code fence>` that never closes, or a table left half-written — a delimiter row with no body row, a ragged row, or a row that stops before its closing pipe — is a stall even if a full stop follows it.
 
 `429`, `5xx`, `overloaded`, `rate limit`, timeouts, connection resets and WebSocket failures are in the already-retried list — pi has spent its retry budget on them, so recovering again only burns tokens on the same failure.
 A quota, billing or unmatched `4xx` error fails fast on purpose and is worth one attempt.
@@ -67,7 +84,7 @@ Calling pi-continue on its own with no subagent present works in both directions
 
 ## Arming
 
-Recovery is on by default but a run usually wants to *choose* when it is unattended.
+Recovery is on by default but a run usually wants to _choose_ when it is unattended.
 The agent can arm itself:
 
 ```text
@@ -165,6 +182,8 @@ Six extensions do a version of this and each shaped one row or brake here:
 
 - The heuristic rows are heuristics.
   A genuinely finished reply may be nudged once; the brakes bound it.
+- A reply that ends in prose without a full stop — a bullet list, a heading, a bare sentence fragment — is nudged.
+  The rule assumes prose ends on a terminator; run with a `judgeModel` where that is untrue.
 - A `toolUse` stop is always treated as healthy.
   A tool that silently returns nothing to do is not caught.
 - Streak and arm state live in the process; `/continue` and `continue_arm` re-arm after a restart, but a resume of a run that was never persisted starts disarmed.

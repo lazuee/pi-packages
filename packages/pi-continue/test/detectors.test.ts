@@ -68,10 +68,51 @@ describe("default detection chain", () => {
     expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });
   });
 
+  it("stalls a lead-in whose body never arrived", async () => {
+    const result = await detect(
+      evidence({ text: "The types are listed:\n\n" }),
+    );
+    expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });
+  });
+
   it("passes prose that ends cleanly", async () => {
     expect((await detect(evidence({ text: "All tests pass." }))).verdict).toBe(
       "ok",
     );
+  });
+
+  it("passes a colon with a closed sentence behind it", async () => {
+    const result = await detect(
+      evidence({ text: "Whitespace-only. `@types/node`:\n\n" }),
+    );
+    expect(result.verdict).toBe("ok");
+  });
+
+  it("stalls a reply that ends on a bare lead-in", async () => {
+    const result = await detect(evidence({ text: "Next, the config:" }));
+    expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });
+  });
+
+  it("stalls a reply that ends without any terminator", async () => {
+    const result = await detect(evidence({ text: "Change is now in place," }));
+    expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });
+  });
+
+  it("stalls an unclosed code fence", async () => {
+    const result = await detect(evidence({ text: "```ts\nconst a = 1.\n" }));
+    expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });
+  });
+
+  it("stalls a half-written table", async () => {
+    const result = await detect(
+      evidence({ text: "| a | b |\n| --- | --- |\n| 1 |" }),
+    );
+    expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });
+  });
+
+  it("passes a bare word, which is how plenty of replies finish", async () => {
+    expect((await detect(evidence({ text: "3" }))).verdict).toBe("ok");
+    expect((await detect(evidence({ text: "v1.2.0" }))).verdict).toBe("ok");
   });
 
   it("leaves a row unknown when its rule is disabled", async () => {
@@ -97,7 +138,7 @@ describe("judge integration", () => {
   it("trusts a finished verdict", async () => {
     const judge = vi.fn<Judge>(async () => "finished");
     const result = await detect(
-      evidence({ text: "the work continues" }),
+      evidence({ text: "the work continues here" }),
       context({ judgeMode: "model", judge }),
     );
     expect(result.verdict).toBe("ok");
@@ -106,7 +147,7 @@ describe("judge integration", () => {
   it("falls back to the heuristic when the judge is unavailable", async () => {
     const judge = vi.fn<Judge>(async () => "unavailable");
     const result = await detect(
-      evidence({ text: "the work continues" }),
+      evidence({ text: "Ran the suite, and then" }),
       context({ judgeMode: "model", judge }),
     );
     expect(result).toMatchObject({ verdict: "stalled", kind: "abandoned" });

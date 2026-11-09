@@ -7,12 +7,13 @@
  * observer and the judge are built here because they are the pieces that need
  * the host.
  */
+
+import { appendFileSync } from "node:fs";
 import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { appendFileSync } from "node:fs";
 import type { ArmState } from "./arm-tool";
 import { ARM_TOOL_NAME, createArmTool } from "./arm-tool";
 import {
@@ -56,7 +57,8 @@ export default function piContinueExtension(pi: ExtensionAPI): void {
       projectConfigPath: getProjectConfigPath(cwd),
     });
     // An explicit in-session toggle wins; otherwise arming is the explicit ask.
-    if (enabledOverride !== undefined) config = { ...config, enabled: enabledOverride };
+    if (enabledOverride !== undefined)
+      config = { ...config, enabled: enabledOverride };
     else if (armState.armed) config = { ...config, enabled: true };
   };
 
@@ -71,7 +73,11 @@ export default function piContinueExtension(pi: ExtensionAPI): void {
     config: () => config,
     permissionPending: () => {
       const v = awaits.pending;
-      if (process.env.PI_CONTINUE_TRACE) appendFileSync("/tmp/trace.log", `pending=${v} n=${awaits.pendingCount}\n`);
+      if (process.env.PI_CONTINUE_TRACE)
+        appendFileSync(
+          "/tmp/trace.log",
+          `pending=${v} n=${awaits.pendingCount}\n`,
+        );
       return v;
     },
     childPending: () => gateway.hasActiveChildren,
@@ -80,7 +86,12 @@ export default function piContinueExtension(pi: ExtensionAPI): void {
     judge: createJudge({
       completer: {
         complete: (prompt) =>
-          completeWithJudge(statusCtx, config.judgeModel, prompt, config.judgeTimeoutMs),
+          completeWithJudge(
+            statusCtx,
+            config.judgeModel,
+            prompt,
+            config.judgeTimeoutMs,
+          ),
       },
       messages: () => branchMessages(statusCtx),
       tailMessages: config.judgeTailMessages,
@@ -171,7 +182,8 @@ export default function piContinueExtension(pi: ExtensionAPI): void {
   });
 
   pi.registerCommand("continue", {
-    description: "pi-continue status, arm/disarm recovery, or on/off for this session",
+    description:
+      "pi-continue status, arm/disarm recovery, or on/off for this session",
     handler: async (args, ctx) => {
       const sub = args.trim().toLowerCase();
       if (sub === "arm") {
@@ -195,7 +207,14 @@ export default function piContinueExtension(pi: ExtensionAPI): void {
         return;
       }
       ctx.ui.notify(
-        statusReport(engine, gateway, awaits, config, armState, enabledOverride),
+        statusReport(
+          engine,
+          gateway,
+          awaits,
+          config,
+          armState,
+          enabledOverride,
+        ),
         "info",
       );
     },
@@ -267,8 +286,13 @@ async function completeWithJudge(
     configured: configured
       ? { provider: configured.provider, id: configured.model }
       : undefined,
-    session: session ? { provider: session.provider, id: session.id } : undefined,
-    available: available.map((model) => ({ provider: model.provider, id: model.id })),
+    session: session
+      ? { provider: session.provider, id: session.id }
+      : undefined,
+    available: available.map((model) => ({
+      provider: model.provider,
+      id: model.id,
+    })),
   });
 
   const context = {
@@ -286,20 +310,28 @@ async function completeWithJudge(
   for (const candidate of candidates) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
-    const model = registry.getModelOfType("chat", candidate.provider, candidate.id);
+    const model = registry.getModelOfType(
+      "chat",
+      candidate.provider,
+      candidate.id,
+    );
     if (!model) continue;
     // A fresh controller per attempt: a signal already aborted by the previous
     // candidate's timeout would fail every retry immediately.
     const controller = new AbortController();
-    const timer = setTimeout(() => {
-      controller.abort();
-    }, Math.min(timeoutMs, remaining));
+    const timer = setTimeout(
+      () => {
+        controller.abort();
+      },
+      Math.min(timeoutMs, remaining),
+    );
     try {
       const message = await registry.complete(model, context, {
         signal: controller.signal,
       });
       // A timed-out call resolves with an aborted message instead of throwing.
-      const failed = message.stopReason === "aborted" || message.stopReason === "error";
+      const failed =
+        message.stopReason === "aborted" || message.stopReason === "error";
       const text = message.content
         .filter(
           (block): block is { type: "text"; text: string } =>

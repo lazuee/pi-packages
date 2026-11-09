@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { MessageLike } from "#src/evidence";
-import { isSilent, readEvidence, trailsOff } from "#src/evidence";
+import {
+  endsOnTerminal,
+  endsPlainly,
+  isClosedByTerminal,
+  isSilent,
+  readEvidence,
+  trailsOff,
+} from "#src/evidence";
 
 const assistant = (content: MessageLike["content"], stopReason = "stop") => ({
   role: "assistant",
@@ -63,11 +70,81 @@ describe("trailsOff", () => {
     "a semicolon;",
     "ends with and",
     "text ```",
+    "Two paragraphs done.\n\nThen this one trails,",
+    "```ts\nconst a = 1;",
+    "```",
+    "| a | b |\n| --- | --- |",
+    "| a | b |\n| --- | --- |\n| 1 |",
+    "notes\n\n| a | b |\n| --- | --- |\n| 1 | 2",
   ])("detects %j", (text) => {
     expect(trailsOff(text)).toBe(true);
   });
 
-  it.each(["a complete sentence.", "Done.", ""])("passes %j", (text) => {
+  it.each([
+    "a complete sentence.",
+    "Done.",
+    "",
+    "Done.\n\n- a list item\n",
+    "```ts\nconst a = 1;\n```\n\nAll green.",
+    "notes\n\n| a | b |\n| --- | --- |\n| 1 | 2 |",
+  ])("passes %j", (text) => {
     expect(trailsOff(text)).toBe(false);
+  });
+
+  it("reads only the last paragraph", () => {
+    expect(trailsOff("Section:\n\nAll green.")).toBe(false);
+  });
+});
+
+describe("isClosedByTerminal", () => {
+  it.each([
+    "Whitespace-only. `@types/node`:\n\n",
+    "This sentence closed. A bare colon:\n\n",
+    "Done.\n\n",
+    "Done!\n\n",
+  ])("forgives the mark in %j", (text) => {
+    expect(isClosedByTerminal(text)).toBe(true);
+  });
+
+  it.each(["a bare lead-in:", "See `x`:", "a bullet:\n\n- "])(
+    "does not forgive %j",
+    (text) => {
+      expect(isClosedByTerminal(text)).toBe(false);
+    },
+  );
+});
+
+describe("endsOnTerminal", () => {
+  it.each([
+    "Done.",
+    "Really?",
+    "Watch out!",
+    "Done.)",
+    "Done.\n\n- item kept as is.",
+  ])("accepts %j", (text) => {
+    expect(endsOnTerminal(text)).toBe(true);
+  });
+
+  it.each(["the next version is", "3", "v1.2.0", "text ```", ""])(
+    "rejects %j",
+    (text) => {
+      expect(endsOnTerminal(text)).toBe(false);
+    },
+  );
+});
+
+describe("endsPlainly", () => {
+  it.each([
+    "3",
+    "v1.2.0",
+    "`@types/node`",
+    "see https://example.com",
+    "(see above)",
+  ])("accepts %j", (text) => {
+    expect(endsPlainly(text)).toBe(true);
+  });
+
+  it.each(["a colon:", "a comma,", ""])("rejects %j", (text) => {
+    expect(endsPlainly(text)).toBe(false);
   });
 });

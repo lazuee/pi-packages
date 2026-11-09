@@ -8,8 +8,8 @@
  * resume picks the arming back up.
  */
 
-import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
 
 /** The arm state the tool reads and writes. */
 export interface ArmState {

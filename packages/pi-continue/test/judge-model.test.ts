@@ -26,17 +26,27 @@ describe("resolveJudgeModel", () => {
 
   it("offers availability alone when nothing else is set", () => {
     expect(
-      resolveJudgeModel({ configured: undefined, session: undefined, available: [b] }),
+      resolveJudgeModel({
+        configured: undefined,
+        session: undefined,
+        available: [b],
+      }),
     ).toEqual([b]);
   });
 
   it("collapses a configured model that equals the session model", () => {
-    expect(resolveJudgeModel({ configured: a, session: a, available: [] })).toEqual([a]);
+    expect(
+      resolveJudgeModel({ configured: a, session: a, available: [] }),
+    ).toEqual([a]);
   });
 
   it("is empty when nothing is reachable", () => {
     expect(
-      resolveJudgeModel({ configured: undefined, session: undefined, available: [] }),
+      resolveJudgeModel({
+        configured: undefined,
+        session: undefined,
+        available: [],
+      }),
     ).toEqual([]);
   });
 });

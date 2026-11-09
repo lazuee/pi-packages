@@ -24,7 +24,7 @@ Neither should touch the engine.
    `agent_end` fires before Pi's own retry, compaction recovery and continuation handling.
    Latch on `agent_end`, decide on settle.
 2. **Never loop on "is it idle yet".**
-   Pi clears its run-active flag *before* emitting `agent_settled`, so a polling loop that waits for `isIdle()` hides inside a `while` that never exits.
+   Pi clears its run-active flag _before_ emitting `agent_settled`, so a polling loop that waits for `isIdle()` hides inside a `while` that never exits.
 
 Delivery is `sendUserMessage(text, { deliverAs: "followUp" })`.
 Inside the settle emit that lands in Pi's deferred-settled queue; as a follow-up it cannot steer the turn that just ended.

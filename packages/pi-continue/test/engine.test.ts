@@ -89,6 +89,15 @@ describe("ContinueEngine", () => {
     expect(h.sent).toEqual([{ text: "continue", deliverAs: "followUp" }]);
   });
 
+  it("recovers a lead-in left hanging before a blank line", async () => {
+    const h = await settled({
+      content: [{ type: "text", text: "Next up is `@types/node`:\n\n" }],
+    });
+    expect(h.engine.lastDecision?.verdict).toBe("recovered");
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].text).toContain("@types/node");
+  });
+
   it("does nothing on a healthy stop", async () => {
     const h = await settled();
     expect(h.sent).toHaveLength(0);
