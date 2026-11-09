@@ -1,9 +1,9 @@
 # Integration events
 
-`@gotgenes/pi-ask` exposes local `pi.events` events for trusted extensions in the same Pi process.
+`@lazuee/pi-ask` exposes local `pi.events` events for trusted extensions in the same Pi process.
 It does not expose a network API or automate terminal keystrokes.
 
-All integration channels use the `@gotgenes/pi-ask` prefix.
+All integration channels use the `@lazuee/pi-ask` prefix.
 Old `@eko24ive/pi-ask:*` listeners must be updated; there are no aliases.
 
 ## External UI negotiation

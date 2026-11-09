@@ -44,7 +44,7 @@ trim = true
 postprocessors = [
   # Rendered late so the template can stay readable, and so a repository rename
   # is a one-line edit rather than a sweep through the body.
-  { pattern = '<REPO>', replace = "https://github.com/gotgenes/pi-packages" },
+  { pattern = '<REPO>', replace = "https://github.com/lazuee/pi-packages" },
 ]
 
 [bump]

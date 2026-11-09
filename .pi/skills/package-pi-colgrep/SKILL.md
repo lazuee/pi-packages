@@ -1,7 +1,7 @@
 ---
 name: package-pi-colgrep
 description: |
-  Package-specific context for @gotgenes/pi-colgrep.
+  Package-specific context for @lazuee/pi-colgrep.
   Load when working on code, tests, or docs in packages/pi-colgrep/.
 ---
 

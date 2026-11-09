@@ -4,9 +4,9 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     // Workspace siblings resolve to their `src` (see pnpm-workspace.yaml). Their
-    // `exports` list `types` before `@gotgenes/source` so a built `dist` still
+    // `exports` list `types` before `@lazuee/source` so a built `dist` still
     // wins; this condition is the fallback that keeps a fresh clone typechecking.
-    "customConditions": ["@gotgenes/source"],
+    "customConditions": ["@lazuee/source"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,

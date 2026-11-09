@@ -56,8 +56,8 @@ Both prompt layouts ADR 0014 handled, the ≤0.85 header shape and the 0.86 sect
 - **Sections another extension adds reach the provider.**
   `<mcp_servers>` is the case that surfaced this; any extension adding a section from `before_agent_start` gets the same fix.
 - **The inherited prefix is retired.**
-  The root's tool list now sits where Pi writes it, inside the region `@gotgenes/pi-subagents` copies into a child.
-  `@gotgenes/pi-subagents` cuts the parent's `<tools>` and `<rules>` out of that region ([#1009], released before this change), so a child still states only its own tools.
+  The root's tool list now sits where Pi writes it, inside the region `@lazuee/pi-subagents` copies into a child.
+  `@lazuee/pi-subagents` cuts the parent's `<tools>` and `<rules>` out of that region ([#1009], released before this change), so a child still states only its own tools.
   Parent and child now share only the preamble, about 171 characters (measured during [#890]'s planning, not re-measured here), where ADR 0014 kept the whole identity shared.
   The loss falls only on hosts that reuse the leading system text ([#180]); Anthropic's cache was never reached by it (ADR 0014).
   The operator chose this over the alternative below on [#999].
@@ -84,14 +84,14 @@ Both prompt layouts ADR 0014 handled, the ≤0.85 header shape and the 0.86 sect
 - **Keep the forced prompt.**
   Declined: the defect stays until Pi offers a way to remove its built-in sections, and any later extension's section is lost meanwhile.
 - **Suppress Pi's built-ins by setting `customPrompt` to Pi's own preamble.**
-  Not offered: other extensions read `customPrompt` as the operator's own text, among them `@gotgenes/pi-subagents`' portable prompt and this extension's [#980] branch.
+  Not offered: other extensions read `customPrompt` as the operator's own text, among them `@lazuee/pi-subagents`' portable prompt and this extension's [#980] branch.
 
-[#180]: https://github.com/gotgenes/pi-packages/issues/180
-[#890]: https://github.com/gotgenes/pi-packages/issues/890
-[#919]: https://github.com/gotgenes/pi-packages/issues/919
-[#932]: https://github.com/gotgenes/pi-packages/issues/932
-[#962]: https://github.com/gotgenes/pi-packages/issues/962
-[#970]: https://github.com/gotgenes/pi-packages/issues/970
-[#980]: https://github.com/gotgenes/pi-packages/issues/980
-[#999]: https://github.com/gotgenes/pi-packages/issues/999
-[#1009]: https://github.com/gotgenes/pi-packages/issues/1009
+[#180]: https://github.com/lazuee/pi-packages/issues/180
+[#890]: https://github.com/lazuee/pi-packages/issues/890
+[#919]: https://github.com/lazuee/pi-packages/issues/919
+[#932]: https://github.com/lazuee/pi-packages/issues/932
+[#962]: https://github.com/lazuee/pi-packages/issues/962
+[#970]: https://github.com/lazuee/pi-packages/issues/970
+[#980]: https://github.com/lazuee/pi-packages/issues/980
+[#999]: https://github.com/lazuee/pi-packages/issues/999
+[#1009]: https://github.com/lazuee/pi-packages/issues/1009

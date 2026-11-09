@@ -1,17 +1,17 @@
 # Comparison with upstream
 
-`@gotgenes/pi-subagents` began as a fork of [`tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) by [@tintinweb](https://github.com/tintinweb).
+`@lazuee/pi-subagents` began as a fork of [`tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) by [@tintinweb](https://github.com/tintinweb).
 The original design — autonomous subagent dispatch, the live widget, the conversation viewer, custom agent types — is the foundation everything here builds on.
 
 It has since become an independently maintained hard fork.
 It follows its own architecture, does not track upstream as a merge target, and cherry-picks upstream fixes only when they fit its scope.
 This document compares the fork against the current upstream release so you can choose between them.
 
-Versions compared: `@gotgenes/pi-subagents` 16.2.1 and `@tintinweb/pi-subagents` 0.10.3 (current at the time of writing).
+Versions compared: `@lazuee/pi-subagents` 16.2.1 and `@tintinweb/pi-subagents` 0.10.3 (current at the time of writing).
 
 ## At a glance
 
-| Aspect          | @gotgenes/pi-subagents           | @tintinweb/pi-subagents                 |
+| Aspect          | @lazuee/pi-subagents             | @tintinweb/pi-subagents                 |
 | --------------- | -------------------------------- | --------------------------------------- |
 | Philosophy      | Minimal, composable core         | Batteries-included, all-in-one          |
 | Pi peer scope   | `@earendil-works/pi-*` (>=1.0.0) | `@earendil-works/pi-*` (>=0.74)         |
@@ -36,16 +36,16 @@ Both extensions provide the same core experience:
 Upstream is the batteries-included option.
 It keeps several subsystems built in that this fork deliberately removed or delegated:
 
-| Capability              | @tintinweb/pi-subagents                           | @gotgenes/pi-subagents                                                                                                                            |
-| ----------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tool restrictions       | `disallowed_tools` frontmatter (denylist)         | Delegated — `permission:` via [`@gotgenes/pi-permission-system`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-system) |
-| Worktree isolation      | Built-in                                          | Delegated — [`@gotgenes/pi-subagents-worktrees`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-subagents-worktrees)               |
-| Persistent agent memory | `memory:` frontmatter (project / local / user)    | Removed                                                                                                                                           |
-| Skill preloading        | `skills:` frontmatter (preload named skills)      | Removed — children always inherit the parent's skills                                                                                             |
-| Scheduling              | Cron / interval / one-shot subagents (`schedule`) | Removed                                                                                                                                           |
-| Cross-extension control | `subagents:rpc:*` event RPC                       | Replaced by a typed service (below)                                                                                                               |
-| Model-scope enforcement | `enabledModels` allowlist validation              | Not included                                                                                                                                      |
-| Notifications           | Smart group-join consolidation                    | Individual per-agent notifications                                                                                                                |
+| Capability              | @tintinweb/pi-subagents                           | @lazuee/pi-subagents                                                                                                                          |
+| ----------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tool restrictions       | `disallowed_tools` frontmatter (denylist)         | Delegated — `permission:` via [`@lazuee/pi-permission-system`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-system) |
+| Worktree isolation      | Built-in                                          | Delegated — [`@lazuee/pi-subagents-worktrees`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-subagents-worktrees)               |
+| Persistent agent memory | `memory:` frontmatter (project / local / user)    | Removed                                                                                                                                       |
+| Skill preloading        | `skills:` frontmatter (preload named skills)      | Removed — children always inherit the parent's skills                                                                                         |
+| Scheduling              | Cron / interval / one-shot subagents (`schedule`) | Removed                                                                                                                                       |
+| Cross-extension control | `subagents:rpc:*` event RPC                       | Replaced by a typed service (below)                                                                                                           |
+| Model-scope enforcement | `enabledModels` allowlist validation              | Not included                                                                                                                                  |
+| Notifications           | Smart group-join consolidation                    | Individual per-agent notifications                                                                                                            |
 
 ## What this fork adds
 
@@ -53,7 +53,7 @@ This fork is a minimal core that other extensions build on, plus a small compani
 
 - **Typed service API** — `SubagentsService` exposed via `Symbol.for()` accessors, so another extension can spawn and manage subagents without importing this package or relying on ad-hoc event RPC.
 - **Child-session lifecycle events** — `subagents:child:spawning` / `session-created` / `bound` / `completed` / `disposed`, with `session-created` firing synchronously before `bindExtensions()` so consumers can register the child session deterministically, and `bound` firing after it resolves so they can observe what the child's extensions installed.
-- **`<active_agent>` system-prompt tag** — lets [`@gotgenes/pi-permission-system`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-system) resolve per-agent `permission:` frontmatter (allow / ask / deny — richer than a binary denylist) inside the child session.
+- **`<active_agent>` system-prompt tag** — lets [`@lazuee/pi-permission-system`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-system) resolve per-agent `permission:` frontmatter (allow / ask / deny — richer than a binary denylist) inside the child session.
 - **Turn budgets** — `max_turns` is a hard ceiling rather than a wrap-up point followed by grace turns, the child is told its remaining turns while it still has room to answer, and the budget is live on the record and in the widget.
 - **Companion packages** — permission policy and worktree isolation live in dedicated packages rather than the core.
 - **Re-architected codebase** — decomposed into seven domains behind a typed public API boundary, backed by ~994 tests.
@@ -63,7 +63,7 @@ This fork is a minimal core that other extensions build on, plus a small compani
 **Use `@tintinweb/pi-subagents`** if you want a single, batteries-included extension with nothing else to install: built-in tool denylist, scheduled / cron subagents, cross-extension RPC, and model-scope enforcement in one package.
 It is the canonical upstream and the original.
 
-**Use `@gotgenes/pi-subagents`** if you want a minimal, composable core: richer allow / ask / deny permissions and worktree isolation through companion packages, a typed service plus lifecycle events to build your own extensions on, and an actively refactored codebase — and you do not need built-in scheduling, RPC, or model-scope enforcement.
+**Use `@lazuee/pi-subagents`** if you want a minimal, composable core: richer allow / ask / deny permissions and worktree isolation through companion packages, a typed service plus lifecycle events to build your own extensions on, and an actively refactored codebase — and you do not need built-in scheduling, RPC, or model-scope enforcement.
 
 The spawn tool is named `subagent` here versus `Agent` upstream, so prompts and docs that hard-code the tool name are not drop-in portable between the two.
 

@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-github-tools",
+  "name": "@lazuee/pi-github-tools",
   "version": "6.1.0",
   "description": "Pi extension providing deterministic GitHub CI, release, and issue tools.",
   "type": "module",
@@ -30,17 +30,24 @@
     "release"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-github-tools"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-github-tools#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-github-tools#readme",
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
   "engines": {
     "node": ">=22"

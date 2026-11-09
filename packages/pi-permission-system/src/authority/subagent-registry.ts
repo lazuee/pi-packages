@@ -1,7 +1,7 @@
 /**
  * subagent-registry.ts — In-process subagent session registry.
  *
- * In-process subagent extensions (e.g. `@gotgenes/pi-subagents`) register
+ * In-process subagent extensions (e.g. `@lazuee/pi-subagents`) register
  * each child session here before calling `bindExtensions()` so that
  * `isSubagentExecutionContext()` and permission-forwarding target resolution
  * can detect them without relying on environment variables or filesystem
@@ -27,7 +27,7 @@
 
 /** Process-global key for the shared registry slot. */
 const SUBAGENT_SESSION_REGISTRY_KEY = Symbol.for(
-  "@gotgenes/pi-permission-system:subagent-registry",
+  "@lazuee/pi-permission-system:subagent-registry",
 );
 
 /**

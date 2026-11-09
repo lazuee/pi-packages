@@ -1,8 +1,8 @@
 {
   "private": true,
-  "name": "@gotgenes/pi-packages",
+  "name": "@lazuee/pi-packages",
   "type": "module",
-  "description": "Monorepo for @gotgenes pi packages",
+  "description": "Monorepo for @lazuee pi packages",
   "packageManager": "pnpm@11.25.0",
   "engines": {
     "node": ">=22"
@@ -34,6 +34,16 @@
   "keywords": [
     "pi-package"
   ],
+  "author": {
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
+  },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "pi": {
     "extensions": [
@@ -58,9 +68,9 @@
     ]
   },
   "dependencies": {
-    "@gotgenes/pi-permission-system": "workspace:^",
-    "@gotgenes/pi-subagents": "workspace:^",
-    "@gotgenes/pi-subagents-worktrees": "workspace:^",
+    "@lazuee/pi-permission-system": "workspace:^",
+    "@lazuee/pi-subagents": "workspace:^",
+    "@lazuee/pi-subagents-worktrees": "workspace:^",
     "tree-sitter-bash": "^0.25.1",
     "web-tree-sitter": "^0.26.9",
     "zod": "^4.6.7"

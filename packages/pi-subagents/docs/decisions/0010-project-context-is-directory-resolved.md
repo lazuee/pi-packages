@@ -99,9 +99,9 @@ Nothing survives past this cut: the catalogue and footer are already gone, so th
   A context file quoting either tag is therefore not mistaken for Pi's own markup.
   If Pi changes that markup the anchor stops matching and a relocated child keeps the inherited block — the status quo before this record, not a new failure mode.
 
-[#640]: https://github.com/gotgenes/pi-packages/issues/640
-[#801]: https://github.com/gotgenes/pi-packages/issues/801
-[#918]: https://github.com/gotgenes/pi-packages/issues/918
+[#640]: https://github.com/lazuee/pi-packages/issues/640
+[#801]: https://github.com/lazuee/pi-packages/issues/801
+[#918]: https://github.com/lazuee/pi-packages/issues/918
 [ADR 0002]: 0002-extensions-on-a-minimal-core.md
 [ADR 0006]: 0006-inherited-prompt-is-identity-only.md
 [ADR 0008]: 0008-inherited-region-is-shared-parts.md

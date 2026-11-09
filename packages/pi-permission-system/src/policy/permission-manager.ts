@@ -562,7 +562,7 @@ function evaluateCheck(
 }
 
 const MCP_TOOL_KEY_MIGRATION_GUIDE =
-  "https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/migration/1001-pi-mcp-tools-on-mcp-surface.md";
+  "https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/migration/1001-pi-mcp-tools-on-mcp-surface.md";
 
 /** The notice asking the operator to move top-level `mcp__…` keys under `mcp`. */
 function formatMcpToolKeyPortNotice(keys: readonly string[]): string {

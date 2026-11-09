@@ -26,10 +26,10 @@ jobs:
         run: pnpm -r run check
 
       - name: Verify public types are consumable from the package
-        run: pnpm --filter @gotgenes/pi-subagents run verify:public-types
+        run: pnpm --filter @lazuee/pi-subagents run verify:public-types
 
       - name: Verify pi-permission-system public types are consumable from the package
-        run: pnpm --filter @gotgenes/pi-permission-system run verify:public-types
+        run: pnpm --filter @lazuee/pi-permission-system run verify:public-types
 
       - name: Lint
         run: pnpm run lint
@@ -41,7 +41,7 @@ jobs:
       # the real `pi` CLI, and doing so alongside eight other packages' vitest
       # processes is what made them flake (#678).
       - name: Real-CLI acceptance tests (pi-autoformat)
-        run: pnpm --filter @gotgenes/pi-autoformat run test:acceptance
+        run: pnpm --filter @lazuee/pi-autoformat run test:acceptance
 
       - name: Fallow audit
         if: github.event_name == 'pull_request'

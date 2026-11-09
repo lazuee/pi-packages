@@ -285,7 +285,7 @@ export default function piPermissionSystemExtension(pi: ExtensionAPI): void {
     ),
   );
 
-  // Subscribe to @gotgenes/pi-subagents' child lifecycle events so child
+  // Subscribe to @lazuee/pi-subagents' child lifecycle events so child
   // sessions register/unregister without the core calling us (ADR 0002), and
   // so a child that bound its extensions without loading one of ours is
   // reported rather than silently ungated (#792). The lookup is a thunk over

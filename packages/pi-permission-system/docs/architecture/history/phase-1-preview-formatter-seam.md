@@ -85,5 +85,5 @@ flowchart TD
 | Config schema        | 3     | Add numeric fields to config (independent of extraction)   |
 | Integration          | 4     | Wire config to formatter (depends on both tracks)          |
 
-[#266]: https://github.com/gotgenes/pi-packages/issues/266
-[#282]: https://github.com/gotgenes/pi-packages/issues/282
+[#266]: https://github.com/lazuee/pi-packages/issues/266
+[#282]: https://github.com/lazuee/pi-packages/issues/282

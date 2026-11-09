@@ -218,12 +218,12 @@ describe("detectRepo", () => {
     });
     // Second call: git remote get-url
     mockRunCommand.mockResolvedValueOnce({
-      stdout: "git@github.com:gotgenes/pi-github-tools.git\n",
+      stdout: "git@github.com:lazuee/pi-github-tools.git\n",
       stderr: "",
       exitCode: 0,
     });
     const repo = await detectRepo();
-    expect(repo).toEqual({ owner: "gotgenes", repo: "pi-github-tools" });
+    expect(repo).toEqual({ owner: "lazuee", repo: "pi-github-tools" });
   });
 
   it("falls back to git remote HTTPS URL", async () => {
@@ -233,12 +233,12 @@ describe("detectRepo", () => {
       exitCode: 1,
     });
     mockRunCommand.mockResolvedValueOnce({
-      stdout: "https://github.com/gotgenes/pi-github-tools.git\n",
+      stdout: "https://github.com/lazuee/pi-github-tools.git\n",
       stderr: "",
       exitCode: 0,
     });
     const repo = await detectRepo();
-    expect(repo).toEqual({ owner: "gotgenes", repo: "pi-github-tools" });
+    expect(repo).toEqual({ owner: "lazuee", repo: "pi-github-tools" });
   });
 
   it("caches the result across calls", async () => {

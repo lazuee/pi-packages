@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-autoformat/main/schemas/pi-autoformat.schema.json",
+  "$schema": "https://raw.githubusercontent.com/lazuee/pi-autoformat/main/schemas/pi-autoformat.schema.json",
   "formatters": {
     "invisible-characters": {
       "command": ["node", "scripts/lint/invisible-characters.mjs", "--fix"]

@@ -25,7 +25,7 @@
 
 /** Process-global key for the shared registry slot. Exported for test teardown. */
 export const SERVING_SESSION_REGISTRY_KEY = Symbol.for(
-  "@gotgenes/pi-permission-system:serving-registry",
+  "@lazuee/pi-permission-system:serving-registry",
 );
 
 /**

@@ -181,7 +181,7 @@ describe("schemaRepoPath", () => {
   it("returns the repo-relative path a canonical raw URL names", () => {
     expect(
       schemaRepoPath(
-        "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
+        "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
       ),
     ).toBe("packages/pi-permission-system/schemas/permissions.schema.json");
   });
@@ -189,7 +189,7 @@ describe("schemaRepoPath", () => {
   it("returns null for another repository's raw URL", () => {
     expect(
       schemaRepoPath(
-        "https://raw.githubusercontent.com/gotgenes/pi-autoformat/main/schemas/pi-autoformat.schema.json",
+        "https://raw.githubusercontent.com/lazuee/pi-autoformat/main/schemas/pi-autoformat.schema.json",
       ),
     ).toBeNull();
   });

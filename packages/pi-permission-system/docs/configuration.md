@@ -54,7 +54,7 @@ In a bash chain, a floored unit decides the chain's answer even when another uni
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
+  "$schema": "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
 
   // Runtime knobs
   "debugLog": false,
@@ -385,7 +385,7 @@ Extension authors: register a link from a `permissions:ready` handler via `getPe
 The details' `accessIntent` carries the gate surface the rule fired on and, on a licensed bash `external_directory` ask, `delegationLicense: "nothing-on-disk"`; a link that allows only what the checkpoint will honor can read it before calling a model.
 Registration returns a disposer, and only one link may hold a given name.
 Register in every session without branching: a session that relays its asks accepts the link and records `authorizer_link_vacant` rather than refusing it.
-For a complete working example, see [`@gotgenes/pi-permission-model-judge`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-model-judge): it registers a `model-judge` link on `permissions:ready` that reviews `external_directory` asks and auto-denies mistyped paths with a corrective reason.
+For a complete working example, see [`@lazuee/pi-permission-model-judge`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-model-judge): it registers a `model-judge` link on `permissions:ready` that reviews `external_directory` asks and auto-denies mistyped paths with a corrective reason.
 
 ---
 
@@ -914,7 +914,7 @@ What the bash projection resolves:
 What it deliberately does not resolve: any other variable (`$CONFIG_DIR`), a command substitution (`$(cmd)`), an expansion carrying an operator (`${HOME:-/tmp}`), a variable reached through an assignment (`CURRENT="$HOME"; ls "$CURRENT"`), and `$HOME`, `$PWD`, or a leading `~` in a command that reassigns the variable anywhere (`HOME=/etc; cat "$HOME/shadow"`), including through `read`, `unset`, `eval`, or `source`.
 A non-literal `cd` (`cd "$DIR"`, `cd ~user`, bare `cd`) makes the working directory unknown, after which relative tokens are kept literal rather than resolved against a guess.
 Commands whose payload is opaque (`bash -c`, `eval`, `sudo`, `xargs`) are floored to `ask` instead of projected.
-The governing record is [ADR 0009](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0009-bash-path-projection-completeness-contract.md), which states what the projection guarantees and which gaps are accepted residuals rather than bugs.
+The governing record is [ADR 0009](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0009-bash-path-projection-completeness-contract.md), which states what the projection guarantees and which gaps are accepted residuals rather than bugs.
 
 (The separate `bash` command-pattern surface does evaluate commands nested inside substitutions and subshells; see that section.) OS device paths (`/dev/null`, `/dev/stdin`, `/dev/stdout`, `/dev/stderr`) are always excluded.
 
@@ -1066,10 +1066,13 @@ To stop the prompts for one file that never holds secrets, save an exact-path `a
   Both families are written so the rule holds inside and outside the working directory.
 - `~` and relative paths are resolved to one absolute path; a path with `*` or `?`, or a folder, is refused.
   Quote a path that contains spaces.
-- The `edit` tool consults both directions, so `edit` alone still prompts for the read. Use `both` for a file that you edit.
-- The rule is written last in the **global** config, so it has the final say there. The shared project `config.json` is never written.
+- The `edit` tool consults both directions, so `edit` alone still prompts for the read.
+  Use `both` for a file that you edit.
+- The rule is written last in the **global** config, so it has the final say there.
+  The shared project `config.json` is never written.
 - The command refuses to save when a `deny` rule matches the file in that direction (a later `allow` would override it), and when the file name looks like a secret store: `.env` and `.env.*` (not `.env.example`, `.env.sample`, `.env.template`, `.env.dist`), anything under `.ssh/`, `auth.json`, `credentials`, `.netrc`, `.npmrc`, `.pypirc`, `*.pem`, `*.key`, `*.p12`, `*.pfx` and `id_rsa*`-style key files.
-- It rewrites the global config as plain JSON, so it refuses when that file has comments. Add the rule by hand then.
+- It rewrites the global config as plain JSON, so it refuses when that file has comments.
+  Add the rule by hand then.
 - `remove-file` removes only the `allow` rules for that path; it never removes an `ask` or `deny`.
 
 #### The pure-reader command core
@@ -1393,7 +1396,7 @@ With `"~/bin/tool *": "deny"`, the commands `~/bin/tool --now`, `$HOME/bin/tool 
 The command is still shown, logged, and offered for session approval as typed.
 Three limits apply:
 
-- On Windows, a home-anchored `bash` pattern is compiled with backslash separators, so it matches only a command typed with the backslashed absolute path ([issue #1020](https://github.com/gotgenes/pi-packages/issues/1020)).
+- On Windows, a home-anchored `bash` pattern is compiled with backslash separators, so it matches only a command typed with the backslashed absolute path ([issue #1020](https://github.com/lazuee/pi-packages/issues/1020)).
 - A command that reassigns `HOME` earlier in the same invocation (`HOME=/tmp/x; ~/bin/tool`, or a `HOME=/tmp/x` prefix) is matched only as typed, because its `~` no longer names your home directory.
   A reassignment the parser cannot see, such as one through a variable holding the name (`n=HOME; read $n`), is not detected, so the command still matches your home-anchored rules.
   Writing a command that way takes deliberate effort to evade a rule; run an agent you would not trust with that inside a sandbox rather than relying on command patterns.
@@ -1661,7 +1664,7 @@ Additional behaviors:
   Tool filtering and enforcement still apply, and the model still receives only the allowed tools in the request's tool list.
   A subagent child is the exception: its prompt is always a custom one assembled by the subagent extension, so it gets its own `<tools>` and `<rules>` sections, placed after the working directory, while any custom text it inherited stays untouched.
   The child's sections follow pi's own rules: a tool is listed only when pi supplied a one-line description for it, and the guideline bullets are the allowed tools' own contributions, then any rules another extension added to `systemPromptOptions.promptGuidelines`, around pi's built-in ones.
-- A subagent child running with `@gotgenes/pi-subagents` needs a release that drops the parent's `<tools>` and `<rules>` from the prompt the child inherits; with an older one, the child shows the parent's tool list as well as its own.
+- A subagent child running with `@lazuee/pi-subagents` needs a release that drops the parent's `<tools>` and `<rules>` from the prompt the child inherits; with an older one, the child shows the parent's tool list as well as its own.
 - A denied skill is removed from the skills catalogue pi renders.
   A skill listed in text pi did not render, such as your own `SYSTEM.md`, is not edited out; using it is still gated.
 - The prompt options are recomputed on every turn but are stable across turns for a stable policy/agent, so the provider's prompt cache is preserved rather than rewritten each turn.
@@ -1670,7 +1673,7 @@ Additional behaviors:
 - Generic extension-tool approval prompts include a bounded input preview; built-in file tools use concise human-readable summaries
 - Permission review logs include `toolInputPreview` values for tool calls other than bash and the `mcp` proxy, with sensitive-keyed values masked and every value bounded by `reviewLogFieldMaxWidth` (see [Log file sensitivity](#log-file-sensitivity))
 - A tool whose path came from an extractor registered in an **ancestor** session rather than this one records `extractorSource: "inherited"` beside the decision; the field is absent for every path this session resolved itself.
-  This happens in a subagent child when the extractor's provider was kept out of the child but the tool's own package was not — the child borrows the declaration so its `path` and `external_directory` gates still see the path (see [Subagent Integration](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/subagent-integration.md#loading-asymmetry))
+  This happens in a subagent child when the extractor's provider was kept out of the child but the tool's own package was not — the child borrows the declaration so its `path` and `external_directory` gates still see the path (see [Subagent Integration](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/subagent-integration.md#loading-asymmetry))
 
 ### Footer status
 
@@ -1746,7 +1749,7 @@ Practical guidance:
 - Set `"permissionReviewLog": false` (and leave `debugLog` off) for a session that will handle credentials on the command line.
 - Owner-only modes do not protect against anything running as you, including a backup or cloud-sync agent that copies your home directory.
 
-[ADR 0010]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0010-permission-log-secret-exposure.md
+[ADR 0010]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0010-permission-log-secret-exposure.md
 
 ---
 
@@ -1763,7 +1766,7 @@ npx --yes ajv-cli@5 validate \
 **Editor tip:** Add the hosted schema URL as the `$schema` key in your config for autocomplete and validation support:
 
 ```json
-"$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json"
+"$schema": "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json"
 ```
 
 The well-known surface keys — `*`, `path`, `external_directory`, `bash`, `mcp`, `skill`, and the four directional keys — are named properties in the schema, so an editor completes them and shows each key's own documentation on hover; any other registered tool name still validates as a surface.

@@ -32,7 +32,7 @@ Two metrics missed their target on delivery — source LOC and `createTestSubage
 | `createTestSubagent` cyclomatic                  | 19               | ≤ 8                    | 13 ⚠️ (miss — see Step 8)                       |
 | Test clone groups (in-package)                   | 9 (81 lines)     | — retired (see note)   | retired ✅                                      |
 
-The "Test clone groups (in-package)" metric is retired as of Step 9 ([#543]). fallow 3.2.0 excludes `**/*.test.*` from duplication detection by default, so `pnpm fallow dupes --workspace @gotgenes/pi-subagents` no longer surfaces test-file clones — the tool treats test-suite token runs as expected scaffolding.
+The "Test clone groups (in-package)" metric is retired as of Step 9 ([#543]). fallow 3.2.0 excludes `**/*.test.*` from duplication detection by default, so `pnpm fallow dupes --workspace @lazuee/pi-subagents` no longer surfaces test-file clones — the tool treats test-suite token runs as expected scaffolding.
 The suites' arrange was already well-factored by Phase 17 and Phase 20 Step 8; the residual repetition is the system-under-test act call, which stays explicit per the `testing` skill.
 
 Source LOC grew by 143 lines instead of holding flat: the phase's extraction and typed-boundary work (`get-result-report.ts`, the `NumericSettingDescriptor` table, `SteerOutcome`, `TuiSurface`, the extended `SubagentStateInit`) added more lines than the removed complexity subtracted.
@@ -234,12 +234,12 @@ Tracks A–D can proceed in parallel; only Step 9 serializes behind the rest.
 
 Every step lands as a `refactor:`/`test:` commit — hidden changelog types that cut no release on their own; the work auto-batches into the next unhidden release.
 
-[#535]: https://github.com/gotgenes/pi-packages/issues/535
-[#536]: https://github.com/gotgenes/pi-packages/issues/536
-[#537]: https://github.com/gotgenes/pi-packages/issues/537
-[#538]: https://github.com/gotgenes/pi-packages/issues/538
-[#539]: https://github.com/gotgenes/pi-packages/issues/539
-[#540]: https://github.com/gotgenes/pi-packages/issues/540
-[#541]: https://github.com/gotgenes/pi-packages/issues/541
-[#542]: https://github.com/gotgenes/pi-packages/issues/542
-[#543]: https://github.com/gotgenes/pi-packages/issues/543
+[#535]: https://github.com/lazuee/pi-packages/issues/535
+[#536]: https://github.com/lazuee/pi-packages/issues/536
+[#537]: https://github.com/lazuee/pi-packages/issues/537
+[#538]: https://github.com/lazuee/pi-packages/issues/538
+[#539]: https://github.com/lazuee/pi-packages/issues/539
+[#540]: https://github.com/lazuee/pi-packages/issues/540
+[#541]: https://github.com/lazuee/pi-packages/issues/541
+[#542]: https://github.com/lazuee/pi-packages/issues/542
+[#543]: https://github.com/lazuee/pi-packages/issues/543

@@ -85,7 +85,7 @@ ax.annotate(
     (OPUS5 + dt.timedelta(days=4), 62000), fontsize=9, color="#b0308a",
 )
 ax.set_title(
-    "Agent documentation growth vs. the model reading it — gotgenes/pi-packages",
+    "Agent documentation growth vs. the model reading it — lazuee/pi-packages",
     fontsize=13,
 )
 ax.set_ylabel("words (weekly snapshot of HEAD)")

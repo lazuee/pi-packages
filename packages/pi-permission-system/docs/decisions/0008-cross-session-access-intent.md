@@ -192,10 +192,10 @@ The unified model is known-incomplete at two edges, recorded here rather than le
   [#565] stays open through Phase 12 by roadmap decision and closes at phase end with a note recording that item 1 (forwarded-prompt fidelity against a real external notification consumer) stays best-effort, since no consumer exists to verify against.
 - No code, config, schema, or default changes in this documentation step.
 
-[#418]: https://github.com/gotgenes/pi-packages/issues/418
-[#486]: https://github.com/gotgenes/pi-packages/issues/486
-[#557]: https://github.com/gotgenes/pi-packages/issues/557
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
-[#595]: https://github.com/gotgenes/pi-packages/issues/595
-[#596]: https://github.com/gotgenes/pi-packages/issues/596
-[#597]: https://github.com/gotgenes/pi-packages/issues/597
+[#418]: https://github.com/lazuee/pi-packages/issues/418
+[#486]: https://github.com/lazuee/pi-packages/issues/486
+[#557]: https://github.com/lazuee/pi-packages/issues/557
+[#565]: https://github.com/lazuee/pi-packages/issues/565
+[#595]: https://github.com/lazuee/pi-packages/issues/595
+[#596]: https://github.com/lazuee/pi-packages/issues/596
+[#597]: https://github.com/lazuee/pi-packages/issues/597

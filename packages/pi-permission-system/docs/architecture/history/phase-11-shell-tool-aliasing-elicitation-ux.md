@@ -36,7 +36,7 @@ Recompute commands (run from the repo root):
 - Root modules: `ls packages/pi-permission-system/src | grep -c '\.ts$'`
 - Prefix-containment sites: `grep -c 'startsWith(prefix)' packages/pi-permission-system/src/authority/subagent-context.ts`
 - Inline prompt component files: `grep -rl 'ui\.custom' packages/pi-permission-system/src/authority | wc -l`
-- Health/duplication/dead exports: `pnpm fallow health --score --workspace @gotgenes/pi-permission-system` / `pnpm fallow dupes --workspace @gotgenes/pi-permission-system` / `pnpm fallow dead-code --workspace @gotgenes/pi-permission-system`
+- Health/duplication/dead exports: `pnpm fallow health --score --workspace @lazuee/pi-permission-system` / `pnpm fallow dupes --workspace @lazuee/pi-permission-system` / `pnpm fallow dead-code --workspace @lazuee/pi-permission-system`
 
 ## Open-issue sweep dispositions
 
@@ -170,19 +170,19 @@ Tracks B–E are independent of Track A and of each other.
 - **Batch "shell-tool-aliases":** Steps 2, 3 (ship together; tail = Step 3).
 - Independently releasable: Steps 1, 4, 5, 6, 7.
 
-[#332]: https://github.com/gotgenes/pi-packages/issues/332
-[#347]: https://github.com/gotgenes/pi-packages/issues/347
-[#356]: https://github.com/gotgenes/pi-packages/issues/356
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#490]: https://github.com/gotgenes/pi-packages/issues/490
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#562]: https://github.com/gotgenes/pi-packages/issues/562
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
-[#571]: https://github.com/gotgenes/pi-packages/issues/571
-[#573]: https://github.com/gotgenes/pi-packages/issues/573
-[#574]: https://github.com/gotgenes/pi-packages/issues/574
-[#575]: https://github.com/gotgenes/pi-packages/issues/575
-[#579]: https://github.com/gotgenes/pi-packages/issues/579
-[#580]: https://github.com/gotgenes/pi-packages/issues/580
-[#581]: https://github.com/gotgenes/pi-packages/issues/581
-[#591]: https://github.com/gotgenes/pi-packages/issues/591
+[#332]: https://github.com/lazuee/pi-packages/issues/332
+[#347]: https://github.com/lazuee/pi-packages/issues/347
+[#356]: https://github.com/lazuee/pi-packages/issues/356
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#490]: https://github.com/lazuee/pi-packages/issues/490
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#562]: https://github.com/lazuee/pi-packages/issues/562
+[#565]: https://github.com/lazuee/pi-packages/issues/565
+[#571]: https://github.com/lazuee/pi-packages/issues/571
+[#573]: https://github.com/lazuee/pi-packages/issues/573
+[#574]: https://github.com/lazuee/pi-packages/issues/574
+[#575]: https://github.com/lazuee/pi-packages/issues/575
+[#579]: https://github.com/lazuee/pi-packages/issues/579
+[#580]: https://github.com/lazuee/pi-packages/issues/580
+[#581]: https://github.com/lazuee/pi-packages/issues/581
+[#591]: https://github.com/lazuee/pi-packages/issues/591

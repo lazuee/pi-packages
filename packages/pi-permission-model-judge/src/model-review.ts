@@ -16,7 +16,7 @@ import type {
   Tool,
   ToolCall,
 } from "@earendil-works/pi-ai";
-import type { AuthorizerVerdict } from "@gotgenes/pi-permission-system";
+import type { AuthorizerVerdict } from "@lazuee/pi-permission-system";
 
 import type { ModelJudgeConfig } from "./config-schema";
 import { type ForcedToolChoice, resolveToolChoice } from "./tool-choice";

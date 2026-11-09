@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the internal design of `@gotgenes/pi-colgrep`: a Pi extension that exposes the [ColGrep](https://github.com/lightonai/next-plaid#colgrep) semantic code-search CLI as an agent tool and keeps its index current across a session.
+This document describes the internal design of `@lazuee/pi-colgrep`: a Pi extension that exposes the [ColGrep](https://github.com/lightonai/next-plaid#colgrep) semantic code-search CLI as an agent tool and keeps its index current across a session.
 
 ## Design principles
 

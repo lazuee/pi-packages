@@ -2,7 +2,7 @@
   <img src="assets/ask.webp" alt="A puzzled robot holding coffee and wondering what you meant" width="320">
 </p>
 
-[![npm version](https://img.shields.io/npm/v/@gotgenes/pi-ask?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@gotgenes/pi-ask) [![CI](https://img.shields.io/github/actions/workflow/status/gotgenes/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/gotgenes/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/@lazuee/pi-ask?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@lazuee/pi-ask) [![CI](https://img.shields.io/github/actions/workflow/status/lazuee/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/lazuee/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT)
 
 ## Give your agent permission to ask “What the fuck?”
 
@@ -18,13 +18,13 @@ Instead of blindly following your bullshit, it asks a question.
 Install [Pi](https://pi.dev/), then:
 
 ```bash
-pi install npm:@gotgenes/pi-ask
+pi install npm:@lazuee/pi-ask
 ```
 
 Or install directly from GitHub:
 
 ```bash
-pi install git:github.com/gotgenes/pi-packages
+pi install git:github.com/lazuee/pi-packages
 ```
 
 Remove any other pi-ask installation so only one extension provides `ask_user`, then reload Pi.
@@ -129,5 +129,5 @@ Found a weird case?
 [Open an issue](https://github.com/alexshpunt/pi-agent-ask/issues).
 Got an idea?
 [Start a discussion](https://github.com/alexshpunt/pi-agent-ask/discussions).
-[Contributions](https://github.com/gotgenes/pi-packages/blob/main/CONTRIBUTING.md) welcome.
+[Contributions](https://github.com/lazuee/pi-packages/blob/main/CONTRIBUTING.md) welcome.
 [MIT](LICENSE).

@@ -30,12 +30,12 @@ Stop after recording the decision and handing off; do not start implementation h
    The package owns where the triage note lands (`packages/<PKG>/docs/retro/`); cross-package work uses the top-level `docs/retro/`.
 5. Note the PR's base commit (`gh pr view $1 --json baseRefOid`) — every "does this defect exist" question below is asked against **current `main`**, not against the PR's narrative.
 6. Establish whether the defect can reach **us**.
-   Check the `@gotgenes/*` extensions this repo actually runs under — including ones outside this monorepo, such as `pi-anthropic-auth` — for something that already mitigates it.
+   Check the `@lazuee/*` extensions this repo actually runs under — including ones outside this monorepo, such as `pi-anthropic-auth` — for something that already mitigates it.
    A defect we are immune to is still real; its priority and its owner are not the same.
 
 A fork PR's `statusCheckRollup` is often **empty**, for two indistinguishable reasons: the run awaits maintainer approval, or it has not been created yet (~4 minutes on a fork-branch push).
 Absent checks mean *not run*, never *passed*; do not read `mergeable`/`mergeStateStatus` as evidence of a green build.
-Tell them apart with `gh api "repos/gotgenes/pi-packages/actions/runs?head_sha=<sha>" --jq .total_count`: `0` is not-yet-created, and an `action_required` run needs `gh api -X POST repos/gotgenes/pi-packages/actions/runs/<id>/approve`.
+Tell them apart with `gh api "repos/lazuee/pi-packages/actions/runs?head_sha=<sha>" --jq .total_count`: `0` is not-yet-created, and an `action_required` run needs `gh api -X POST repos/lazuee/pi-packages/actions/runs/<id>/approve`.
 Call `ci_find` with `timeout: 300` on a fork PR, not the 120 s default.
 An already-approved fork runs later pushes automatically, so do not wait on an approval that is not pending.
 Running the checks yourself per the Verify gate below settles it regardless of which reason applies.

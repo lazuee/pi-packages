@@ -45,7 +45,7 @@ const PROJECT_CONFIG_PATH = path.join(
 );
 
 const RAW_SCHEMA_PREFIX =
-  "https://raw.githubusercontent.com/gotgenes/pi-packages/main/";
+  "https://raw.githubusercontent.com/lazuee/pi-packages/main/";
 
 /**
  * Read and parse this repo's project-scope permission config.

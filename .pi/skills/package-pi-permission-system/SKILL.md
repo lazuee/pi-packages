@@ -1,7 +1,7 @@
 ---
 name: package-pi-permission-system
 description: |
-  Package-specific context for @gotgenes/pi-permission-system.
+  Package-specific context for @lazuee/pi-permission-system.
   Load when working on code, tests, or docs in packages/pi-permission-system/.
 ---
 
@@ -84,7 +84,7 @@ permission:
 
 ### Event-based subagent integration
 
-`@gotgenes/pi-subagents` emits a child-execution lifecycle on `pi.events` (`subagents:child:*`); this package subscribes via `subscribeSubagentLifecycle` (`src/authority/subagent-lifecycle-events.ts`) and registers/unregisters child sessions in the `SubagentSessionRegistry` on `session-created` / `disposed` (pi-subagents [#261], [ADR-0002]).
+`@lazuee/pi-subagents` emits a child-execution lifecycle on `pi.events` (`subagents:child:*`); this package subscribes via `subscribeSubagentLifecycle` (`src/authority/subagent-lifecycle-events.ts`) and registers/unregisters child sessions in the `SubagentSessionRegistry` on `session-created` / `disposed` (pi-subagents [#261], [ADR-0002]).
 That subscription also drives `ChildNodeAudit` (`src/authority/child-node-audit.ts`) on the **optional** third channel `subagents:child:bound`; `docs/subagent-integration.md` § The optional `bound` channel is its spec, and the module's entry in `docs/architecture/architecture.md` carries its constraints.
 The dependency direction is inverted — pi-subagents has zero knowledge of pi-permission-system.
 The `session-created` handler MUST stay synchronous: the core emits it on the same call stack right before `bindExtensions()`, and the event bus dispatches listeners synchronously, so a synchronous handler lands the registry entry before binding proceeds.
@@ -95,7 +95,7 @@ Do not split the two lists back apart by adding a parent-session name to only on
 Serving announcement, forwarding liveness, relay selection, and refusal rendering are `docs/subagent-integration.md` § When nobody answers and `docs/architecture/architecture.md` (the `serving-registry.ts`, `forwarding-liveness.ts`, `forwarding-manager.ts`, `authorizer-selection.ts`, and `agent-renderer.ts` entries); ADR 0011 §10 bounds what a forwarded refusal may disclose.
 
 **The `SubagentSessionRegistry` is process-global.**
-Access it via `getSubagentSessionRegistry()` (`src/authority/subagent-registry.ts`), backed by `globalThis` + `Symbol.for("@gotgenes/pi-permission-system:subagent-registry")`.
+Access it via `getSubagentSessionRegistry()` (`src/authority/subagent-registry.ts`), backed by `globalThis` + `Symbol.for("@lazuee/pi-permission-system:subagent-registry")`.
 This is necessary because each session's `ResourceLoader` creates its own `pi.events` bus: the parent emits `subagents:child:session-created` on its bus and only the parent's instance receives it.
 The child's separate jiti instance runs on a different bus and never receives the event — but `getSubagentSessionRegistry()` returns the same global store, so the parent's registration is visible to the child when it checks `isSubagentExecutionContext()`.
 Do not instantiate `new SubagentSessionRegistry()` in production code; use the accessor.
@@ -341,5 +341,5 @@ A `GetoptGrammar` row's arity is measured by running the option against the bina
 
 When a plan or test asserts a specific bash repro string, trace the token through the classifier and path normalization first — an issue's headline repro can describe a symptom whose literal input never reaches the gate being changed, and normalization re-expands a leading `~`/`$HOME` the classifier left literal.
 
-[#261]: https://github.com/gotgenes/pi-packages/issues/261
-[ADR-0002]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md
+[#261]: https://github.com/lazuee/pi-packages/issues/261
+[ADR-0002]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md

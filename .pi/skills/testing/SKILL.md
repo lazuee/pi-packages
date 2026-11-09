@@ -122,14 +122,14 @@ A missing export throws `is not a function` at runtime but surfaces as `TS2305` 
 
 ## Running tests
 
-- Run a single file: `pnpm --filter @gotgenes/<pkg> exec vitest run <test-path>` — plain `pnpm vitest run` fails at the repo root (`Command "vitest" not found`).
-- Run the full suite: `pnpm --filter @gotgenes/<pkg> exec vitest run`
+- Run a single file: `pnpm --filter @lazuee/<pkg> exec vitest run <test-path>` — plain `pnpm vitest run` fails at the repo root (`Command "vitest" not found`).
+- Run the full suite: `pnpm --filter @lazuee/<pkg> exec vitest run`
 - The root `pnpm run test` finishes in under a minute (measured: 39 s together with `pnpm fallow dead-code`), and root `pnpm run lint` in about 45 s.
   A root gate that hits a long timeout has stalled, not run slowly: re-run it alone, one gate per call, and never record it as slow without a measured run.
 - Run Vitest bare — no `| tail`, `| grep`, or `>/tmp/…` redirect.
   Its non-TTY summary is already short (measured: 9 lines for `pi-permission-system`'s 4824-test suite), and a pipe replaces Vitest's exit status with the filter's, so a failing run reads as a pass.
   A failing run adds one `×` line per failing test and about 20 lines of assertion detail per failure; that detail is the signal, so narrow the run instead of the output: pass the test path, and `-t "<name>"` for one test.
-- Pair a run with the typecheck using `&&`: `pnpm --filter @gotgenes/<pkg> exec vitest run <test-path> && pnpm --filter @gotgenes/<pkg> run check` keeps both exit statuses and skips `check` when a test fails.
+- Pair a run with the typecheck using `&&`: `pnpm --filter @lazuee/<pkg> exec vitest run <test-path> && pnpm --filter @lazuee/<pkg> run check` keeps both exit statuses and skips `check` when a test fails.
 - When a fix changes shared helper functions, run the full suite before committing — not just the directly affected test file.
 - A disposable spike test's `console.log` is hidden by Vitest's default reporter; run it with `--reporter=verbose` (measured: `--silent=false` alone does **not** surface it, and `--reporter=basic` was removed in Vitest 4).
   Write findings to a file (`appendFileSync("/tmp/out.txt", …)`) when the output must outlive the run.

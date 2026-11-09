@@ -20,9 +20,9 @@ test("release notes contain only the requested CHANGELOG section and install lin
   const notes = releaseNotes(changelog, "2.0.0");
   assert(notes.startsWith("### Breaking changes\n\n- New thing."));
   assert(!notes.includes("Older thing"));
-  assert(notes.includes("pi install npm:@gotgenes/pi-ask"));
+  assert(notes.includes("pi install npm:@lazuee/pi-ask"));
   assert(
-    notes.includes("https://www.npmjs.com/package/@gotgenes/pi-ask/v/2.0.0"),
+    notes.includes("https://www.npmjs.com/package/@lazuee/pi-ask/v/2.0.0"),
   );
 });
 

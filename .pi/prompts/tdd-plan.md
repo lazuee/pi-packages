@@ -79,7 +79,7 @@ For **each** step in the plan's "TDD Order", in order:
 
 1. **Red.**
    Write the failing tests the step describes.
-   Run only the affected test file, unpiped: `pnpm --filter @gotgenes/<pkg> exec vitest run <test-path>` and confirm failures (plain `pnpm vitest run` fails at the repo root in this workspace; a `| tail` or `| grep` replaces Vitest's exit status with the filter's).
+   Run only the affected test file, unpiped: `pnpm --filter @lazuee/<pkg> exec vitest run <test-path>` and confirm failures (plain `pnpm vitest run` fails at the repo root in this workspace; a `| tail` or `| grep` replaces Vitest's exit status with the filter's).
    When the step pins a literal pattern (regex, glob, format string), derive your own input set — the plan's examples are a floor, not the case list.
    Run the pattern over the values the repo already produces in bulk (`git tag --list`, `gh pr list`) before committing.
    When the step quotes a string the code under test **produces** (a rendered sentence, an error message), copy it from the producer or an existing assertion — a plan transcribes it from memory and drops an article.

@@ -25,7 +25,7 @@ import type {
   AuthorizerLog,
   AuthorizerVerdict,
   PromptPermissionDetails,
-} from "@gotgenes/pi-permission-system";
+} from "@lazuee/pi-permission-system";
 
 import type { ModelJudgeConfig } from "./config-schema";
 import {

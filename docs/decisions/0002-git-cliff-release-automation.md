@@ -98,7 +98,7 @@ This is an operator action on npmjs.org, per package, and it is the most likely 
 **We now own the release scripts.**
 Four shell scripts under `scripts/release/` replace a maintained action, and there is still no test harness for repo-root shell — the question [#816] left open, now with four more scripts behind it.
 
-[#468]: https://github.com/gotgenes/pi-packages/issues/468
-[#646]: https://github.com/gotgenes/pi-packages/issues/646
-[#816]: https://github.com/gotgenes/pi-packages/issues/816
-[#865]: https://github.com/gotgenes/pi-packages/issues/865
+[#468]: https://github.com/lazuee/pi-packages/issues/468
+[#646]: https://github.com/lazuee/pi-packages/issues/646
+[#816]: https://github.com/lazuee/pi-packages/issues/816
+[#865]: https://github.com/lazuee/pi-packages/issues/865

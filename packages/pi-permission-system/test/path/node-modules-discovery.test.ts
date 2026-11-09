@@ -28,7 +28,7 @@ describe("discoverGlobalNodeModulesRoot", () => {
 
   test("returns node_modules root when URL is inside a node_modules tree", () => {
     const fakeUrl =
-      "file:///opt/homebrew/lib/node_modules/@gotgenes/pi-permission-system/dist/external-directory.js";
+      "file:///opt/homebrew/lib/node_modules/@lazuee/pi-permission-system/dist/external-directory.js";
     const result = discoverGlobalNodeModulesRoot(fakeUrl);
     expect(result).toBe("/opt/homebrew/lib/node_modules");
     expect(mockSpawnSync).not.toHaveBeenCalled();

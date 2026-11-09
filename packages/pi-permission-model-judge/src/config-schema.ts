@@ -4,7 +4,7 @@
  * The config carries the *model mechanism* half of ADR 0007's config split
  * (provider / model / instructions / patterns / timeout); the *chain policy*
  * half (`authorizerChain`, the delegation envelope) lives in
- * `@gotgenes/pi-permission-system`. This package reads only what it uses.
+ * `@lazuee/pi-permission-system`. This package reads only what it uses.
  */
 
 import { z } from "zod";
@@ -14,7 +14,7 @@ export const MODEL_JUDGE_EXTENSION_ID = "pi-permission-model-judge";
 
 /** Canonical URL of the published config JSON Schema (the root `$id`). */
 export const MODEL_JUDGE_SCHEMA_URL =
-  "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-model-judge/schemas/model-judge.schema.json";
+  "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-model-judge/schemas/model-judge.schema.json";
 
 /**
  * The most entries any config array accepts. zod checks `.max()` before it

@@ -124,4 +124,4 @@ This architecture turns all three capabilities from bespoke, fragile features pi
 [session-sync]: https://jot.mariozechner.at/s/zgzbq9n4f4mfck
 [ADR-0004]: ../decisions/0004-reconsider-ui-direction.md
 [Phase 18]: ./history/phase-18-reconsider-ui.md
-[#277]: https://github.com/gotgenes/pi-packages/issues/277
+[#277]: https://github.com/lazuee/pi-packages/issues/277

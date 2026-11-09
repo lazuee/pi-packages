@@ -5,7 +5,7 @@ Contributions are welcome, and the path that reliably ships starts with an issue
 
 ## Start with an issue
 
-File a [bug report or feature request](https://github.com/gotgenes/pi-packages/issues/new/choose) describing the problem, the use case behind it, and the pain it causes.
+File a [bug report or feature request](https://github.com/lazuee/pi-packages/issues/new/choose) describing the problem, the use case behind it, and the pain it causes.
 Describing the problem matters more than proposing a solution, because the problem is what any design gets judged against.
 The templates ask for the package, the version, and a reproduction; filling those in fully is usually all that is needed.
 

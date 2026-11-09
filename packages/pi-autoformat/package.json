@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-autoformat",
+  "name": "@lazuee/pi-autoformat",
   "version": "5.1.11",
   "description": "Pi extension package for prompt-end auto-formatting",
   "imports": {
@@ -18,18 +18,25 @@
     "typescript"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-autoformat"
   },
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-autoformat#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-autoformat#readme",
   "publishConfig": {
     "access": "public"
   },

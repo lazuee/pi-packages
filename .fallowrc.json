@@ -7,7 +7,7 @@
     "scripts/**/*.mjs"
   ],
   "ignoreExportsUsedInFile": true,
-  "ignoreDependencies": ["tree-sitter-bash", "@gotgenes/pi-subagents"],
+  "ignoreDependencies": ["tree-sitter-bash", "@lazuee/pi-subagents"],
   "ignorePatterns": [
     "**/test/fixtures/**",
     "**/tests/fixtures/**",

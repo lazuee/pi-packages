@@ -77,9 +77,9 @@ Rejected on three grounds:
 The entire upside of collapse is one fewer named type and one fewer converter; the cost is the manager's lost string-engine invariant and a wider dependency surface.
 By the "structural reasons before extracting" and ISP heuristics, that is the wrong trade.
 
-[#418]: https://github.com/gotgenes/pi-packages/issues/418
-[#487]: https://github.com/gotgenes/pi-packages/issues/487
-[#502]: https://github.com/gotgenes/pi-packages/issues/502
-[#503]: https://github.com/gotgenes/pi-packages/issues/503
-[#506]: https://github.com/gotgenes/pi-packages/issues/506
-[#510]: https://github.com/gotgenes/pi-packages/issues/510
+[#418]: https://github.com/lazuee/pi-packages/issues/418
+[#487]: https://github.com/lazuee/pi-packages/issues/487
+[#502]: https://github.com/lazuee/pi-packages/issues/502
+[#503]: https://github.com/lazuee/pi-packages/issues/503
+[#506]: https://github.com/lazuee/pi-packages/issues/506
+[#510]: https://github.com/lazuee/pi-packages/issues/510

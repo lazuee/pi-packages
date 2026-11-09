@@ -1,7 +1,7 @@
 ---
 name: package-pi-github-tools
 description: |
-  Package-specific context for @gotgenes/pi-github-tools.
+  Package-specific context for @lazuee/pi-github-tools.
   Load when working on code, tests, or docs in packages/pi-github-tools/.
 ---
 

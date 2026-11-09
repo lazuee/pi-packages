@@ -134,7 +134,7 @@ If your extension runs subagents in-process (e.g. via `createAgentSession()`), y
 ```typescript
 try {
   const { getPermissionsService } = await import(
-    "@gotgenes/pi-permission-system"
+    "@lazuee/pi-permission-system"
   );
   // Your own session's id; inside a handler, ctx.sessionManager.getSessionId().
   const permissions = getPermissionsService(sessionId);

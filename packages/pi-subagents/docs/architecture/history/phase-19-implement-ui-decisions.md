@@ -270,13 +270,13 @@ The old `S1 → S6 → S7` chain hid the widget dependency; this diagram makes i
   Filed and closed independently after the phase's steps landed; the README now documents `/subagents:settings`, `/subagents:sessions`, and the background widget.
 
 [ADR-0004]: ../../decisions/0004-reconsider-ui-direction.md
-[#441]: https://github.com/gotgenes/pi-packages/issues/441
-[#442]: https://github.com/gotgenes/pi-packages/issues/442
-[#443]: https://github.com/gotgenes/pi-packages/issues/443
-[#444]: https://github.com/gotgenes/pi-packages/issues/444
-[#445]: https://github.com/gotgenes/pi-packages/issues/445
-[#446]: https://github.com/gotgenes/pi-packages/issues/446
-[#447]: https://github.com/gotgenes/pi-packages/issues/447
-[#462]: https://github.com/gotgenes/pi-packages/issues/462
-[#463]: https://github.com/gotgenes/pi-packages/issues/463
-[#470]: https://github.com/gotgenes/pi-packages/issues/470
+[#441]: https://github.com/lazuee/pi-packages/issues/441
+[#442]: https://github.com/lazuee/pi-packages/issues/442
+[#443]: https://github.com/lazuee/pi-packages/issues/443
+[#444]: https://github.com/lazuee/pi-packages/issues/444
+[#445]: https://github.com/lazuee/pi-packages/issues/445
+[#446]: https://github.com/lazuee/pi-packages/issues/446
+[#447]: https://github.com/lazuee/pi-packages/issues/447
+[#462]: https://github.com/lazuee/pi-packages/issues/462
+[#463]: https://github.com/lazuee/pi-packages/issues/463
+[#470]: https://github.com/lazuee/pi-packages/issues/470

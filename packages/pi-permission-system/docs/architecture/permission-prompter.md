@@ -79,7 +79,7 @@ const authorizerSelection = new AuthorizerSelection({
 `GateRunner` calls `this.prompter.escalate(details)` for every `ask` — there is no `canConfirm()` pre-check ([#556] dissolved it); the selected `Authorizer` always answers, the `DenyingAuthorizer` by denying with the `confirmationUnavailable` marker.
 The Authorizer spine is entirely behind that seam.
 
-[#555]: https://github.com/gotgenes/pi-packages/issues/555
-[#556]: https://github.com/gotgenes/pi-packages/issues/556
-[#726]: https://github.com/gotgenes/pi-packages/issues/726
-[#712]: https://github.com/gotgenes/pi-packages/issues/712
+[#555]: https://github.com/lazuee/pi-packages/issues/555
+[#556]: https://github.com/lazuee/pi-packages/issues/556
+[#726]: https://github.com/lazuee/pi-packages/issues/726
+[#712]: https://github.com/lazuee/pi-packages/issues/712

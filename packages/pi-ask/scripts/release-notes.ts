@@ -22,8 +22,8 @@ export function releaseNotes(changelog: string, version: string): string {
   return [
     section,
     "Install or update with:",
-    "```sh\npi install npm:@gotgenes/pi-ask\n```",
-    `Available on [npm](https://www.npmjs.com/package/@gotgenes/pi-ask/v/${version}).`,
+    "```sh\npi install npm:@lazuee/pi-ask\n```",
+    `Available on [npm](https://www.npmjs.com/package/@lazuee/pi-ask/v/${version}).`,
   ].join("\n\n");
 }
 

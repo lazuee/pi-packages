@@ -4,7 +4,7 @@ import type { AskConfig } from "./config/schema";
 import type { AskQuestion } from "./types";
 
 const execAsync = promisify(exec);
-const DEFAULT_TITLE = "@gotgenes/pi-ask";
+const DEFAULT_TITLE = "@lazuee/pi-ask";
 const EVENT = "question.waiting";
 const MAX_MESSAGE_LENGTH = 120;
 const COMMAND_TIMEOUT_MS = 5000;

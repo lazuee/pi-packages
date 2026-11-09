@@ -19,7 +19,7 @@ This extension narrows what the agent is shown before it starts: denied tools ar
 Until now it did that by rewriting `event.systemPrompt` in place — filtering the bullets out of the section Pi wrote, and pruning the tool-dependent bullets out of `Guidelines:` beneath it.
 
 Both sections sit near the top of Pi's preamble, at offset 171 of the assembled prompt.
-`@gotgenes/pi-subagents` copies everything ahead of the skills catalogue into a child's prompt verbatim ([pi-subagents ADR 0006]), specifically so the child's leading bytes match its parent's — a property [#180] and [#400] exist to create, measured by [#180]'s reporter at 8,333 shared tokens worth roughly 40 seconds of prompt processing on a local model.
+`@lazuee/pi-subagents` copies everything ahead of the skills catalogue into a child's prompt verbatim ([pi-subagents ADR 0006]), specifically so the child's leading bytes match its parent's — a property [#180] and [#400] exist to create, measured by [#180]'s reporter at 8,333 shared tokens worth roughly 40 seconds of prompt processing on a local model.
 
 So the rewrite edited bytes a child inherits, and everything after the first changed bullet diverged.
 Measured in this repo's configuration during [#890]'s planning: a child sharing a 57,423-character identity with its parent shared **365 characters** of it.
@@ -54,7 +54,7 @@ A subtractive implementation would leave such a child with no tool prose.
 
 It also retires a hard-coded table of eight exact Pi sentences that the old implementation matched by literal text.
 That table attributed no third-party tool's guidelines — it could only recognize Pi's own wording — and would have broken silently on any upstream rewording.
-Reading `ToolInfo.promptGuidelines` per tool is Pi's own attribution, so a `@gotgenes/pi-colgrep` bullet is now filtered with its tool like any built-in.
+Reading `ToolInfo.promptGuidelines` per tool is Pi's own attribution, so a `@lazuee/pi-colgrep` bullet is now filtered with its tool like any built-in.
 
 ### Every node, not only children
 
@@ -119,16 +119,16 @@ A child never contains that, because `inheritedIdentity` truncates at the catalo
 This decision makes that proposed key a verbatim substring of the child's prompt again, where the in-place rewrite had broken it at the tool list — the divergence [#890]'s reporter measured at offset 412.
 **The end-to-end claim is unverified:** #89 is an open pull request, 0.7.0 is the latest published version, and no build carrying it has been exercised against this change.
 
-[#180]: https://github.com/gotgenes/pi-packages/issues/180
-[#400]: https://github.com/gotgenes/pi-packages/issues/400
-[#437]: https://github.com/gotgenes/pi-packages/issues/437
-[#883]: https://github.com/gotgenes/pi-packages/issues/883
-[#890]: https://github.com/gotgenes/pi-packages/issues/890
-[#919]: https://github.com/gotgenes/pi-packages/issues/919
-[#932]: https://github.com/gotgenes/pi-packages/issues/932
-[#901]: https://github.com/gotgenes/pi-packages/issues/901
-[#962]: https://github.com/gotgenes/pi-packages/issues/962
-[#980]: https://github.com/gotgenes/pi-packages/issues/980
-[pi-subagents ADR 0006]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0006-inherited-prompt-is-identity-only.md
+[#180]: https://github.com/lazuee/pi-packages/issues/180
+[#400]: https://github.com/lazuee/pi-packages/issues/400
+[#437]: https://github.com/lazuee/pi-packages/issues/437
+[#883]: https://github.com/lazuee/pi-packages/issues/883
+[#890]: https://github.com/lazuee/pi-packages/issues/890
+[#919]: https://github.com/lazuee/pi-packages/issues/919
+[#932]: https://github.com/lazuee/pi-packages/issues/932
+[#901]: https://github.com/lazuee/pi-packages/issues/901
+[#962]: https://github.com/lazuee/pi-packages/issues/962
+[#980]: https://github.com/lazuee/pi-packages/issues/980
+[pi-subagents ADR 0006]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0006-inherited-prompt-is-identity-only.md
 [pi-claude-bridge#88]: https://github.com/elidickinson/pi-claude-bridge/issues/88
 [pi-claude-bridge#89]: https://github.com/elidickinson/pi-claude-bridge/issues/89

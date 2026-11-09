@@ -115,7 +115,7 @@ The `ModelTriageAuthorizer` ([#472]) remains deferred to a later phase with its 
 
 ### Delivered vs. predicted metrics
 
-Recomputed at archive time (`pnpm fallow:health` / `pnpm fallow:dupes --workspace @gotgenes/pi-permission-system`):
+Recomputed at archive time (`pnpm fallow:health` / `pnpm fallow:dupes --workspace @lazuee/pi-permission-system`):
 
 | Metric                                   | Phase 9 target            | Delivered                                                                    |
 | ---------------------------------------- | ------------------------- | ---------------------------------------------------------------------------- |
@@ -128,17 +128,17 @@ Recomputed at archive time (`pnpm fallow:health` / `pnpm fallow:dupes --workspac
 | Flat `src/` root modules                 | ~62                       | 62 — met                                                                     |
 | Duplication                              | (not separately targeted) | 0.2% (58 lines, 2 clone groups, unrelated to the spine; deferred as planned) |
 
-[#23]: https://github.com/gotgenes/pi-packages/issues/23
-[#292]: https://github.com/gotgenes/pi-packages/issues/292
-[#309]: https://github.com/gotgenes/pi-packages/issues/309
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#490]: https://github.com/gotgenes/pi-packages/issues/490
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#520]: https://github.com/gotgenes/pi-packages/issues/520
-[#521]: https://github.com/gotgenes/pi-packages/issues/521
-[#555]: https://github.com/gotgenes/pi-packages/issues/555
-[#556]: https://github.com/gotgenes/pi-packages/issues/556
-[#557]: https://github.com/gotgenes/pi-packages/issues/557
-[#558]: https://github.com/gotgenes/pi-packages/issues/558
-[#559]: https://github.com/gotgenes/pi-packages/issues/559
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
+[#23]: https://github.com/lazuee/pi-packages/issues/23
+[#292]: https://github.com/lazuee/pi-packages/issues/292
+[#309]: https://github.com/lazuee/pi-packages/issues/309
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#490]: https://github.com/lazuee/pi-packages/issues/490
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#520]: https://github.com/lazuee/pi-packages/issues/520
+[#521]: https://github.com/lazuee/pi-packages/issues/521
+[#555]: https://github.com/lazuee/pi-packages/issues/555
+[#556]: https://github.com/lazuee/pi-packages/issues/556
+[#557]: https://github.com/lazuee/pi-packages/issues/557
+[#558]: https://github.com/lazuee/pi-packages/issues/558
+[#559]: https://github.com/lazuee/pi-packages/issues/559
+[#565]: https://github.com/lazuee/pi-packages/issues/565

@@ -7,11 +7,11 @@ import type {
   PermissionsReadyEvent,
   PermissionsService,
   PromptPermissionDetails,
-} from "@gotgenes/pi-permission-system";
+} from "@lazuee/pi-permission-system";
 import {
   publishPermissionsService,
   unpublishPermissionsService,
-} from "@gotgenes/pi-permission-system";
+} from "@lazuee/pi-permission-system";
 import type { Mock, MockInstance } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

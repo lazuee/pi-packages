@@ -14,7 +14,7 @@ Customize the placeholders (`{{...}}`) for each target repo.
 ````markdown
 ## Context
 
-Users of both `{{your-extension}}` and [`pi-permission-system`](https://github.com/gotgenes/pi-permission-system) currently configure tool restrictions in two places:
+Users of both `{{your-extension}}` and [`pi-permission-system`](https://github.com/lazuee/pi-permission-system) currently configure tool restrictions in two places:
 
 1. **Tool visibility** via `{{your-key}}` in agent frontmatter (consumed by your extension)
 2. **Permission policy** via `permission:` in the same frontmatter (consumed by pi-permission-system)
@@ -68,15 +68,15 @@ Both mechanisms are additive — a tool blocked by either stays blocked.
 
 1. Add a section to your README noting that `permission:` is an optional key consumed by pi-permission-system
 2. Show a combined example with `{{your-key}}` + `permission:`
-3. Link to the [convention guide](https://github.com/gotgenes/pi-permission-system/blob/main/docs/guides/permission-frontmatter-for-subagent-extensions.md) for full details
+3. Link to the [convention guide](https://github.com/lazuee/pi-permission-system/blob/main/docs/guides/permission-frontmatter-for-subagent-extensions.md) for full details
 
 No code changes, no new dependency, no schema enforcement.
 
 ## References
 
-- [Convention guide](https://github.com/gotgenes/pi-permission-system/blob/main/docs/guides/permission-frontmatter-for-subagent-extensions.md)
-- [Subagent integration docs](https://github.com/gotgenes/pi-permission-system/blob/main/docs/subagent-integration.md)
-- [Cross-extension API docs](https://github.com/gotgenes/pi-permission-system/blob/main/docs/cross-extension-api.md)
+- [Convention guide](https://github.com/lazuee/pi-permission-system/blob/main/docs/guides/permission-frontmatter-for-subagent-extensions.md)
+- [Subagent integration docs](https://github.com/lazuee/pi-permission-system/blob/main/docs/subagent-integration.md)
+- [Cross-extension API docs](https://github.com/lazuee/pi-permission-system/blob/main/docs/cross-extension-api.md)
 ````
 
 ---
@@ -99,7 +99,7 @@ No code changes, no new dependency, no schema enforcement.
 | `{{your-key}}`       | `disallowed_tools` |
 | `{{example-value}}`  | `write_file,bash`  |
 
-Additional note for tintinweb: since this extension runs subagents in-process via `createAgentSession()`, mention the [service accessor](https://github.com/gotgenes/pi-permission-system/blob/main/docs/cross-extension-api.md#service-accessor) as an optional runtime integration path for querying policy without spawning a subprocess.
+Additional note for tintinweb: since this extension runs subagents in-process via `createAgentSession()`, mention the [service accessor](https://github.com/lazuee/pi-permission-system/blob/main/docs/cross-extension-api.md#service-accessor) as an optional runtime integration path for querying policy without spawning a subprocess.
 
 ### HazAT/pi-interactive-subagents
 

@@ -223,8 +223,8 @@ Repro script, public API only, no monorepo checkout needed: <attached>
 ```
 
 [ADR 0012]: 0012-fullscreen-viewer-is-an-overlay.md
-[#733]: https://github.com/gotgenes/pi-packages/issues/733
-[#864]: https://github.com/gotgenes/pi-packages/issues/864
-[#874]: https://github.com/gotgenes/pi-packages/issues/874
+[#733]: https://github.com/lazuee/pi-packages/issues/733
+[#864]: https://github.com/lazuee/pi-packages/issues/864
+[#874]: https://github.com/lazuee/pi-packages/issues/874
 [earendil-works/pi#2759]: https://github.com/earendil-works/pi/issues/2759
 [earendil-works/pi#4785]: https://github.com/earendil-works/pi/issues/4785

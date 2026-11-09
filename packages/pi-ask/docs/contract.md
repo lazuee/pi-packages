@@ -339,7 +339,7 @@ The journal does not automatically reuse answers, create tasks, or write files e
 
 ## Product identity
 
-The npm package is `@gotgenes/pi-ask`.
+The npm package is `@lazuee/pi-ask`.
 Settings use `extensions/pi-agent-ask.json` under Pi's agent directory; upstream settings files are not read or changed.
 Local integration events keep the `pi-agent-ask:*` channel names, so a bridge written for the upstream package keeps working.
 Slash commands are `/ask-settings`, `/ask-mode`, `/ask-queue`, and `/ask-defer`; agents ask through `ask_user`, not chat extraction or manual replay.
@@ -435,7 +435,7 @@ The bridge must check that its UI is connected and supported before offering it;
 Without a supported connection, print, JSON, RPC, and other non-TUI calls keep the `Needs user input: ask_user requires interactive TUI mode.` message and cancelled result.
 Non-TUI background calls always keep that fallback and never open the external UI.
 
-Connected foreground calls stay pending until an explicit answer or cancel. @gotgenes/pi-ask loads file contexts, applies `presentSingleAsMulti`, validates question ids and values, and builds the normal result with locally computed labels and indices.
+Connected foreground calls stay pending until an explicit answer or cancel. @lazuee/pi-ask loads file contexts, applies `presentSingleAsMulti`, validates question ids and values, and builds the normal result with locally computed labels and indices.
 Cancel stops the current agent operation, as in TUI.
 Operation abort closes the external form; late responses cannot change the result.
 UI disconnection, rejection, or a malformed returned response is a tool error, not an invented answer or user cancellation.
@@ -457,8 +457,8 @@ Load-time migrations and invalid config handling do not rewrite, rename, or back
 
 ## Notifications
 
-When enabled, @gotgenes/pi-ask emits one best-effort external notification per ask session after the ask UI opens and waits for input.
-The default title is `@gotgenes/pi-ask`; the message is `Question waiting: <label or prompt>`.
+When enabled, @lazuee/pi-ask emits one best-effort external notification per ask session after the ask UI opens and waits for input.
+The default title is `@lazuee/pi-ask`; the message is `Question waiting: <label or prompt>`.
 Channels run in configured order and failures never fail or cancel the ask flow.
 
 ## Herdr blocked lifecycle
@@ -498,7 +498,7 @@ Non-interactive execution does not emit this lifecycle.
 
 ## Remote inter-extension events
 
-@gotgenes/pi-ask exposes a local `pi.events` contract for trusted Pi extensions.
+@lazuee/pi-ask exposes a local `pi.events` contract for trusted Pi extensions.
 It does not expose a network API and does not automate terminal keystrokes.
 RPC or headless integrations should use a trusted in-process bridge extension that consumes these events rather than expecting the TUI-only custom surface to open.
 
@@ -510,15 +510,15 @@ Channels:
 - `pi-agent-ask:submit-result`
 
 Remote submissions must be explicit `{ kind: "answer" }` or `{ kind: "cancel" }` responses.
-Remote answers use question ids and normalized option values from the started event. @gotgenes/pi-ask validates ids and values, recomputes labels/indices, and does not infer approval semantics from labels.
+Remote answers use question ids and normalized option values from the started event. @lazuee/pi-ask validates ids and values, recomputes labels/indices, and does not infer approval semantics from labels.
 
 See [`remote-events.md`](remote-events.md) for payload shapes, examples, and a local smoke test.
 
 ## Interrupted ask resume
 
-- on `session_start` with reason `startup`, `resume`, or `fork`, @gotgenes/pi-ask finds the newest `ask_user` tool call on the active branch that has neither a tool result nor an `ask:pending-dismissed` entry
+- on `session_start` with reason `startup`, `resume`, or `fork`, @lazuee/pi-ask finds the newest `ask_user` tool call on the active branch that has neither a tool result nor an `ask:pending-dismissed` entry
 - recovery does not run for `new`, `reload`, or non-TUI sessions
-- the matching valid `ask:payload` supplies the form; if it is missing or invalid, @gotgenes/pi-ask validates and uses the original tool call arguments instead
+- the matching valid `ask:payload` supplies the form; if it is missing or invalid, @lazuee/pi-ask validates and uses the original tool call arguments instead
 - the recovery flow is detached from `session_start`, so an open form does not block other lifecycle handlers
 - because the interrupted `execute` promise no longer exists, submit sends the result as a user follow-up message
 - submit and cancel append `ask:pending-dismissed`, preventing another automatic reopen

@@ -153,14 +153,14 @@ flowchart TD
 Phase 8 seeds `src/authority/` with the modules it rewrites: `subagent-detection.ts` and `subagent-context.ts` (Step 5), then `approval-escalator.ts`, `forwarded-request-server.ts`, and `forwarding-io.ts` (Step 6).
 The remaining elicitation modules (`gate-prompter.ts`, `prompting-gateway.ts`, `permission-prompter.ts`, `permission-dialog.ts`, `permission-forwarding.ts`, `subagent-registry.ts`) migrate in Phase 9 as the spine rewrites them into the `Authorizer` interface and its implementations — there is no peer `subagent/` domain, because the subagent machinery is the cross-session edge of `authority/`.
 
-[#309]: https://github.com/gotgenes/pi-packages/issues/309
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#525]: https://github.com/gotgenes/pi-packages/issues/525
-[#526]: https://github.com/gotgenes/pi-packages/issues/526
-[#527]: https://github.com/gotgenes/pi-packages/issues/527
-[#528]: https://github.com/gotgenes/pi-packages/issues/528
-[#529]: https://github.com/gotgenes/pi-packages/issues/529
-[#530]: https://github.com/gotgenes/pi-packages/issues/530
-[#531]: https://github.com/gotgenes/pi-packages/issues/531
-[#532]: https://github.com/gotgenes/pi-packages/issues/532
-[#547]: https://github.com/gotgenes/pi-packages/issues/547
+[#309]: https://github.com/lazuee/pi-packages/issues/309
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#525]: https://github.com/lazuee/pi-packages/issues/525
+[#526]: https://github.com/lazuee/pi-packages/issues/526
+[#527]: https://github.com/lazuee/pi-packages/issues/527
+[#528]: https://github.com/lazuee/pi-packages/issues/528
+[#529]: https://github.com/lazuee/pi-packages/issues/529
+[#530]: https://github.com/lazuee/pi-packages/issues/530
+[#531]: https://github.com/lazuee/pi-packages/issues/531
+[#532]: https://github.com/lazuee/pi-packages/issues/532
+[#547]: https://github.com/lazuee/pi-packages/issues/547

@@ -81,6 +81,6 @@ The wheel reaches it through `Component.handleMouse`.
   Esc closes the viewer.
 
 [ADR 0007]: 0007-transcript-viewer-is-not-an-overlay.md
-[#1032]: https://github.com/gotgenes/pi-packages/issues/1032
+[#1032]: https://github.com/lazuee/pi-packages/issues/1032
 [earendil-works/pi#7574]: https://github.com/earendil-works/pi/issues/7574
 [earendil-works/pi#7894]: https://github.com/earendil-works/pi/issues/7894

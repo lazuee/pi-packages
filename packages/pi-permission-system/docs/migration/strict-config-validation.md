@@ -48,5 +48,5 @@ Common fixes:
 Add the hosted schema to your config for autocomplete and inline validation, so these problems surface as you type:
 
 ```json
-"$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json"
+"$schema": "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json"
 ```

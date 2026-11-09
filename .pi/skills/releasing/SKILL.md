@@ -62,7 +62,7 @@ A package's own `CHANGELOG.md` is excluded too, so a release commit never re-ent
 ## A package's first release
 
 A brand-new package's **first** release is a manual, operator-chosen step. npm Trusted Publishing cannot create a package that does not exist, so `publish` 404s; and `next-version.sh` refuses an untagged package rather than inventing a first version, because this repo's packages opened at 1.0.0, 0.2.0, and 0.1.0 with no convention to infer.
-Publish the first version manually (`pnpm login`, then `pnpm --filter @gotgenes/<pkg> publish --access public --no-git-checks` — no `--provenance`), tag it `<pkg>-v<version>`, then configure the Trusted Publisher on npmjs.org (repo `gotgenes/pi-packages`, workflow **`release.yml`**).
+Publish the first version manually (`pnpm login`, then `pnpm --filter @lazuee/<pkg> publish --access public --no-git-checks` — no `--provenance`), tag it `<pkg>-v<version>`, then configure the Trusted Publisher on npmjs.org (repo `gotgenes/pi-packages`, workflow **`release.yml`**).
 The publish needs an interactive terminal when the registry requires an OTP (`ERR_PNPM_OTP_NON_INTERACTIVE`) — the operator runs it, not the agent.
 Every release after that runs through the workflow.
 
@@ -77,7 +77,7 @@ Do not remove it, and do not reach for `minimumReleaseAge: 0` (which also disabl
 When adding a new package, wire it into all of:
 
 1. `.pi/settings.json` — add the `../packages/<pkg>` load path.
-   Add the `{ "source": "npm:@gotgenes/<pkg>", "extensions": [], "skills": [] }` disable entry (prevents double-load) **only after the package's first npm publish** — before that, the `npm:` reference makes Pi and the subagent launcher `npm install` a nonexistent package and fail.
+   Add the `{ "source": "npm:@lazuee/<pkg>", "extensions": [], "skills": [] }` disable entry (prevents double-load) **only after the package's first npm publish** — before that, the `npm:` reference makes Pi and the subagent launcher `npm install` a nonexistent package and fail.
 2. `README.md` — add the package to the Packages table, and to the no-dedicated-skill note unless it ships a `package-<pkg>` skill.
 3. `.github/ISSUE_TEMPLATE/bug_report.yml` and `.github/ISSUE_TEMPLATE/feature_request.yml` — add the package to the `Package` dropdown in **both** forms.
    The dropdown is `required: true` and `blank_issues_enabled: false`, so a package missing here cannot be reported at all.

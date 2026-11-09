@@ -115,9 +115,9 @@ This was true of every field except `lifetimeUsage`, which was assigned by refer
 - `SubagentRecord.lifetimeUsage` stays declared mutable.
   Once the value is a copy, a consumer mutating it harms nothing, and retyping a shipped public property as `Readonly` would be a breaking change bought for nothing.
 
-[#724]: https://github.com/gotgenes/pi-packages/issues/724
-[#748]: https://github.com/gotgenes/pi-packages/pull/748
-[#828]: https://github.com/gotgenes/pi-packages/issues/828
-[#912]: https://github.com/gotgenes/pi-packages/issues/912
-[#1012]: https://github.com/gotgenes/pi-packages/issues/1012
-[#1022]: https://github.com/gotgenes/pi-packages/issues/1022
+[#724]: https://github.com/lazuee/pi-packages/issues/724
+[#748]: https://github.com/lazuee/pi-packages/pull/748
+[#828]: https://github.com/lazuee/pi-packages/issues/828
+[#912]: https://github.com/lazuee/pi-packages/issues/912
+[#1012]: https://github.com/lazuee/pi-packages/issues/1012
+[#1022]: https://github.com/lazuee/pi-packages/issues/1022

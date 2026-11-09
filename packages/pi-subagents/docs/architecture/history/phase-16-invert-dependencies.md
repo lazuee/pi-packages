@@ -49,7 +49,7 @@ The structural win the collaborator plan chased — a born-complete child execut
 ### Step 1: Child-execution lifecycle events; retire permission-bridge — [#261]
 
 Emit ordered child-execution events (`spawning`, `session-created` before `bindExtensions()`, `completed`, `disposed`) carrying child identity (session directory, agent name, parent session id).
-Migrated `@gotgenes/pi-permission-system` to subscribe to `session-created`/`disposed` for registration instead of being looked up by the core; deleted `permission-bridge.ts`.
+Migrated `@lazuee/pi-permission-system` to subscribe to `session-created`/`disposed` for registration instead of being looked up by the core; deleted `permission-bridge.ts`.
 
 - Cross-package: pi-subagents (emit + remove bridge) and pi-permission-system (subscribe).
 - Investigation (resolved): `pi.events` is a Node `EventEmitter`, so `emit()` dispatches listeners synchronously on the same call stack — a synchronous subscriber completes before `emit()` returns.
@@ -69,14 +69,14 @@ On completion the core calls `Workspace.dispose({ status, description })` and ap
 - Landed alongside its first consumer (Step 3) to avoid a vacant hook — the "no vacant hooks" rule.
 - Outcome: a single generative seam; the core no longer knows what an "isolation strategy" is.
 
-### Step 3: Extract worktrees to `@gotgenes/pi-subagents-worktrees` — [#263]
+### Step 3: Extract worktrees to `@lazuee/pi-subagents-worktrees` — [#263]
 
 New package implementing `WorkspaceProvider`: prepares a git worktree at run-start (born complete), tears it down after (saving the branch), and owns the "changes saved to branch" result.
 Worktree isolation is opt-in per agent type via the package's own `worktreeAgents` config; creation failure for an opted-in agent throws (strict, no silent fallback).
 Removed `worktree.ts`, `worktree-isolation.ts`, `GitWorktreeManager`, and the `isolation: "worktree"` mode from the core; dropped `isolation` from the spawn API and `SubagentsService`, and `worktreeResult` from `SubagentRecord`.
 
 - Supersedes #256.
-  New package registered in `release-please-config.json` and `.pi/settings.json` (after pi-subagents); consumes the published `@gotgenes/pi-subagents` from the registry (`linkWorkspacePackages: false`).
+  New package registered in `release-please-config.json` and `.pi/settings.json` (after pi-subagents); consumes the published `@lazuee/pi-subagents` from the registry (`linkWorkspacePackages: false`).
 - Outcome: git leaves the core; worktree users install one package, everyone else pays nothing.
 
 ### Step 4: Remove `isolated` / `extensions: false` / `noSkills` — [#264]
@@ -136,9 +136,9 @@ In the post-Phase-16 state, pi-subagents publishes events and a provider seam; o
 
 Composition test: install neither extension, only permissions, only workspaces, or both — the core is byte-for-byte identical in all four cases, and the two extensions never reference each other.
 
-[#261]: https://github.com/gotgenes/pi-packages/issues/261
-[#262]: https://github.com/gotgenes/pi-packages/issues/262
-[#263]: https://github.com/gotgenes/pi-packages/issues/263
-[#264]: https://github.com/gotgenes/pi-packages/issues/264
-[#265]: https://github.com/gotgenes/pi-packages/issues/265
+[#261]: https://github.com/lazuee/pi-packages/issues/261
+[#262]: https://github.com/lazuee/pi-packages/issues/262
+[#263]: https://github.com/lazuee/pi-packages/issues/263
+[#264]: https://github.com/lazuee/pi-packages/issues/264
+[#265]: https://github.com/lazuee/pi-packages/issues/265
 [ADR-0002]: ../../decisions/0002-extensions-on-a-minimal-core.md

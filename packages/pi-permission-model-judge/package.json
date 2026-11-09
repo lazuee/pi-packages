@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-permission-model-judge",
+  "name": "@lazuee/pi-permission-model-judge",
   "version": "5.0.0",
   "description": "Deny-first typo-path model judge — a pi-permission-system Authorizer chain link",
   "type": "module",
@@ -19,18 +19,25 @@
     "access-control"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-permission-model-judge"
   },
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-model-judge#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-model-judge#readme",
   "publishConfig": {
     "access": "public"
   },
@@ -52,7 +59,7 @@
     ]
   },
   "scripts": {
-    "check": "pnpm --filter @gotgenes/pi-permission-system run build:types && tsc --noEmit",
+    "check": "pnpm --filter @lazuee/pi-permission-system run build:types && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "gen:schema": "node --experimental-strip-types scripts/generate-schema.ts && biome format --write schemas/model-judge.schema.json",
@@ -62,13 +69,13 @@
   "peerDependencies": {
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
-    "@gotgenes/pi-permission-system": ">=27.0.0"
+    "@lazuee/pi-permission-system": ">=27.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
-    "@gotgenes/pi-permission-system": "workspace:^",
+    "@lazuee/pi-permission-system": "workspace:^",
     "@types/node": "catalog:",
     "rumdl": "catalog:",
     "typescript": "catalog:",

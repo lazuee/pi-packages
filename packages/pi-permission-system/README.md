@@ -2,13 +2,13 @@
   <img src="docs/assets/logo.png" alt="pi-permission-system logo">
 </p>
 
-# @gotgenes/pi-permission-system
+# @lazuee/pi-permission-system
 
-[![npm version](https://img.shields.io/npm/v/@gotgenes/pi-permission-system?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@gotgenes/pi-permission-system) [![CI](https://img.shields.io/github/actions/workflow/status/gotgenes/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/gotgenes/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-F69220?style=flat&logo=pnpm&logoColor=white)](https://pnpm.io/) [![Pi Package](https://img.shields.io/badge/Pi-Package-6366F1?style=flat)](https://pi.mariozechner.at/)
+[![npm version](https://img.shields.io/npm/v/@lazuee/pi-permission-system?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@lazuee/pi-permission-system) [![CI](https://img.shields.io/github/actions/workflow/status/lazuee/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/lazuee/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-F69220?style=flat&logo=pnpm&logoColor=white)](https://pnpm.io/) [![Pi Package](https://img.shields.io/badge/Pi-Package-6366F1?style=flat)](https://pi.mariozechner.at/)
 
 Permission enforcement extension for the [Pi](https://pi.mariozechner.at/) coding agent that provides centralized, deterministic permission gates over tool, bash, MCP, skill, and special operations.
 
-> **Fork notice:** This package is a full fork of [MasuRii/pi-permission-system](https://github.com/MasuRii/pi-permission-system), published to npm as `@gotgenes/pi-permission-system`.
+> **Fork notice:** This package is a full fork of [MasuRii/pi-permission-system](https://github.com/MasuRii/pi-permission-system), published to npm as `@lazuee/pi-permission-system`.
 > It has diverged substantially from upstream in config format, internal architecture, and permission model.
 
 ## What It Does
@@ -22,12 +22,12 @@ Permission enforcement extension for the [Pi](https://pi.mariozechner.at/) codin
 - **Fails closed** — an internal gate error blocks the tool (with a `gate_error` review-log entry and a matching `permissions:decision` broadcast), and a bash command the parser could not resolve, in whole or in part — or an indirection wrapper that hides the gated command (`bash -c`/`eval`, `sudo`, `env`, `xargs`, `find -exec`, …) — prompts (`ask`) rather than passing silently, unless the wrapped command is a pure reader whose direction is provable whatever it is fed (`xargs grep -l foo`); where a partial parse failure's own region re-parses cleanly on its own, the commands and paths it holds are recovered and gated rather than merely prompted for
 - **Forwards prompts from subagents** — `ask` policies work even in non-UI execution contexts, and a forwarded prompt queues behind whatever dialog is already open instead of replacing it
 - **Broadcasts UI prompt events** — `permissions:ui_prompt` fires only when the permission system is about to invoke the active user-facing permission UI (for a queued ask, when its turn comes rather than when it was raised), and every prompt it announces — including one forwarded up from a subagent — is answered by a `permissions:decision` on the same bus
-- **Native [`@gotgenes/pi-subagents`](https://github.com/gotgenes/pi-subagents) integration** — in-process child sessions register with the permission system automatically, enabling per-agent policy enforcement and `ask`-state forwarding to the parent UI without configuration
+- **Native [`@lazuee/pi-subagents`](https://github.com/lazuee/pi-subagents) integration** — in-process child sessions register with the permission system automatically, enabling per-agent policy enforcement and `ask`-state forwarding to the parent UI without configuration
 
 ## Install
 
 ```bash
-pi install npm:@gotgenes/pi-permission-system
+pi install npm:@lazuee/pi-permission-system
 ```
 
 ## Quick Start
@@ -143,7 +143,7 @@ The optional `commandEffects` field declares what your own bash commands do to t
 The optional `authorizerChain` field names registered case-by-case decision links (e.g. a light model judge) to consult when a request lands on `ask`, ahead of the interactive prompt.
 A downstream extension registers a link via `getPermissionsService(sessionId).registerAuthorizer(name, authorize)`; it decides nothing until you name it here (opt-in), config order fixes the chain order, and the chain owner caps any link's `allow` on the `external_directory`/`path` surface families to keep it within your policy, except on a bash ask whose flagged paths name nothing on disk — see [docs/configuration.md](docs/configuration.md#authorizer-chain--case-by-case-decision-links).
 A subagent's ask is reviewed by the chain of the session serving it, one hop up, rather than inside the subagent — see the same section.
-[`@gotgenes/pi-permission-model-judge`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-model-judge) is a first-party reference implementation of such a link — a deny-first reviewer that auto-denies mistyped out-of-directory paths.
+[`@lazuee/pi-permission-model-judge`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-model-judge) is a first-party reference implementation of such a link — a deny-first reviewer that auto-denies mistyped out-of-directory paths.
 
 For the full reference — all surfaces, runtime knobs, per-agent overrides, merge semantics, and common recipes — see [docs/configuration.md](docs/configuration.md).
 
@@ -152,7 +152,7 @@ For the full reference — all surfaces, runtime knobs, per-agent overrides, mer
 These packages build on this extension's seams.
 Each one that registers an authorizer link decides nothing until you name it in `authorizerChain`.
 
-- [`@gotgenes/pi-permission-model-judge`](https://www.npmjs.com/package/@gotgenes/pi-permission-model-judge) (first-party): a deny-first model reviewer that auto-denies mistyped out-of-directory paths.
+- [`@lazuee/pi-permission-model-judge`](https://www.npmjs.com/package/@lazuee/pi-permission-model-judge) (first-party): a deny-first model reviewer that auto-denies mistyped out-of-directory paths.
 - [`pi-permission-classifier`](https://github.com/TacoTakumi/pi-permission-classifier) by [@TacoTakumi](https://github.com/TacoTakumi): an auto-approve mode in which a light model reviews each `ask` and returns allow, deny with a short reason, or defer to you; every failure path defers.
 
 Third-party packages are maintained by their authors; review one before granting it a place in your chain.
@@ -210,16 +210,16 @@ Hardening the gates against bypass, fail-closed corrections (breaking ones inclu
   Modeling a foreign host's semantics is not, because a guarantee that cannot be executed against is worse than a declined one.
   This one is conditional rather than permanent — the architecture doc names the five conditions that would make a second host a goal.
 
-The [architecture doc](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/architecture/architecture.md#scope-and-non-goals) carries the full inventory, with the decision record behind each entry.
+The [architecture doc](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/architecture/architecture.md#scope-and-non-goals) carries the full inventory, with the decision record behind each entry.
 
 **One decision is still open.**
-How policy may _enter_ the system — which channels are admissible, and with what precedence — is being worked out in [issue #799](https://github.com/gotgenes/pi-packages/issues/799).
+How policy may _enter_ the system — which channels are admissible, and with what precedence — is being worked out in [issue #799](https://github.com/lazuee/pi-packages/issues/799).
 Several requested widenings are parked on it rather than declined, durable persistence of an approval among them.
-The companion question — whether a capability model replaces the actor-keyed surface list — is settled: [ADR 0013](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0013-permission-policy-model.md) adds read/write as an axis beside the existing keys, so a policy can permit reading a path without also permitting writes to it.
+The companion question — whether a capability model replaces the actor-keyed surface list — is settled: [ADR 0013](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0013-permission-policy-model.md) adds read/write as an axis beside the existing keys, so a policy can permit reading a path without also permitting writes to it.
 
 **Where adjacent requests belong.**
 True isolation of a permitted action → an agent sandbox, which this package's scope decisions are exported to rather than duplicated in.
-Model-assisted judging of an `ask` → a chain link over the authorizer seam; [@gotgenes/pi-permission-model-judge](https://www.npmjs.com/package/@gotgenes/pi-permission-model-judge) is the first-party one, and judges mistyped paths.
+Model-assisted judging of an `ask` → a chain link over the authorizer seam; [@lazuee/pi-permission-model-judge](https://www.npmjs.com/package/@lazuee/pi-permission-model-judge) is the first-party one, and judges mistyped paths.
 A non-Pi host's own payload shapes and tool formats → that host's Pi-compatibility layer, where one fix reaches every Pi extension at once instead of one.
 Approve-and-steer, edit diffs, and risk explanations → a downstream package over the `permissions:decision` event and the presentation seams.
 

@@ -22,7 +22,7 @@ What this record changes is the *goal* that placement serves, and the claim the 
 
 ### The tool list sits inside the region
 
-`@gotgenes/pi-permission-system` narrows a session's `Available tools:` listing to the tools policy allows.
+`@lazuee/pi-permission-system` narrows a session's `Available tools:` listing to the tools policy allows.
 That listing is at offset 171 of Pi's preamble — inside the identity.
 Rewriting it in place ended the shared prefix there for every child whose allowed set differed from its parent's: measured at **365 shared characters of a 57,423-character identity** in this repo's configuration, and reported from the field as a divergence at offset 412 of a 22,157-character prompt ([#890]).
 
@@ -73,12 +73,12 @@ It sat after the identity, so removing it costs no prefix.
 - The region is still Pi's preamble, which a provider that re-homes the prompt into another harness carries into that harness's API.
   [#883] is that case, and [ADR 0009] adds an opt-in `portable` strategy for it — scoped per provider, so the shared prefix this record restored stays the default everywhere else.
 
-[#180]: https://github.com/gotgenes/pi-packages/issues/180
-[#400]: https://github.com/gotgenes/pi-packages/issues/400
-[#890]: https://github.com/gotgenes/pi-packages/issues/890
-[#901]: https://github.com/gotgenes/pi-packages/issues/901
-[#883]: https://github.com/gotgenes/pi-packages/issues/883
+[#180]: https://github.com/lazuee/pi-packages/issues/180
+[#400]: https://github.com/lazuee/pi-packages/issues/400
+[#890]: https://github.com/lazuee/pi-packages/issues/890
+[#901]: https://github.com/lazuee/pi-packages/issues/901
+[#883]: https://github.com/lazuee/pi-packages/issues/883
 [ADR 0006]: 0006-inherited-prompt-is-identity-only.md
 [ADR 0009]: 0009-portable-inheritance-is-provider-scoped.md
 [ADR 0011]: 0011-tool-surface-sections-are-session-resolved.md
-[its ADR 0014]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md
+[its ADR 0014]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md

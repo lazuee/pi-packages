@@ -61,5 +61,5 @@ This makes it easy to verify which files the extension actually loaded:
   Review-log values are shortened at `reviewLogFieldMaxWidth` (1000 characters by default), which bounds the file's growth but is a length cap, not redaction.
   See [Log file sensitivity](configuration.md#log-file-sensitivity) and [ADR 0010].
 
-[ADR 0010]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0010-permission-log-secret-exposure.md
-[ADR 0013]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0013-permission-policy-model.md
+[ADR 0010]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0010-permission-log-secret-exposure.md
+[ADR 0013]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0013-permission-policy-model.md

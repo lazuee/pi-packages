@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Workspace } from "@gotgenes/pi-subagents";
+import type { Workspace } from "@lazuee/pi-subagents";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ActiveWorktrees } from "#src/active-worktrees";
 import { WorktreeWorkspaceProvider } from "#src/workspace-provider";

@@ -1,7 +1,7 @@
 ---
 name: package-pi-session-tools
 description: |
-  Package-specific context for @gotgenes/pi-session-tools.
+  Package-specific context for @lazuee/pi-session-tools.
   Load when working on code, tests, or docs in packages/pi-session-tools/.
 ---
 

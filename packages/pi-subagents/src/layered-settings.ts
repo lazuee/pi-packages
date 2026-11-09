@@ -1,5 +1,5 @@
 /**
- * Generic layered settings loader for `@gotgenes/pi-*` extensions.
+ * Generic layered settings loader for `@lazuee/pi-*` extensions.
  *
  * Extensions that store configuration in JSON files under a global agent
  * directory and a per-project `.pi/` folder share the same three-step idiom:
@@ -15,7 +15,7 @@
  * ## Usage
  *
  * ```typescript
- * import { loadLayeredSettings, type LayeredSettingsSource } from "@gotgenes/pi-subagents/settings";
+ * import { loadLayeredSettings, type LayeredSettingsSource } from "@lazuee/pi-subagents/settings";
  *
  * interface MyConfig { enabled?: boolean; limit?: number }
  *

@@ -66,7 +66,7 @@ Revisited post-ship in [#565].
 
 Post-ship validation of all three — base-agent-scope, single-surface fidelity, and real-consumer fidelity — is tracked in [#565].
 
-[#292]: https://github.com/gotgenes/pi-packages/issues/292
-[#556]: https://github.com/gotgenes/pi-packages/issues/556
-[#557]: https://github.com/gotgenes/pi-packages/issues/557
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
+[#292]: https://github.com/lazuee/pi-packages/issues/292
+[#556]: https://github.com/lazuee/pi-packages/issues/556
+[#557]: https://github.com/lazuee/pi-packages/issues/557
+[#565]: https://github.com/lazuee/pi-packages/issues/565

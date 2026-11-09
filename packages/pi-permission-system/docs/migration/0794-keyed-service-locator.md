@@ -6,7 +6,7 @@ Starting with the release that closes #794, two things change for an extension t
 2. `permissions:ready` fires at least once per session and may repeat, so a registration handler must be idempotent.
 
 Both are **breaking changes**.
-If your extension neither imports `@gotgenes/pi-permission-system` nor listens on `permissions:ready`, nothing here affects you.
+If your extension neither imports `@lazuee/pi-permission-system` nor listens on `permissions:ready`, nothing here affects you.
 
 ## Why the accessor changed
 
@@ -14,7 +14,7 @@ One Pi process can host several **nodes** — a root session and each of its in-
 A registration is read by the node it was made in, so "the permission service" was never a single thing to ask for.
 The old zero-arg accessor answered with the **process root's** service, which is the wrong node in every node but the root: inside a subagent child it handed back the parent's service, so a chain link landed where the child's gates never read it, and a policy query answered against the parent's config.
 
-That is the defect behind the duplicate-registration errors reported in #699, and the contract that replaces it is [ADR 0012](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md).
+That is the defect behind the duplicate-registration errors reported in #699, and the contract that replaces it is [ADR 0012](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md).
 Each node now publishes its own service under its own session id, and you resolve the one you mean.
 
 ## What to change
@@ -38,7 +38,7 @@ pi.events.on(PERMISSIONS_READY_CHANNEL, (event) => {
   if (dispose || !sessionId) return;
   void (async () => {
     const { getPermissionsService } = await import(
-      "@gotgenes/pi-permission-system"
+      "@lazuee/pi-permission-system"
     );
     dispose = getPermissionsService(sessionId)?.registerAuthorizer(
       "my-link",

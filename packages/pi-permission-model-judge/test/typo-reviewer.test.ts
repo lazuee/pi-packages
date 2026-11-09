@@ -1,5 +1,5 @@
 import type { Model } from "@earendil-works/pi-ai";
-import type { PromptPermissionDetails } from "@gotgenes/pi-permission-system";
+import type { PromptPermissionDetails } from "@lazuee/pi-permission-system";
 import type { Mock } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 

@@ -91,7 +91,7 @@ The dependency arrow points one way: this package subscribes to the announcement
 
 ## Loading asymmetry
 
-Subagent implementations may load arbitrary extension sets into children — `@gotgenes/pi-subagents` offers `excludedExtensionPackages`, and others differ — so this package assumes no symmetry between a parent's extensions and its children's ([ADR 0012] decision 6).
+Subagent implementations may load arbitrary extension sets into children — `@lazuee/pi-subagents` offers `excludedExtensionPackages`, and others differ — so this package assumes no symmetry between a parent's extensions and its children's ([ADR 0012] decision 6).
 
 Three statements hold:
 
@@ -116,7 +116,7 @@ One residual: this repair is in-process only.
 A child in its own process shares no `globalThis`, so it reaches no ancestor's service, and an extractor is a closure that cannot be serialized to one.
 No current implementation spawns out-of-process children with an asymmetric extension set, but for one that did, the by-hand check below would still be the only cover.
 
-The condition, with a worked example, is documented where the setting lives: [Excluding package extensions from children](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/configuration.md#excluding-package-extensions-from-children).
+The condition, with a worked example, is documented where the setting lives: [Excluding package extensions from children](https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/configuration.md#excluding-package-extensions-from-children).
 
 ## What this package does on both ends
 
@@ -135,13 +135,13 @@ What the announcement enables:
 2. **Per-agent policy enforcement** - the permission system's `before_agent_start` handler resolves the agent name from the `<active_agent>` system-prompt tag and applies per-agent `permission:` frontmatter overrides.
 3. **An unguarded child is announced** — when a child finishes binding without publishing a service of its own, it has no permission node: no `tool_call` gate, no tool filtering, no `permission:` frontmatter resolution, and no ask-forwarding.
    The parent records a `child_node_absent` review entry for every such child and warns once per session.
-   The likeliest cause is the child's own configuration — `@gotgenes/pi-subagents` excluding this package under `excludedExtensionPackages` — and a failure to load this extension in the child leaves the identical absence, which the parent cannot tell apart, so the warning names both.
+   The likeliest cause is the child's own configuration — `@lazuee/pi-subagents` excluding this package under `excludedExtensionPackages` — and a failure to load this extension in the child leaves the identical absence, which the parent cannot tell apart, so the warning names both.
 4. **`ask`-state forwarding** - when a child triggers an `ask` permission, the request forwards to the parent session's UI through the existing polling mechanism.
    The parent approves or denies, and the child resumes.
    When the parent approves "for this session," it chooses a scope: **this subagent only** (the least-privilege default) records the grant on the requesting child, while **the whole session** records it on the serving parent so the parent and all its subagents resolve it without re-prompting.
 
 No configuration is required - the integration is automatic when both extensions are installed.
-When `@gotgenes/pi-permission-system` is not installed, an implementation emits its lifecycle events with no subscriber - a harmless no-op.
+When `@lazuee/pi-permission-system` is not installed, an implementation emits its lifecycle events with no subscriber - a harmless no-op.
 
 ## Permission Forwarding
 
@@ -228,7 +228,7 @@ Conformance is a property of the announcement alone — whether an implementatio
 
 | Extension                                                                           | Shape      | Adopts the convention             | Visibility key                     |
 | ----------------------------------------------------------------------------------- | ---------- | --------------------------------- | ---------------------------------- |
-| [@gotgenes/pi-subagents](https://github.com/gotgenes/pi-subagents)                  | in-process | ✓ Emits both lifecycle events     | `tools:` (allowlist)               |
+| [@lazuee/pi-subagents](https://github.com/lazuee/pi-subagents)                      | in-process | ✓ Emits both lifecycle events     | `tools:` (allowlist)               |
 | [tintinweb/pi-subagents](https://github.com/tintinweb/pi-subagents)                 | in-process | ✗ Publishes no lifecycle event    | `disallowed_tools:` (CSV denylist) |
 | [nicobailon/pi-subagents](https://github.com/nicobailon/pi-subagents)               | subprocess | ✗ Sets no parent-session variable | `tools:` (CSV allowlist)           |
 | [HazAT/pi-interactive-subagents](https://github.com/HazAT/pi-interactive-subagents) | subprocess | ✗ Sets no parent-session variable | `deny-tools:` (CSV denylist)       |
@@ -237,9 +237,9 @@ The two subprocess implementations set their own child-marker variables, so thei
 Without it there is nowhere to forward to, and an `ask` in one of those children is reported as approval being unavailable.
 Adopting the convention is a one-line change at their spawn site.
 
-The upstream `tintinweb/pi-subagents` (which `@gotgenes/pi-subagents` forks) publishes no `subagents:child:session-created` event, so its in-process children have neither deterministic detection nor `ask`-state forwarding.
+The upstream `tintinweb/pi-subagents` (which `@lazuee/pi-subagents` forks) publishes no `subagents:child:session-created` event, so its in-process children have neither deterministic detection nor `ask`-state forwarding.
 
-`@gotgenes/pi-subagents` is also the only implementation that emits the optional `subagents:child:bound` channel, so it is the only one whose unguarded children are announced.
+`@lazuee/pi-subagents` is also the only implementation that emits the optional `subagents:child:bound` channel, so it is the only one whose unguarded children are announced.
 The others forfeit that alarm without forfeiting conformance.
 
 See [guides/permission-frontmatter-for-subagent-extensions.md](guides/permission-frontmatter-for-subagent-extensions.md) for the companion convention on `permission:` frontmatter, which implementations document rather than implement.
@@ -297,6 +297,6 @@ permission:
 
 In this example the subagent extension restricts visibility to `bash` and `read`, and the permission system then gates every `bash` call with an `ask` prompt - both rules apply independently.
 
-[ADR 0007]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0007-model-judge-authorizer-chain-adr.md
-[ADR 0012]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md
-[ADR-0002]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md
+[ADR 0007]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0007-model-judge-authorizer-chain-adr.md
+[ADR 0012]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md
+[ADR-0002]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md

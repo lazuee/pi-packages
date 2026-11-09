@@ -3,7 +3,7 @@
  *
  * `Symbol.for()` is process-global by spec, so it survives jiti's per-extension
  * module isolation (`moduleCache: false`). A consumer doing
- * `import("@gotgenes/pi-permission-system")` gets a fresh module copy, but the
+ * `import("@lazuee/pi-permission-system")` gets a fresh module copy, but the
  * accessors here read from the same `globalThis` slots the provider wrote to —
  * enabling direct, synchronous, type-safe function calls.
  *
@@ -72,7 +72,7 @@ export type { PermissionCheckResult, PermissionState, ToolInputFormatter };
 
 /** Process-global key for the session-keyed service map (ADR 0012 decision 2). */
 const SESSION_SERVICES_KEY = Symbol.for(
-  "@gotgenes/pi-permission-system:session-services",
+  "@lazuee/pi-permission-system:session-services",
 );
 
 /**
@@ -310,7 +310,7 @@ const MISSING_SESSION_ID_WARNING =
   "getPermissionsService() was called without a session id and answered " +
   "undefined. It resolves the service of one node, so it needs the sessionId " +
   "from the permissions:ready payload: getPermissionsService(sessionId). See " +
-  "https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/cross-extension-api.md";
+  "https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/cross-extension-api.md";
 
 /**
  * Warned at most once per module copy, like the deprecation guard above, so a

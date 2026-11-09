@@ -171,7 +171,7 @@ export function getAskConfigPath(): string {
 function createConfigSaveError(path: string, error: unknown): Error {
   const detail = getErrorMessage(error);
   return new Error(
-    `Unable to save ask config at ${path}. The file may be read-only or managed outside @gotgenes/pi-ask; edit it manually and run /reload. ${detail}`,
+    `Unable to save ask config at ${path}. The file may be read-only or managed outside @lazuee/pi-ask; edit it manually and run /reload. ${detail}`,
   );
 }
 

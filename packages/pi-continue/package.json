@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-continue",
+  "name": "@lazuee/pi-continue",
   "version": "0.1.0",
   "description": "Pi extension that detects a stalled agent run at the settle boundary and nudges it back into motion, bounded by brakes and a per-session gateway",
   "imports": {
@@ -15,18 +15,25 @@
     "resilience"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-continue"
   },
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-continue#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-continue#readme",
   "publishConfig": {
     "access": "public"
   },

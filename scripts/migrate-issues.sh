@@ -20,13 +20,13 @@
 
 set -euo pipefail
 
-DEST_REPO="gotgenes/pi-packages"  # Change if different
+DEST_REPO="lazuee/pi-packages"  # Change if different
 
 REPOS=(
-  "gotgenes/pi-autoformat"
-  "gotgenes/pi-github-tools"
-  "gotgenes/pi-permission-system"
-  "gotgenes/pi-subagents"
+  "lazuee/pi-autoformat"
+  "lazuee/pi-github-tools"
+  "lazuee/pi-permission-system"
+  "lazuee/pi-subagents"
 )
 
 DRY_RUN=true

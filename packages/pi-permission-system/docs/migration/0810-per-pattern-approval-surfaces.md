@@ -72,5 +72,5 @@ The wire file turned out to be the smaller of the two breaks: the type is reacha
 
 ## Related decisions
 
-- [ADR 0006 — Grant-scope selection on forwarded approvals](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0006-forwarded-grant-scope-selection.md), amended by this change.
-- [ADR 0013 — The permission policy model](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0013-permission-policy-model.md), §3–§4 for the read/write axis and §9 for a session approval as a policy source.
+- [ADR 0006 — Grant-scope selection on forwarded approvals](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0006-forwarded-grant-scope-selection.md), amended by this change.
+- [ADR 0013 — The permission policy model](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0013-permission-policy-model.md), §3–§4 for the read/write axis and §9 for a session approval as a policy source.

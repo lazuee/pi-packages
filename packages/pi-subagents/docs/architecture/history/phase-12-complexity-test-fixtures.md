@@ -49,7 +49,7 @@ Test duplication reduced from 71 clone groups (1,424 lines) to 59 clone groups (
 | Fallow refactoring targets | 4                      | 1                      |
 | Test duplication           | 71 groups, 1,424 lines | 59 groups, 1,046 lines |
 
-[#205]: https://github.com/gotgenes/pi-packages/issues/205
-[#206]: https://github.com/gotgenes/pi-packages/issues/206
-[#207]: https://github.com/gotgenes/pi-packages/issues/207
-[#208]: https://github.com/gotgenes/pi-packages/issues/208
+[#205]: https://github.com/lazuee/pi-packages/issues/205
+[#206]: https://github.com/lazuee/pi-packages/issues/206
+[#207]: https://github.com/lazuee/pi-packages/issues/207
+[#208]: https://github.com/lazuee/pi-packages/issues/208

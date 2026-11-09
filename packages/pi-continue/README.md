@@ -1,4 +1,4 @@
-# @gotgenes/pi-continue
+# @lazuee/pi-continue
 
 Keeps an unattended pi run moving.
 
@@ -111,7 +111,7 @@ It clears on a session switch, so a mute never silently follows you into a new s
 ## Install
 
 ```bash
-pi install npm:@gotgenes/pi-continue
+pi install npm:@lazuee/pi-continue
 ```
 
 Then `/reload` if pi is already running.

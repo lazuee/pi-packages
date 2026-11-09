@@ -3,7 +3,7 @@
 Starting with the release that closes #796, the deprecated process-root service accessor and the `globalThis` slot behind it no longer exist.
 
 This is a **breaking change**.
-If your extension does not import `getRootPermissionsService`, `publishRootPermissionsService`, or `unpublishRootPermissionsService` from `@gotgenes/pi-permission-system`, nothing here affects you.
+If your extension does not import `getRootPermissionsService`, `publishRootPermissionsService`, or `unpublishRootPermissionsService` from `@lazuee/pi-permission-system`, nothing here affects you.
 
 ## What was removed
 
@@ -14,8 +14,8 @@ If your extension does not import `getRootPermissionsService`, `publishRootPermi
 | `unpublishRootPermissionsService(service)`         | — (internal; a node unpublishes its own service) |
 | `PI_PERMISSION_SYSTEM_DEP0001` deprecation warning | — (the deprecated path is gone)                  |
 
-The `Symbol.for("@gotgenes/pi-permission-system:service")` slot is no longer written by any node.
-`Symbol.for("@gotgenes/pi-permission-system:session-services")` — the session-keyed map — is the only service slot.
+The `Symbol.for("@lazuee/pi-permission-system:service")` slot is no longer written by any node.
+`Symbol.for("@lazuee/pi-permission-system:session-services")` — the session-keyed map — is the only service slot.
 
 ## What to change
 
@@ -27,7 +27,7 @@ import {
   getPermissionsService,
   PERMISSIONS_READY_CHANNEL,
   type PermissionsReadyEvent,
-} from "@gotgenes/pi-permission-system";
+} from "@lazuee/pi-permission-system";
 
 let dispose: (() => void) | undefined;
 
@@ -46,7 +46,7 @@ If you are still on a zero-argument `getPermissionsService()` from a release bef
 
 ## Why the deprecation window closed
 
-[ADR 0012](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md) decision 7 deferred the removal until downstream consumers had migrated.
+[ADR 0012](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md) decision 7 deferred the removal until downstream consumers had migrated.
 `pi-permission-model-judge` 2.0.0 — the named migration case — registers through the keyed locator and floors its peer range at `>=27.0.0`, and no other known consumer reads the root slot.
 
 The removal is also narrower than a deprecation window's usual population suggests.

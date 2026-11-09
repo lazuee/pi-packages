@@ -19,16 +19,16 @@ A merge commit ties each import into the monorepo.
 
 ```bash
 git subtree add --prefix=packages/pi-autoformat \
-  https://github.com/gotgenes/pi-autoformat.git main
+  https://github.com/lazuee/pi-autoformat.git main
 
 git subtree add --prefix=packages/pi-github-tools \
-  https://github.com/gotgenes/pi-github-tools.git main
+  https://github.com/lazuee/pi-github-tools.git main
 
 git subtree add --prefix=packages/pi-permission-system \
-  https://github.com/gotgenes/pi-permission-system main
+  https://github.com/lazuee/pi-permission-system main
 
 git subtree add --prefix=packages/pi-subagents \
-  https://github.com/gotgenes/pi-subagents.git main
+  https://github.com/lazuee/pi-subagents.git main
 ```
 
 > **Note on interweaved history:** After import, `git log` shows commits from all packages mixed together chronologically.
@@ -157,12 +157,12 @@ git commit -m "chore: consolidate configs into monorepo root"
 
 ## 10. Push and configure GitHub
 
-1. Create the `pi-packages` repo on GitHub: `gh repo create gotgenes/pi-packages --public`
+1. Create the `pi-packages` repo on GitHub: `gh repo create lazuee/pi-packages --public`
 2. Configure repo settings (Settings → Actions → General → Workflow permissions):
    - Read and write permissions
    - Allow GitHub Actions to create and approve pull requests
 3. Configure npm trusted publishing — for each package on npmjs.com, add a trusted publisher:
-   - Repository owner: `gotgenes`
+   - Repository owner: `lazuee`
    - Repository: `pi-packages`
    - Workflow filename: `ci.yml`
    - Environment: *(leave blank)*
@@ -204,7 +204,7 @@ After migration, archive the original repos to prevent new issues from being fil
 
 ```bash
 for repo in pi-autoformat pi-github-tools pi-permission-system pi-subagents; do
-  gh repo edit "gotgenes/$repo" --description "Moved to gotgenes/pi-packages"
+  gh repo edit "gotgenes/$repo" --description "Moved to lazuee/pi-packages"
   gh repo archive "gotgenes/$repo" --yes
 done
 ```
@@ -213,7 +213,7 @@ Archived repos remain readable (git history, old issues) but disallow new issues
 
 ## 13. Consolidate .pi/settings.json with self-providing pattern
 
-Each package previously had its own `.pi/settings.json` that referenced `npm:@gotgenes/pi-github-tools` and other packages.
+Each package previously had its own `.pi/settings.json` that referenced `npm:@lazuee/pi-github-tools` and other packages.
 In the monorepo, a single root `.pi/settings.json` replaces all of them.
 
 Use the **self-providing pattern** to load local extensions while suppressing global npm duplicates.
@@ -227,10 +227,10 @@ Pi deduplicates by identity — npm package name and local absolute path are dif
     "./packages/pi-permission-system",
     "./packages/pi-subagents",
 
-    { "source": "npm:@gotgenes/pi-github-tools", "extensions": [] },
-    { "source": "npm:@gotgenes/pi-autoformat", "extensions": [] },
-    { "source": "npm:@gotgenes/pi-permission-system", "extensions": [] },
-    { "source": "npm:@gotgenes/pi-subagents", "extensions": [] },
+    { "source": "npm:@lazuee/pi-github-tools", "extensions": [] },
+    { "source": "npm:@lazuee/pi-autoformat", "extensions": [] },
+    { "source": "npm:@lazuee/pi-permission-system", "extensions": [] },
+    { "source": "npm:@lazuee/pi-subagents", "extensions": [] },
 
     "npm:pi-prompt-template-model",
     "npm:pi-web-access",

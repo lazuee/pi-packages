@@ -1,7 +1,7 @@
 ---
 name: package-pi-autoformat
 description: |
-  Package-specific context for @gotgenes/pi-autoformat.
+  Package-specific context for @lazuee/pi-autoformat.
   Load when working on code, tests, or docs in packages/pi-autoformat/.
 ---
 

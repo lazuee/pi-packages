@@ -130,17 +130,17 @@ How each relates to the Phase 7 steps above:
 ✅ `getPlatform()` has been removed: with both [#511] and Step 1 ([#502]) landed, `ToolCallGatePipeline.evaluate` no longer reads it, so `PermissionSession.getPlatform()` and `ToolCallGateInputs.getPlatform()` were dropped ([#513] resolved).
 The leaf `platform` parameters in `path-containment.ts` / `pi-infrastructure-read.ts` persist (the containment / infra-read predicates still take it).
 
-[#345]: https://github.com/gotgenes/pi-packages/issues/345
-[#382]: https://github.com/gotgenes/pi-packages/issues/382
-[#418]: https://github.com/gotgenes/pi-packages/issues/418
-[#486]: https://github.com/gotgenes/pi-packages/issues/486
-[#487]: https://github.com/gotgenes/pi-packages/issues/487
-[#502]: https://github.com/gotgenes/pi-packages/issues/502
-[#503]: https://github.com/gotgenes/pi-packages/issues/503
-[#504]: https://github.com/gotgenes/pi-packages/issues/504
-[#505]: https://github.com/gotgenes/pi-packages/issues/505
-[#506]: https://github.com/gotgenes/pi-packages/issues/506
-[#508]: https://github.com/gotgenes/pi-packages/issues/508
-[#510]: https://github.com/gotgenes/pi-packages/issues/510
-[#511]: https://github.com/gotgenes/pi-packages/issues/511
-[#513]: https://github.com/gotgenes/pi-packages/issues/513
+[#345]: https://github.com/lazuee/pi-packages/issues/345
+[#382]: https://github.com/lazuee/pi-packages/issues/382
+[#418]: https://github.com/lazuee/pi-packages/issues/418
+[#486]: https://github.com/lazuee/pi-packages/issues/486
+[#487]: https://github.com/lazuee/pi-packages/issues/487
+[#502]: https://github.com/lazuee/pi-packages/issues/502
+[#503]: https://github.com/lazuee/pi-packages/issues/503
+[#504]: https://github.com/lazuee/pi-packages/issues/504
+[#505]: https://github.com/lazuee/pi-packages/issues/505
+[#506]: https://github.com/lazuee/pi-packages/issues/506
+[#508]: https://github.com/lazuee/pi-packages/issues/508
+[#510]: https://github.com/lazuee/pi-packages/issues/510
+[#511]: https://github.com/lazuee/pi-packages/issues/511
+[#513]: https://github.com/lazuee/pi-packages/issues/513

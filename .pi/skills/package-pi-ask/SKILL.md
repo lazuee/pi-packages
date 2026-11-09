@@ -1,7 +1,7 @@
 ---
 name: package-pi-ask
 description: |
-  Package-specific context for @gotgenes/pi-ask.
+  Package-specific context for @lazuee/pi-ask.
   Load when working on code, tests, or docs in packages/pi-ask/.
 ---
 
@@ -20,7 +20,7 @@ Only these, each because the repo requires it:
   `timeout` option → third argument).
 - `#src/*` / `#test/*` aliases replace parent-relative imports. `#src/*` is also declared in `package.json` `imports`:
   a real Pi process loads `src/index.ts` directly and does not read the tsconfig or the Vitest alias.
-- Product identity is `@gotgenes/pi-ask` (settings screens, notification title, the README the driver reads).
+- Product identity is `@lazuee/pi-ask` (settings screens, notification title, the README the driver reads).
   The `pi-agent-ask:*` event channel names and the `pi-agent-ask.json` config filename are kept, so an existing bridge or config file keeps working.
 - The integration harness is not a root dependency, so `test/fixtures/pi-coding-agent-test.ts` re-exports it and the
   ported imports point at that.
@@ -36,7 +36,7 @@ Only these, each because the repo requires it:
 
 ## Config identity
 
-Settings live at `<agentDir>/extensions/pi-agent-ask.json`, not `@gotgenes/pi-ask.json`, so a file written before the fork keeps applying.
+Settings live at `<agentDir>/extensions/pi-agent-ask.json`, not `@lazuee/pi-ask.json`, so a file written before the fork keeps applying.
 If you rename it, migrate rather than add a second path.
 
 ## Docs

@@ -50,7 +50,7 @@ Trace the whole function before accepting it as the scope — the same lines can
 
 A third-party report's root-cause narrative is the reporter's model of a system they do not maintain, so its claim about the *other* side is the one to check.
 Read that project's source and the published tarball of the version they ran (`pnpm view <pkg> dist.tarball`), never the claim alone.
-Ask separately whether the defect reaches us at all — a sibling `@gotgenes/*` extension may already mitigate it, which changes the priority and the owner but not the defect.
+Ask separately whether the defect reaches us at all — a sibling `@lazuee/*` extension may already mitigate it, which changes the priority and the owner but not the defect.
 That same mitigation is what contaminates a repro run through our own extensions; load the `reproduction` skill before building one.
 
 ## History

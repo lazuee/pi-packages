@@ -327,18 +327,18 @@ The two compose cleanly: a promoted token emits the same structured descriptor a
 - **The pre-`evaluate()` classifier stays out of scope.**
   A model that *classifies* access intent before `evaluate()` feeds *recorded* authority and weakens the "same `(toolName, input)` yields the same ruling" property more subtly than this live-authority judge; it warrants its own decision record (see the architecture doc's "Beyond the target: a non-deterministic access-intent classifier").
 
-[#267]: https://github.com/gotgenes/pi-packages/issues/267
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#509]: https://github.com/gotgenes/pi-packages/issues/509
-[#581]: https://github.com/gotgenes/pi-packages/issues/581
-[#635]: https://github.com/gotgenes/pi-packages/issues/635
-[#699]: https://github.com/gotgenes/pi-packages/issues/699
-[#727]: https://github.com/gotgenes/pi-packages/issues/727
-[#909]: https://github.com/gotgenes/pi-packages/issues/909
-[#620]: https://github.com/gotgenes/pi-packages/issues/620
-[#684]: https://github.com/gotgenes/pi-packages/pull/684
-[#797]: https://github.com/gotgenes/pi-packages/issues/797
-[#799]: https://github.com/gotgenes/pi-packages/issues/799
-[#880]: https://github.com/gotgenes/pi-packages/issues/880
-[#882]: https://github.com/gotgenes/pi-packages/issues/882
-[#983]: https://github.com/gotgenes/pi-packages/pull/983
+[#267]: https://github.com/lazuee/pi-packages/issues/267
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#509]: https://github.com/lazuee/pi-packages/issues/509
+[#581]: https://github.com/lazuee/pi-packages/issues/581
+[#635]: https://github.com/lazuee/pi-packages/issues/635
+[#699]: https://github.com/lazuee/pi-packages/issues/699
+[#727]: https://github.com/lazuee/pi-packages/issues/727
+[#909]: https://github.com/lazuee/pi-packages/issues/909
+[#620]: https://github.com/lazuee/pi-packages/issues/620
+[#684]: https://github.com/lazuee/pi-packages/pull/684
+[#797]: https://github.com/lazuee/pi-packages/issues/797
+[#799]: https://github.com/lazuee/pi-packages/issues/799
+[#880]: https://github.com/lazuee/pi-packages/issues/880
+[#882]: https://github.com/lazuee/pi-packages/issues/882
+[#983]: https://github.com/lazuee/pi-packages/pull/983

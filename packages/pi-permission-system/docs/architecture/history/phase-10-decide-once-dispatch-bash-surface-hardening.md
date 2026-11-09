@@ -30,11 +30,11 @@ Recompute commands (run from the repo root):
 - win32 sites: `grep -r 'platform === "win32"' packages/pi-permission-system/src --include="*.ts" | wc -l`
 - Match-fold derivations: `grep -r 'caseInsensitive' packages/pi-permission-system/src --include="*.ts" | wc -l`
 - Root modules: `ls packages/pi-permission-system/src | grep -c '\.ts$'`
-- Health/duplication: `pnpm fallow health --score --workspace @gotgenes/pi-permission-system` / `pnpm fallow dupes --workspace @gotgenes/pi-permission-system`
+- Health/duplication: `pnpm fallow health --score --workspace @lazuee/pi-permission-system` / `pnpm fallow dupes --workspace @lazuee/pi-permission-system`
 
 ### Open-issue sweep dispositions
 
-- [#23] — closed as resolved-by-events (2026-07-10): the "no real-world consumers" premise is stale — `@gotgenes/pi-subagents` emits `<active_agent name="…"/>` in child system prompts, so the per-agent override system is live.
+- [#23] — closed as resolved-by-events (2026-07-10): the "no real-world consumers" premise is stale — `@lazuee/pi-subagents` emits `<active_agent name="…"/>` in child system prompts, so the per-agent override system is live.
 - [#561] — superseded by Steps 1–2 below; closed at issue-filing time with a pointer to the step issues.
 - [#562], [#309], [#490], [#521] — scheduled as Steps 3–6 below.
 - [#564] — mislabeled for this package: its targets are `packages/pi-github-tools/src/lib/ci.ts`; the `pkg:pi-permission-system` label was removed.
@@ -161,7 +161,7 @@ Open issues swept and confirmed out of scope during planning: [#561] (superseded
 
 ### Delivered vs. predicted metrics
 
-Recomputed at archive time (`pnpm fallow health --score --workspace @gotgenes/pi-permission-system` / `pnpm fallow dupes --workspace @gotgenes/pi-permission-system`):
+Recomputed at archive time (`pnpm fallow health --score --workspace @lazuee/pi-permission-system` / `pnpm fallow dupes --workspace @lazuee/pi-permission-system`):
 
 | Metric                                                               | Phase 10 target                              | Delivered                                                                                                                                               |
 | -------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,23 +174,23 @@ Recomputed at archive time (`pnpm fallow health --score --workspace @gotgenes/pi
 | fallow health score                                                  | ≥ 88                                         | 88 (A) — met                                                                                                                                            |
 | Production duplication                                               | ≤ 0.2%                                       | 0.2% (58 lines, 2 clone groups) — met                                                                                                                   |
 
-[#23]: https://github.com/gotgenes/pi-packages/issues/23
-[#309]: https://github.com/gotgenes/pi-packages/issues/309
-[#382]: https://github.com/gotgenes/pi-packages/issues/382
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#481]: https://github.com/gotgenes/pi-packages/issues/481
-[#490]: https://github.com/gotgenes/pi-packages/issues/490
-[#505]: https://github.com/gotgenes/pi-packages/issues/505
-[#508]: https://github.com/gotgenes/pi-packages/issues/508
-[#510]: https://github.com/gotgenes/pi-packages/issues/510
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#521]: https://github.com/gotgenes/pi-packages/issues/521
-[#557]: https://github.com/gotgenes/pi-packages/issues/557
-[#561]: https://github.com/gotgenes/pi-packages/issues/561
-[#562]: https://github.com/gotgenes/pi-packages/issues/562
-[#564]: https://github.com/gotgenes/pi-packages/issues/564
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
-[#568]: https://github.com/gotgenes/pi-packages/issues/568
-[#569]: https://github.com/gotgenes/pi-packages/issues/569
-[#571]: https://github.com/gotgenes/pi-packages/issues/571
-[#575]: https://github.com/gotgenes/pi-packages/issues/575
+[#23]: https://github.com/lazuee/pi-packages/issues/23
+[#309]: https://github.com/lazuee/pi-packages/issues/309
+[#382]: https://github.com/lazuee/pi-packages/issues/382
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#481]: https://github.com/lazuee/pi-packages/issues/481
+[#490]: https://github.com/lazuee/pi-packages/issues/490
+[#505]: https://github.com/lazuee/pi-packages/issues/505
+[#508]: https://github.com/lazuee/pi-packages/issues/508
+[#510]: https://github.com/lazuee/pi-packages/issues/510
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#521]: https://github.com/lazuee/pi-packages/issues/521
+[#557]: https://github.com/lazuee/pi-packages/issues/557
+[#561]: https://github.com/lazuee/pi-packages/issues/561
+[#562]: https://github.com/lazuee/pi-packages/issues/562
+[#564]: https://github.com/lazuee/pi-packages/issues/564
+[#565]: https://github.com/lazuee/pi-packages/issues/565
+[#568]: https://github.com/lazuee/pi-packages/issues/568
+[#569]: https://github.com/lazuee/pi-packages/issues/569
+[#571]: https://github.com/lazuee/pi-packages/issues/571
+[#575]: https://github.com/lazuee/pi-packages/issues/575

@@ -202,7 +202,7 @@ describe("buildAgentPrompt", () => {
   });
 
   // Patch 3 (RepOne #443): inject <active_agent name="..."/> tag so downstream
-  // extensions (e.g. @gotgenes/pi-permission-system) can resolve per-agent
+  // extensions (e.g. @lazuee/pi-permission-system) can resolve per-agent
   // policy by parsing the child's system prompt.
   describe("active_agent tag injection", () => {
     it("includes <active_agent name=...> tag in replace mode after identity prefix", () => {

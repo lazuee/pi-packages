@@ -48,7 +48,7 @@ export interface InheritedPrompt {
  * read-only child to use `edit` and `write` when it has neither.
  *
  * Both modes include an `<active_agent name="${config.name}"/>` tag so
- * downstream extensions (e.g. `@gotgenes/pi-permission-system`) can resolve
+ * downstream extensions (e.g. `@lazuee/pi-permission-system`) can resolve
  * per-agent policy inside the child session by parsing the system prompt.
  * The tag follows the cacheable parent prefix in both modes.
  *
@@ -457,7 +457,7 @@ function toPromptPath(cwd: string): string {
  * could write files (#904, the claim [ADR 0008] removed one constant above).
  * What it omits is supplied more accurately downstream: the `<active_agent>`
  * tag names the agent, the agent's own prompt states its role, and the tool
- * array — plus `@gotgenes/pi-permission-system`'s per-session block, when
+ * array — plus `@lazuee/pi-permission-system`'s per-session block, when
  * installed — states its tools.
  */
 const genericBase = `# Instructions

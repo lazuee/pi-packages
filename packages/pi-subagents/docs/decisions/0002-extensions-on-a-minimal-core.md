@@ -27,7 +27,7 @@ Pulling that thread exposed progressively more rudimentary issues.
    Git worktree isolation is one *strategy* for answering "where does this child run, and what brackets the run?"
    — a container, a throwaway tmpdir, or a remote sandbox are others.
    The core needs only *a working directory and a disposal hook*; the default (the parent's cwd, no setup/teardown) is always correct.
-5. This mirrors Phase 14, which evicted tool/extension *policy* (`disallowed_tools`, `extensions` filtering) to `@gotgenes/pi-permission-system`.
+5. This mirrors Phase 14, which evicted tool/extension *policy* (`disallowed_tools`, `extensions` filtering) to `@lazuee/pi-permission-system`.
    Worktrees are *environment* policy; they belong outside the core for the same reason.
 
 Permissions and workspaces are orthogonal concerns that must compose as independent extensions on the core, never knowing about each other.
@@ -69,9 +69,9 @@ Latent extensibility (the design can host the seam additively) is the deliverabl
 
 ### What leaves the core
 
-- **Worktree isolation** (`worktree.ts`, `worktree-isolation.ts`, `GitWorktreeManager`, the `isolation: "worktree"` spawn mode) → a new package, `@gotgenes/pi-subagents-worktrees`, that implements the workspace provider and owns the git plumbing and the "saved to branch" result.
+- **Worktree isolation** (`worktree.ts`, `worktree-isolation.ts`, `GitWorktreeManager`, the `isolation: "worktree"` spawn mode) → a new package, `@lazuee/pi-subagents-worktrees`, that implements the workspace provider and owns the git plumbing and the "saved to branch" result.
 - **`permission-bridge.ts`** → retired.
-  The core stops reaching *out* to `Symbol.for("@gotgenes/pi-permission-system:service")` and instead *emits* lifecycle events the permission system subscribes to.
+  The core stops reaching *out* to `Symbol.for("@lazuee/pi-permission-system:service")` and instead *emits* lifecycle events the permission system subscribes to.
 - **`isolated` / `extensions: false` / `noSkills`** → removed.
   Deny-at-use (the in-child permission layer blocking disallowed tool calls) covers what `isolated` pretended to do for tools.
   Prevent-load (refusing to bind an extension because of load-time side effects, cost, or true sandboxing) is genuinely generative and cannot be reduced to observation, so it is left as a *latent* (un-built) provider seam, added only if a real consumer needs it.
@@ -91,8 +91,8 @@ Permissions depend only on the core's events; workspaces depend only on the core
 
 - The "agent collaborator architecture" Phase 16 (give `Agent` a worktree collaborator + a session factory) is abandoned.
   #256 is superseded (worktree was placed in the wrong layer); #257 is parked (it polished a subsystem slated for eviction).
-- A new package `@gotgenes/pi-subagents-worktrees` is introduced; the core spawn API drops `isolation` and `isolated`.
-- `permission-bridge.ts` is removed; `@gotgenes/pi-permission-system` migrates from a published-service lookup to lifecycle-event subscription, which requires the core to emit an awaited, ordered `session-created` event before `bindExtensions()`.
+- A new package `@lazuee/pi-subagents-worktrees` is introduced; the core spawn API drops `isolation` and `isolated`.
+- `permission-bridge.ts` is removed; `@lazuee/pi-permission-system` migrates from a published-service lookup to lifecycle-event subscription, which requires the core to emit an awaited, ordered `session-created` event before `bindExtensions()`.
   Confirming Pi's event model supports awaited pre-bind emission is the first investigation of the reclaimed phase.
 - Once the cwd is resolved through the provider seam rather than relayed by `Agent`, child-session creation can construct a born-complete execution and the "runner" concept dissolves — recovering the structural goal of the abandoned collaborator steps by a cleaner route.
 - The reclaimed Phase 16 roadmap and step issues live in [`docs/architecture/architecture.md`](../architecture/architecture.md).
@@ -107,7 +107,7 @@ The governing rule above — no vacant hooks — decides it: a provider seam is 
 The only policy source is the operator's configuration, so a registerable provider whose sole consumer would be pi-subagents' own settings reader is precisely the speculative abstraction this ADR forbids.
 
 The core therefore reads an `excludedExtensionPackages` list from the layered `subagents.json` and filters the child's package view before resource loading.
-This is narrower than the per-agent policy Phase 14 evicted: it is global/project scope only, never per agent type; it names packages rather than individual extensions or tools; and it carries no tool-permission semantics, which remain deny-at-use in `@gotgenes/pi-permission-system`.
+This is narrower than the per-agent policy Phase 14 evicted: it is global/project scope only, never per agent type; it names packages rather than individual extensions or tools; and it carries no tool-permission semantics, which remain deny-at-use in `@lazuee/pi-permission-system`.
 Default inheritance is unchanged — an absent or empty list reproduces prior behavior exactly.
 
 Latent extensibility is preserved rather than spent.
@@ -115,10 +115,10 @@ The filtering is applied at the composition root, so if a sandboxing extension e
 
 ## Amendment: the child-announcement contract is specified downstream (#789)
 
-This decision required the core to emit an awaited, ordered `session-created` event before `bindExtensions()`, and the channel names and payload shapes were then declared independently in this package and in `@gotgenes/pi-permission-system`, each with a comment asking that they stay in sync.
+This decision required the core to emit an awaited, ordered `session-created` event before `bindExtensions()`, and the channel names and payload shapes were then declared independently in this package and in `@lazuee/pi-permission-system`, each with a comment asking that they stay in sync.
 
 That arrangement ends here.
-The contract is now named — the **subagent adapter convention** — and specified in one place: [Subagent Integration](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/subagent-integration.md#the-subagent-adapter-convention), per pi-permission-system's [ADR 0012](https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md) decision 5.
+The contract is now named — the **subagent adapter convention** — and specified in one place: [Subagent Integration](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/subagent-integration.md#the-subagent-adapter-convention), per pi-permission-system's [ADR 0012](https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0012-cross-node-extension-contract.md) decision 5.
 Read it there rather than reconstructing it from this record.
 
 Nothing about this package's obligations changed: the core still publishes its lifecycle and knows nothing about its consumers, and the inverted dependency this decision established is untouched.

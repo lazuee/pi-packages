@@ -1,7 +1,7 @@
 ---
 name: package-pi-permission-model-judge
 description: |
-  Package-specific context for @gotgenes/pi-permission-model-judge.
+  Package-specific context for @lazuee/pi-permission-model-judge.
   Load when working on code, tests, or docs in packages/pi-permission-model-judge/.
 ---
 

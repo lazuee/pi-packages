@@ -102,10 +102,10 @@ flowchart TD
 | C: config-loader            | 5       | Reduce `stripJsonComments` complexity (lowest priority)                  |
 | D: Duplication              | 6       | Extract shared test fixtures; best sequenced after Tracks A and B        |
 
-[#266]: https://github.com/gotgenes/pi-packages/issues/266
-[#285]: https://github.com/gotgenes/pi-packages/issues/285
-[#286]: https://github.com/gotgenes/pi-packages/issues/286
-[#287]: https://github.com/gotgenes/pi-packages/issues/287
-[#288]: https://github.com/gotgenes/pi-packages/issues/288
-[#289]: https://github.com/gotgenes/pi-packages/issues/289
-[#290]: https://github.com/gotgenes/pi-packages/issues/290
+[#266]: https://github.com/lazuee/pi-packages/issues/266
+[#285]: https://github.com/lazuee/pi-packages/issues/285
+[#286]: https://github.com/lazuee/pi-packages/issues/286
+[#287]: https://github.com/lazuee/pi-packages/issues/287
+[#288]: https://github.com/lazuee/pi-packages/issues/288
+[#289]: https://github.com/lazuee/pi-packages/issues/289
+[#290]: https://github.com/lazuee/pi-packages/issues/290

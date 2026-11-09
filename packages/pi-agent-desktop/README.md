@@ -1,4 +1,4 @@
-# @gotgenes/pi-agent-desktop
+# @lazuee/pi-agent-desktop
 
 Pi extension that lets the agent drive desktop apps on macOS, Windows and Linux through their native accessibility trees.
 
@@ -72,7 +72,7 @@ This wraps the common loop.
 The CLI is wider — `find`, `wait`, `batch`, clipboard, window management, notifications, tracing — and the bundled `agent-desktop` skill documents it.
 Run `agent-desktop <command> --help` for flags; the skill does not repeat them.
 
-Use [`@gotgenes/pi-macos-harness`](../pi-macos-harness/) instead when the work is macOS-only and you want screenshots attached to every read.
+Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is macOS-only and you want screenshots attached to every read.
 
 ## Layout
 
@@ -84,9 +84,9 @@ Use [`@gotgenes/pi-macos-harness`](../pi-macos-harness/) instead when the work i
 ## Development
 
 ```bash
-pnpm --filter @gotgenes/pi-agent-desktop run test
-pnpm --filter @gotgenes/pi-agent-desktop run check
-pnpm --filter @gotgenes/pi-agent-desktop run lint
+pnpm --filter @lazuee/pi-agent-desktop run test
+pnpm --filter @lazuee/pi-agent-desktop run check
+pnpm --filter @lazuee/pi-agent-desktop run lint
 ```
 
 The tests pin the argument contract against the CLI's real spellings — positional refs, `--from-xy x,y`, `--direction`/`--amount`.

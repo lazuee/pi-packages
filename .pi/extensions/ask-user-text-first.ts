@@ -9,7 +9,7 @@
  * records whether that message carried a non-empty text block and blocks `ask_user` when it did
  * not. Tool-result messages also emit `message_end`; only assistant messages update the record.
  *
- * Interim: `@gotgenes/pi-ask` absorbs this guard (#1087).
+ * Interim: `@lazuee/pi-ask` absorbs this guard (#1087).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";

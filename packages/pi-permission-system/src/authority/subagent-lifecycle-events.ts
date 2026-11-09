@@ -1,8 +1,8 @@
 /**
- * subagent-lifecycle-events.ts — Subscribe to @gotgenes/pi-subagents' child
+ * subagent-lifecycle-events.ts — Subscribe to @lazuee/pi-subagents' child
  * lifecycle events and dispatch each fact to its owner.
  *
- * @gotgenes/pi-subagents publishes its child-execution lifecycle on the Pi
+ * @lazuee/pi-subagents publishes its child-execution lifecycle on the Pi
  * event bus (ADR 0002): it no longer calls this package's service directly.
  * We register the child on `session-created`, audit it for a permission node on
  * `bound`, and unregister it on `disposed`.
@@ -14,7 +14,7 @@
  *
  * The channel names and payload shapes are declared independently here (the two
  * packages must not depend on each other under jiti) and MUST match the
- * publisher in `@gotgenes/pi-subagents` (`src/lifecycle/child-lifecycle.ts`).
+ * publisher in `@lazuee/pi-subagents` (`src/lifecycle/child-lifecycle.ts`).
  *
  * The `session-created` handler MUST stay synchronous: the core emits it on the
  * same synchronous call stack immediately before `bindExtensions()`, and the

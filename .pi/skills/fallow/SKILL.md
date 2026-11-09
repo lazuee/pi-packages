@@ -24,18 +24,18 @@ pnpm fallow:dupes          # duplicated code blocks
 
 Question-shaped subcommands, each scoped smaller than a full run:
 
-| Question                                          | Command                                                     |
-| ------------------------------------------------- | ----------------------------------------------------------- |
-| What may this file import?                        | `fallow guard <file>`                                       |
-| What are this file's exports, imports, importers? | `fallow inspect --file <path>`                              |
-| Who consumes this symbol?                         | `fallow dead-code --trace <file>:<symbol>`                  |
-| What structural decisions does this change embed? | `fallow decision-surface --base <ref> --format json`        |
-| Where should a reviewer look in this change?      | `fallow review --brief --base <ref>`                        |
-| What moved since the last phase close?            | `fallow health --trend --workspace @gotgenes/<PKG>`         |
-| What is untested but reachable?                   | `fallow health --coverage-gaps --workspace @gotgenes/<PKG>` |
-| What zones and rules exist?                       | `fallow list --boundaries`                                  |
-| Which suppressions are active?                    | `fallow suppressions`                                       |
-| What does this finding mean?                      | `fallow explain <issue-type>`                               |
+| Question                                          | Command                                                   |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| What may this file import?                        | `fallow guard <file>`                                     |
+| What are this file's exports, imports, importers? | `fallow inspect --file <path>`                            |
+| Who consumes this symbol?                         | `fallow dead-code --trace <file>:<symbol>`                |
+| What structural decisions does this change embed? | `fallow decision-surface --base <ref> --format json`      |
+| Where should a reviewer look in this change?      | `fallow review --brief --base <ref>`                      |
+| What moved since the last phase close?            | `fallow health --trend --workspace @lazuee/<PKG>`         |
+| What is untested but reachable?                   | `fallow health --coverage-gaps --workspace @lazuee/<PKG>` |
+| What zones and rules exist?                       | `fallow list --boundaries`                                |
+| Which suppressions are active?                    | `fallow suppressions`                                     |
+| What does this finding mean?                      | `fallow explain <issue-type>`                             |
 
 ## JSON output for programmatic use
 
@@ -105,7 +105,7 @@ Upstream has no fix through 3.28.0, so a high-confidence `--symbol-impact` resul
 Each roadmap package commits `packages/<PKG>/docs/fallow-snapshot.json` — eleven vital signs plus score and grade as of the last phase close, written by:
 
 ```bash
-pnpm --silent fallow health --save-snapshot packages/<PKG>/docs/fallow-snapshot.json --workspace @gotgenes/<PKG> --quiet >/dev/null
+pnpm --silent fallow health --save-snapshot packages/<PKG>/docs/fallow-snapshot.json --workspace @lazuee/<PKG> --quiet >/dev/null
 ```
 
 Never hand-edit it; every field is a number the command produces.
@@ -116,7 +116,7 @@ Reading a trend needs a copy, because `--trend` reads only `.fallow/snapshots/` 
 ```bash
 rm -rf .fallow/snapshots && mkdir -p .fallow/snapshots
 cp packages/<PKG>/docs/fallow-snapshot.json .fallow/snapshots/baseline.json
-pnpm --silent fallow health --trend --workspace @gotgenes/<PKG> --quiet 2>&1 | grep -A 12 'Trend'
+pnpm --silent fallow health --trend --workspace @lazuee/<PKG> --quiet 2>&1 | grep -A 12 'Trend'
 ```
 
 ## Coverage
@@ -125,10 +125,10 @@ CRAP scores are **estimated** from export references unless you feed real covera
 The estimate is not conservative in one direction: on pi-subagents it put `tools/agent-tool.ts` at 13.8 where real coverage says 42.0, and flagged 12 files above the threshold where real coverage flags 5.
 
 ```bash
-pnpm --filter @gotgenes/<PKG> exec vitest run --coverage --coverage.provider istanbul \
+pnpm --filter @lazuee/<PKG> exec vitest run --coverage --coverage.provider istanbul \
   --coverage.reporter json --coverage.reportsDirectory /tmp/cov-<PKG>
 pnpm --silent fallow health --coverage /tmp/cov-<PKG>/coverage-final.json \
-  --score --hotspots --targets --workspace @gotgenes/<PKG> 2>&1 || true
+  --score --hotspots --targets --workspace @lazuee/<PKG> 2>&1 || true
 ```
 
 Istanbul format is required (not v8/c8 native); `@vitest/coverage-istanbul` is a root devDependency, so no package manifest needs one.

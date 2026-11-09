@@ -1,16 +1,16 @@
 {
-  "name": "@gotgenes/pi-permission-system",
+  "name": "@lazuee/pi-permission-system",
   "version": "42.0.0",
   "description": "Permission enforcement extension for the Pi coding agent.",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/public.d.ts",
-      "@gotgenes/source": "./src/service.ts",
+      "@lazuee/source": "./src/service.ts",
       "default": "./src/service.ts"
     },
     "./*": {
-      "@gotgenes/source": "./src/*",
+      "@lazuee/source": "./src/*",
       "default": "./src/*"
     }
   },
@@ -61,17 +61,24 @@
     "security"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-permission-system"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-system#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-system#readme",
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
   "engines": {
     "node": ">=22"

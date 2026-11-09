@@ -120,6 +120,6 @@ for f in case1 case2-before case3-after case4-noscope; do
 done
 ```
 
-[#452]: https://github.com/gotgenes/pi-packages/issues/452
-[#457]: https://github.com/gotgenes/pi-packages/issues/457
-[#468]: https://github.com/gotgenes/pi-packages/issues/468
+[#452]: https://github.com/lazuee/pi-packages/issues/452
+[#457]: https://github.com/lazuee/pi-packages/issues/457
+[#468]: https://github.com/lazuee/pi-packages/issues/468

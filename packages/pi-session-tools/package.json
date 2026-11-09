@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-session-tools",
+  "name": "@lazuee/pi-session-tools",
   "version": "3.0.1",
   "description": "Pi extension providing session metadata tools (naming, context) for multi-session workflows",
   "keywords": [
@@ -10,18 +10,25 @@
     "workflow"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-session-tools"
   },
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-session-tools#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-session-tools#readme",
   "publishConfig": {
     "access": "public"
   },

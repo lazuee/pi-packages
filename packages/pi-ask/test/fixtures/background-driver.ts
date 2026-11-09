@@ -132,7 +132,7 @@ export default function backgroundDriver(pi: ExtensionAPI): void {
         const beforeAnswer = {
           activeForms: active.size,
           blocked: [...blocked],
-          readSucceeded: document.includes("@gotgenes/pi-ask"),
+          readSucceeded: document.includes("@lazuee/pi-ask"),
         };
         answerFirst();
         await new Promise<void>((resolve) => setImmediate(resolve));

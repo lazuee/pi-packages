@@ -164,7 +164,7 @@ Recompute commands (run from the repo root):
   (Added with Step 16, which the phase did not carry when it opened; the baseline was verified 0 at the step's planning time.)
 - Per-pattern approval surfaces: `grep -c 'ApprovalGrant' packages/pi-permission-system/src/session/session-approval.ts`
   (Step 10 named the pair type `ApprovalGrant` rather than the roadmap's predicted `ApprovalPattern`, which names a `{surface, pattern}` object after one of its two fields; the row moves with the name, per the clause below.)
-- Health/duplication/dead exports: `pnpm fallow health --score --workspace @gotgenes/pi-permission-system` / `pnpm fallow dupes --workspace @gotgenes/pi-permission-system` / `pnpm fallow dead-code --workspace @gotgenes/pi-permission-system`
+- Health/duplication/dead exports: `pnpm fallow health --score --workspace @lazuee/pi-permission-system` / `pnpm fallow dupes --workspace @lazuee/pi-permission-system` / `pnpm fallow dead-code --workspace @lazuee/pi-permission-system`
 
 Eight rows greped for a name the phase had not created when it opened — `expandDirectionalSugar`, `surfaceFamily`, `command-effects.ts`, `isTransparentWrapper`, `authorizer_allowed`/`authorizer_denied`, `child_node_absent`, the `split-provider` test phrase, and `surfaceProperty`.
 The step that creates each (Steps 1, 1, 2, 3, 5, 7, 8, 9 respectively) must either use the roadmap's name or update the metric row in the same commit, or the rename silently breaks the delivered-vs-predicted verification at phase close.
@@ -711,7 +711,7 @@ Out of scope for the roadmap, recorded and left open: [#797] (answered with a co
 
 ### Delivered vs. predicted metrics
 
-Recomputed at archive time (`pnpm fallow health --score --hotspots --targets --workspace @gotgenes/pi-permission-system` — the flag set the 78 (B) baseline was itself computed with; `pnpm fallow dupes --workspace @gotgenes/pi-permission-system`; `pnpm fallow dead-code --workspace @gotgenes/pi-permission-system`):
+Recomputed at archive time (`pnpm fallow health --score --hotspots --targets --workspace @lazuee/pi-permission-system` — the flag set the 78 (B) baseline was itself computed with; `pnpm fallow dupes --workspace @lazuee/pi-permission-system`; `pnpm fallow dead-code --workspace @lazuee/pi-permission-system`):
 
 | Metric                                                                      | Phase 14 target | Delivered                                        |
 | --------------------------------------------------------------------------- | --------------- | ------------------------------------------------ |
@@ -734,83 +734,83 @@ Recomputed at archive time (`pnpm fallow health --score --hotspots --targets --w
 | Production duplication                                                      | ≤ 0.2%          | 0.1% (2 clone groups, 24 lines) — met, unchanged |
 | Dead exports                                                                | 0               | 0 — met                                          |
 
-Source LOC and test counts, recomputed at archive time: 152 `src/*.ts` files, 23,412 lines (`find packages/pi-permission-system/src -name '*.ts' | wc -l` / `… -exec wc -l {} +`); 157 test files / 4,117 tests (`pnpm --filter @gotgenes/pi-permission-system run test`), matching the invariant Step 13 pinned across its ten move commits.
+Source LOC and test counts, recomputed at archive time: 152 `src/*.ts` files, 23,412 lines (`find packages/pi-permission-system/src -name '*.ts' | wc -l` / `… -exec wc -l {} +`); 157 test files / 4,117 tests (`pnpm --filter @lazuee/pi-permission-system run test`), matching the invariant Step 13 pinned across its ten move commits.
 
-[#302]: https://github.com/gotgenes/pi-packages/issues/302
-[#306]: https://github.com/gotgenes/pi-packages/issues/306
-[#452]: https://github.com/gotgenes/pi-packages/issues/452
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#603]: https://github.com/gotgenes/pi-packages/issues/603
-[#604]: https://github.com/gotgenes/pi-packages/issues/604
-[#609]: https://github.com/gotgenes/pi-packages/issues/609
-[#620]: https://github.com/gotgenes/pi-packages/issues/620
-[#638]: https://github.com/gotgenes/pi-packages/pull/638
-[#639]: https://github.com/gotgenes/pi-packages/issues/639
-[#648]: https://github.com/gotgenes/pi-packages/issues/648
-[#654]: https://github.com/gotgenes/pi-packages/issues/654
-[#658]: https://github.com/gotgenes/pi-packages/issues/658
-[#675]: https://github.com/gotgenes/pi-packages/pull/675
-[#680]: https://github.com/gotgenes/pi-packages/issues/680
-[#686]: https://github.com/gotgenes/pi-packages/issues/686
-[#687]: https://github.com/gotgenes/pi-packages/issues/687
-[#688]: https://github.com/gotgenes/pi-packages/issues/688
-[#691]: https://github.com/gotgenes/pi-packages/issues/691
-[#692]: https://github.com/gotgenes/pi-packages/pull/692
-[#698]: https://github.com/gotgenes/pi-packages/issues/698
-[#699]: https://github.com/gotgenes/pi-packages/issues/699
-[#706]: https://github.com/gotgenes/pi-packages/issues/706
-[#712]: https://github.com/gotgenes/pi-packages/issues/712
-[#720]: https://github.com/gotgenes/pi-packages/issues/720
-[#722]: https://github.com/gotgenes/pi-packages/issues/722
-[#724]: https://github.com/gotgenes/pi-packages/issues/724
-[#726]: https://github.com/gotgenes/pi-packages/issues/726
-[#733]: https://github.com/gotgenes/pi-packages/issues/733
-[#735]: https://github.com/gotgenes/pi-packages/issues/735
-[#736]: https://github.com/gotgenes/pi-packages/issues/736
-[#741]: https://github.com/gotgenes/pi-packages/issues/741
-[#742]: https://github.com/gotgenes/pi-packages/issues/742
-[#751]: https://github.com/gotgenes/pi-packages/issues/751
-[#752]: https://github.com/gotgenes/pi-packages/issues/752
-[#762]: https://github.com/gotgenes/pi-packages/issues/762
-[#772]: https://github.com/gotgenes/pi-packages/issues/772
-[#780]: https://github.com/gotgenes/pi-packages/issues/780
-[#786]: https://github.com/gotgenes/pi-packages/issues/786
-[#787]: https://github.com/gotgenes/pi-packages/issues/787
-[#788]: https://github.com/gotgenes/pi-packages/issues/788
-[#789]: https://github.com/gotgenes/pi-packages/issues/789
-[#792]: https://github.com/gotgenes/pi-packages/issues/792
-[#793]: https://github.com/gotgenes/pi-packages/issues/793
-[#794]: https://github.com/gotgenes/pi-packages/issues/794
-[#796]: https://github.com/gotgenes/pi-packages/issues/796
-[#797]: https://github.com/gotgenes/pi-packages/issues/797
-[#799]: https://github.com/gotgenes/pi-packages/issues/799
-[#802]: https://github.com/gotgenes/pi-packages/issues/802
-[#803]: https://github.com/gotgenes/pi-packages/issues/803
-[#804]: https://github.com/gotgenes/pi-packages/issues/804
-[#806]: https://github.com/gotgenes/pi-packages/issues/806
-[#807]: https://github.com/gotgenes/pi-packages/issues/807
-[#808]: https://github.com/gotgenes/pi-packages/issues/808
-[#810]: https://github.com/gotgenes/pi-packages/issues/810
-[#813]: https://github.com/gotgenes/pi-packages/issues/813
-[#814]: https://github.com/gotgenes/pi-packages/issues/814
-[#815]: https://github.com/gotgenes/pi-packages/issues/815
-[#821]: https://github.com/gotgenes/pi-packages/issues/821
-[#822]: https://github.com/gotgenes/pi-packages/issues/822
-[#823]: https://github.com/gotgenes/pi-packages/issues/823
-[#837]: https://github.com/gotgenes/pi-packages/issues/837
-[#839]: https://github.com/gotgenes/pi-packages/issues/839
-[#840]: https://github.com/gotgenes/pi-packages/issues/840
-[#844]: https://github.com/gotgenes/pi-packages/issues/844
-[#856]: https://github.com/gotgenes/pi-packages/issues/856
-[#859]: https://github.com/gotgenes/pi-packages/issues/859
-[#860]: https://github.com/gotgenes/pi-packages/issues/860
-[#861]: https://github.com/gotgenes/pi-packages/issues/861
-[#863]: https://github.com/gotgenes/pi-packages/issues/863
-[#868]: https://github.com/gotgenes/pi-packages/issues/868
-[#873]: https://github.com/gotgenes/pi-packages/issues/873
-[#874]: https://github.com/gotgenes/pi-packages/issues/874
-[#875]: https://github.com/gotgenes/pi-packages/issues/875
-[#877]: https://github.com/gotgenes/pi-packages/issues/877
-[#879]: https://github.com/gotgenes/pi-packages/issues/879
-[ADR-0002]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md
+[#302]: https://github.com/lazuee/pi-packages/issues/302
+[#306]: https://github.com/lazuee/pi-packages/issues/306
+[#452]: https://github.com/lazuee/pi-packages/issues/452
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#603]: https://github.com/lazuee/pi-packages/issues/603
+[#604]: https://github.com/lazuee/pi-packages/issues/604
+[#609]: https://github.com/lazuee/pi-packages/issues/609
+[#620]: https://github.com/lazuee/pi-packages/issues/620
+[#638]: https://github.com/lazuee/pi-packages/pull/638
+[#639]: https://github.com/lazuee/pi-packages/issues/639
+[#648]: https://github.com/lazuee/pi-packages/issues/648
+[#654]: https://github.com/lazuee/pi-packages/issues/654
+[#658]: https://github.com/lazuee/pi-packages/issues/658
+[#675]: https://github.com/lazuee/pi-packages/pull/675
+[#680]: https://github.com/lazuee/pi-packages/issues/680
+[#686]: https://github.com/lazuee/pi-packages/issues/686
+[#687]: https://github.com/lazuee/pi-packages/issues/687
+[#688]: https://github.com/lazuee/pi-packages/issues/688
+[#691]: https://github.com/lazuee/pi-packages/issues/691
+[#692]: https://github.com/lazuee/pi-packages/pull/692
+[#698]: https://github.com/lazuee/pi-packages/issues/698
+[#699]: https://github.com/lazuee/pi-packages/issues/699
+[#706]: https://github.com/lazuee/pi-packages/issues/706
+[#712]: https://github.com/lazuee/pi-packages/issues/712
+[#720]: https://github.com/lazuee/pi-packages/issues/720
+[#722]: https://github.com/lazuee/pi-packages/issues/722
+[#724]: https://github.com/lazuee/pi-packages/issues/724
+[#726]: https://github.com/lazuee/pi-packages/issues/726
+[#733]: https://github.com/lazuee/pi-packages/issues/733
+[#735]: https://github.com/lazuee/pi-packages/issues/735
+[#736]: https://github.com/lazuee/pi-packages/issues/736
+[#741]: https://github.com/lazuee/pi-packages/issues/741
+[#742]: https://github.com/lazuee/pi-packages/issues/742
+[#751]: https://github.com/lazuee/pi-packages/issues/751
+[#752]: https://github.com/lazuee/pi-packages/issues/752
+[#762]: https://github.com/lazuee/pi-packages/issues/762
+[#772]: https://github.com/lazuee/pi-packages/issues/772
+[#780]: https://github.com/lazuee/pi-packages/issues/780
+[#786]: https://github.com/lazuee/pi-packages/issues/786
+[#787]: https://github.com/lazuee/pi-packages/issues/787
+[#788]: https://github.com/lazuee/pi-packages/issues/788
+[#789]: https://github.com/lazuee/pi-packages/issues/789
+[#792]: https://github.com/lazuee/pi-packages/issues/792
+[#793]: https://github.com/lazuee/pi-packages/issues/793
+[#794]: https://github.com/lazuee/pi-packages/issues/794
+[#796]: https://github.com/lazuee/pi-packages/issues/796
+[#797]: https://github.com/lazuee/pi-packages/issues/797
+[#799]: https://github.com/lazuee/pi-packages/issues/799
+[#802]: https://github.com/lazuee/pi-packages/issues/802
+[#803]: https://github.com/lazuee/pi-packages/issues/803
+[#804]: https://github.com/lazuee/pi-packages/issues/804
+[#806]: https://github.com/lazuee/pi-packages/issues/806
+[#807]: https://github.com/lazuee/pi-packages/issues/807
+[#808]: https://github.com/lazuee/pi-packages/issues/808
+[#810]: https://github.com/lazuee/pi-packages/issues/810
+[#813]: https://github.com/lazuee/pi-packages/issues/813
+[#814]: https://github.com/lazuee/pi-packages/issues/814
+[#815]: https://github.com/lazuee/pi-packages/issues/815
+[#821]: https://github.com/lazuee/pi-packages/issues/821
+[#822]: https://github.com/lazuee/pi-packages/issues/822
+[#823]: https://github.com/lazuee/pi-packages/issues/823
+[#837]: https://github.com/lazuee/pi-packages/issues/837
+[#839]: https://github.com/lazuee/pi-packages/issues/839
+[#840]: https://github.com/lazuee/pi-packages/issues/840
+[#844]: https://github.com/lazuee/pi-packages/issues/844
+[#856]: https://github.com/lazuee/pi-packages/issues/856
+[#859]: https://github.com/lazuee/pi-packages/issues/859
+[#860]: https://github.com/lazuee/pi-packages/issues/860
+[#861]: https://github.com/lazuee/pi-packages/issues/861
+[#863]: https://github.com/lazuee/pi-packages/issues/863
+[#868]: https://github.com/lazuee/pi-packages/issues/868
+[#873]: https://github.com/lazuee/pi-packages/issues/873
+[#874]: https://github.com/lazuee/pi-packages/issues/874
+[#875]: https://github.com/lazuee/pi-packages/issues/875
+[#877]: https://github.com/lazuee/pi-packages/issues/877
+[#879]: https://github.com/lazuee/pi-packages/issues/879
+[ADR-0002]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md

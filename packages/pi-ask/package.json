@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-ask",
+  "name": "@lazuee/pi-ask",
   "version": "0.1.0",
   "description": "Pi extension giving the agent an interactive ask_user clarification tool, with a form, background questions, and child-agent forwarding",
   "keywords": [
@@ -12,18 +12,25 @@
     "terminal-ui"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-ask"
   },
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-ask#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-ask#readme",
   "publishConfig": {
     "access": "public"
   },

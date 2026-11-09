@@ -50,7 +50,7 @@ export interface UnregisteredLinkAuditor {
  * Three causes leave the identical absence — the provider was excluded from
  * this session's extensions, it failed to load, or it declined to register
  * because it has no configuration of its own (the shape
- * `@gotgenes/pi-permission-model-judge` uses to let an operator opt out
+ * `@lazuee/pi-permission-model-judge` uses to let an operator opt out
  * per project). The message names the likeliest and admits the others, rather
  * than accusing the operator of a contradiction it cannot prove.
  *

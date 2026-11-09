@@ -49,7 +49,7 @@ The same applies to a commit SHA: resolve every one you publish with `git rev-pa
 ## Pricing a breaking change
 
 Before pricing a rename of this repo's own export as breaking, check whether it has shipped.
-Read the file at the published tag: `pnpm view @gotgenes/<pkg> version`, then `git show <pkg>-v<version>:<path>`.
+Read the file at the published tag: `pnpm view @lazuee/<pkg> version`, then `git show <pkg>-v<version>:<path>`.
 Never `.pi/npm/node_modules/` — it is only as fresh as the last `pi update --extensions`, so a stale copy hides an export that already shipped.
 An export that exists only on unreleased `main` renames for free.
 A type reachable from the published declaration bundle is as breaking as a named export — a third-party consumer receives it through a field of a type that is exported.

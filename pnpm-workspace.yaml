@@ -8,7 +8,7 @@ packages:
 # when the sibling is in this workspace.
 #
 # Linking means a consumer compiles the sibling's `src`, but its `exports.types`
-# points at the gitignored, unbuilt `dist/`. The `@gotgenes/source` export
+# points at the gitignored, unbuilt `dist/`. The `@lazuee/source` export
 # condition (see tsconfig.base.json) bridges that: `types` wins once `dist`
 # exists, and each consumer's `check` builds it first. Published consumers are
 # unaffected — a tarball ships its `dist/public.d.ts`.
@@ -66,7 +66,7 @@ minimumReleaseAgeExclude:
   - '@fallow-cli/win32-arm64-msvc@3.22.0'
   - '@fallow-cli/win32-x64-msvc@3.22.0'
   - fallow@3.22.0
-  - '@gotgenes/pi-permission-system@40.3.0'
+  - '@lazuee/pi-permission-system@40.3.0'
   - '@earendil-works/pi-agent-core@1.0.0'
   - '@earendil-works/pi-ai@1.0.0'
   - '@earendil-works/pi-coding-agent@1.0.0'
@@ -107,7 +107,7 @@ minimumReleaseAgeExclude:
   - '@rollup/rollup-win32-x64-msvc@4.68.1'
   - rollup@4.68.1
 
-# A freshly-published first-party sibling (e.g. a same-day @gotgenes/* release a
+# A freshly-published first-party sibling (e.g. a same-day @lazuee/* release a
 # dependent package bumps to) cannot be unblocked via minimumReleaseAgeExclude:
 # that list is honored during dependency resolution but NOT during pnpm's
 # lockfile supply-chain verification pass, which re-applies minimumReleaseAge to

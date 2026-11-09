@@ -1,5 +1,5 @@
 /**
- * pi-subagents-worktrees — git worktree isolation for @gotgenes/pi-subagents.
+ * pi-subagents-worktrees — git worktree isolation for @lazuee/pi-subagents.
  *
  * Registers a WorkspaceProvider (ADR 0002, Phase 16 Step 3) that runs opted-in
  * subagents in a temporary git worktree. The core consults the provider for
@@ -7,7 +7,7 @@
  * worktreeAgents config) and brackets the run with git plumbing.
  *
  * The provider is registered once at extension init via the published
- * SubagentsService, which requires @gotgenes/pi-subagents to have initialized
+ * SubagentsService, which requires @lazuee/pi-subagents to have initialized
  * first — list this package after it in settings.json (Pi loads in order). If
  * the service is absent (not installed, or mis-ordered), the extension no-ops.
  */
@@ -16,7 +16,7 @@ import {
   type ExtensionAPI,
   getAgentDir,
 } from "@earendil-works/pi-coding-agent";
-import { getSubagentsService } from "@gotgenes/pi-subagents";
+import { getSubagentsService } from "@lazuee/pi-subagents";
 import { ActiveWorktrees } from "#src/active-worktrees";
 import { loadWorktreesConfig } from "#src/config";
 import { debugLog } from "#src/debug";

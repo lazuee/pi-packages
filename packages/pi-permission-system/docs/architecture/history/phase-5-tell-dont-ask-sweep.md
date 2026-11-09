@@ -123,10 +123,10 @@ flowchart TD
 | C: narrow-interface decoupling                       | 5, 6      | Narrow `LocalPermissionsService` and `PermissionForwarder` to local interfaces so forced `as unknown as` test casts disappear (independent of each other and the others) |
 | D: slash-command reach-through                       | 7         | Collapse the `config-modal` controller's two reached-through fields into a single `getActiveAgentConfigRules()` accessor                                                 |
 
-[#362]: https://github.com/gotgenes/pi-packages/issues/362
-[#363]: https://github.com/gotgenes/pi-packages/issues/363
-[#364]: https://github.com/gotgenes/pi-packages/issues/364
-[#365]: https://github.com/gotgenes/pi-packages/issues/365
-[#366]: https://github.com/gotgenes/pi-packages/issues/366
-[#367]: https://github.com/gotgenes/pi-packages/issues/367
-[#368]: https://github.com/gotgenes/pi-packages/issues/368
+[#362]: https://github.com/lazuee/pi-packages/issues/362
+[#363]: https://github.com/lazuee/pi-packages/issues/363
+[#364]: https://github.com/lazuee/pi-packages/issues/364
+[#365]: https://github.com/lazuee/pi-packages/issues/365
+[#366]: https://github.com/lazuee/pi-packages/issues/366
+[#367]: https://github.com/lazuee/pi-packages/issues/367
+[#368]: https://github.com/lazuee/pi-packages/issues/368

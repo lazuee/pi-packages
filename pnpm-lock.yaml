@@ -47,13 +47,13 @@ importers:
 
   .:
     dependencies:
-      '@gotgenes/pi-permission-system':
+      '@lazuee/pi-permission-system':
         specifier: workspace:^
         version: link:packages/pi-permission-system
-      '@gotgenes/pi-subagents':
+      '@lazuee/pi-subagents':
         specifier: workspace:^
         version: link:packages/pi-subagents
-      '@gotgenes/pi-subagents-worktrees':
+      '@lazuee/pi-subagents-worktrees':
         specifier: workspace:^
         version: link:packages/pi-subagents-worktrees
       tree-sitter-bash:
@@ -307,7 +307,7 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 1.5.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(zod@4.6.7)
-      '@gotgenes/pi-permission-system':
+      '@lazuee/pi-permission-system':
         specifier: workspace:^
         version: link:../pi-permission-system
       '@types/node':
@@ -434,7 +434,7 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 1.5.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(zod@4.6.7)
-      '@gotgenes/pi-subagents':
+      '@lazuee/pi-subagents':
         specifier: workspace:^
         version: link:../pi-subagents
       '@types/node':

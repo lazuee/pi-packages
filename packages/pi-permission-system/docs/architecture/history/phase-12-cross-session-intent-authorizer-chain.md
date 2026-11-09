@@ -39,7 +39,7 @@ Recompute commands (run from the repo root):
 - Service surface: `grep -c registerAuthorizer packages/pi-permission-system/src/service.ts`
 - Schema sites: `grep -c authorizerChain packages/pi-permission-system/src/config-schema.ts`
 - Model-judge package: `ls packages | grep -c pi-permission-model-judge`
-- Health/duplication/dead exports: `pnpm fallow health --score --workspace @gotgenes/pi-permission-system` / `pnpm fallow dupes --workspace @gotgenes/pi-permission-system` / `pnpm fallow dead-code --workspace @gotgenes/pi-permission-system`
+- Health/duplication/dead exports: `pnpm fallow health --score --workspace @lazuee/pi-permission-system` / `pnpm fallow dupes --workspace @lazuee/pi-permission-system` / `pnpm fallow dead-code --workspace @lazuee/pi-permission-system`
 
 ## Open-issue sweep dispositions
 
@@ -124,7 +124,7 @@ Release: batch "authorizer-chain"
 
 Release: batch "authorizer-chain"
 
-### ✅ Step 6: Dogfood package — `@gotgenes/pi-permission-model-judge` ([#600])
+### ✅ Step 6: Dogfood package — `@lazuee/pi-permission-model-judge` ([#600])
 
 **Cause:** the [#267] history guard — an inbound registration surface nobody consumes goes vacant; ADR 0007 requires the seam born consumed by a first-party deny-first reviewer, which also exercises the config split (chain policy here, model mechanism there) end to end.
 
@@ -168,7 +168,7 @@ Open issues swept and confirmed out of scope during planning, both by decision a
 
 ### Delivered vs. predicted metrics
 
-Recomputed at archive time (`pnpm fallow health --score --workspace @gotgenes/pi-permission-system` / `pnpm fallow dupes --workspace @gotgenes/pi-permission-system` / `pnpm fallow dead-code --workspace @gotgenes/pi-permission-system`):
+Recomputed at archive time (`pnpm fallow health --score --workspace @lazuee/pi-permission-system` / `pnpm fallow dupes --workspace @lazuee/pi-permission-system` / `pnpm fallow dead-code --workspace @lazuee/pi-permission-system`):
 
 | Metric                                                                                        | Phase 12 target | Delivered                                                                                               |
 | --------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
@@ -181,19 +181,19 @@ Recomputed at archive time (`pnpm fallow health --score --workspace @gotgenes/pi
 | Production duplication                                                                        | ≤ 0.2%          | 0.1% (34 lines, 1 clone group, the documented intentional `literalTextOf`/`resolveNodeText` pair) — met |
 | Dead exports                                                                                  | 0               | 0 — met                                                                                                 |
 
-[#267]: https://github.com/gotgenes/pi-packages/issues/267
-[#332]: https://github.com/gotgenes/pi-packages/issues/332
-[#347]: https://github.com/gotgenes/pi-packages/issues/347
-[#418]: https://github.com/gotgenes/pi-packages/issues/418
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#486]: https://github.com/gotgenes/pi-packages/issues/486
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#557]: https://github.com/gotgenes/pi-packages/issues/557
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
-[#595]: https://github.com/gotgenes/pi-packages/issues/595
-[#596]: https://github.com/gotgenes/pi-packages/issues/596
-[#597]: https://github.com/gotgenes/pi-packages/issues/597
-[#598]: https://github.com/gotgenes/pi-packages/issues/598
-[#599]: https://github.com/gotgenes/pi-packages/issues/599
-[#600]: https://github.com/gotgenes/pi-packages/issues/600
-[#620]: https://github.com/gotgenes/pi-packages/issues/620
+[#267]: https://github.com/lazuee/pi-packages/issues/267
+[#332]: https://github.com/lazuee/pi-packages/issues/332
+[#347]: https://github.com/lazuee/pi-packages/issues/347
+[#418]: https://github.com/lazuee/pi-packages/issues/418
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#486]: https://github.com/lazuee/pi-packages/issues/486
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#557]: https://github.com/lazuee/pi-packages/issues/557
+[#565]: https://github.com/lazuee/pi-packages/issues/565
+[#595]: https://github.com/lazuee/pi-packages/issues/595
+[#596]: https://github.com/lazuee/pi-packages/issues/596
+[#597]: https://github.com/lazuee/pi-packages/issues/597
+[#598]: https://github.com/lazuee/pi-packages/issues/598
+[#599]: https://github.com/lazuee/pi-packages/issues/599
+[#600]: https://github.com/lazuee/pi-packages/issues/600
+[#620]: https://github.com/lazuee/pi-packages/issues/620

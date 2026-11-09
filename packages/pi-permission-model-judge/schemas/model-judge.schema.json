@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-model-judge/schemas/model-judge.schema.json",
+  "$id": "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-model-judge/schemas/model-judge.schema.json",
   "type": "object",
   "properties": {
     "provider": {

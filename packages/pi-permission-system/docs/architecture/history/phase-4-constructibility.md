@@ -170,13 +170,13 @@ flowchart TD
 | C: Split the session    | 6, 7 → 8      | Extract `PromptingGateway` + `PermissionResolver` (parallel after Step 1), then slim `PermissionSession` and unwind the fig-leaf interfaces              |
 | D: Test-cleanup tail    | 9             | Retire the `permission-system.test.ts` catch-all once collaborators are constructable (measured consequence)                                             |
 
-[#321]: https://github.com/gotgenes/pi-packages/issues/321
-[#334]: https://github.com/gotgenes/pi-packages/issues/334
-[#335]: https://github.com/gotgenes/pi-packages/issues/335
-[#336]: https://github.com/gotgenes/pi-packages/issues/336
-[#337]: https://github.com/gotgenes/pi-packages/issues/337
-[#338]: https://github.com/gotgenes/pi-packages/issues/338
-[#339]: https://github.com/gotgenes/pi-packages/issues/339
-[#340]: https://github.com/gotgenes/pi-packages/issues/340
-[#341]: https://github.com/gotgenes/pi-packages/issues/341
-[#342]: https://github.com/gotgenes/pi-packages/issues/342
+[#321]: https://github.com/lazuee/pi-packages/issues/321
+[#334]: https://github.com/lazuee/pi-packages/issues/334
+[#335]: https://github.com/lazuee/pi-packages/issues/335
+[#336]: https://github.com/lazuee/pi-packages/issues/336
+[#337]: https://github.com/lazuee/pi-packages/issues/337
+[#338]: https://github.com/lazuee/pi-packages/issues/338
+[#339]: https://github.com/lazuee/pi-packages/issues/339
+[#340]: https://github.com/lazuee/pi-packages/issues/340
+[#341]: https://github.com/lazuee/pi-packages/issues/341
+[#342]: https://github.com/lazuee/pi-packages/issues/342

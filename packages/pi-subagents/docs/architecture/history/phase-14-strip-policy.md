@@ -43,7 +43,7 @@ Renamed the `Agent` tool to `subagent` to align with Pi's built-in tool naming c
 - Target: `tools/agent-tool.ts`, `lifecycle/agent-runner.ts`, `docs/`, `../pi-permission-system/docs/`
 - Outcome: all three tools use consistent lowercase naming
 
-[#237]: https://github.com/gotgenes/pi-packages/issues/237
-[#238]: https://github.com/gotgenes/pi-packages/issues/238
-[#239]: https://github.com/gotgenes/pi-packages/issues/239
-[#242]: https://github.com/gotgenes/pi-packages/issues/242
+[#237]: https://github.com/lazuee/pi-packages/issues/237
+[#238]: https://github.com/lazuee/pi-packages/issues/238
+[#239]: https://github.com/lazuee/pi-packages/issues/239
+[#242]: https://github.com/lazuee/pi-packages/issues/242

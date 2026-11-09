@@ -28,7 +28,7 @@ Latest:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-autoformat/main/schemas/pi-autoformat.schema.json",
+  "$schema": "https://raw.githubusercontent.com/lazuee/pi-autoformat/main/schemas/pi-autoformat.schema.json",
   "commandTimeoutMs": 10000,
   "formatters": {
     "biome": {
@@ -47,7 +47,7 @@ Pinned tag:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-autoformat/v2.4.1/schemas/pi-autoformat.schema.json"
+  "$schema": "https://raw.githubusercontent.com/lazuee/pi-autoformat/v2.4.1/schemas/pi-autoformat.schema.json"
 }
 ```
 

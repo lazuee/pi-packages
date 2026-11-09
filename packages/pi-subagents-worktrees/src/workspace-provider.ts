@@ -21,7 +21,7 @@ import type {
   WorkspaceDisposeOutcome,
   WorkspacePrepareContext,
   WorkspaceProvider,
-} from "@gotgenes/pi-subagents";
+} from "@lazuee/pi-subagents";
 import type { ActiveWorktrees } from "#src/active-worktrees";
 import type { WorktreesConfig } from "#src/config";
 import {

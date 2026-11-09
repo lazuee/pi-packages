@@ -209,7 +209,7 @@ Compose the draft in the `issue_close` call itself, never in a scratch file — 
 Then use `issue_close` with issue number `$1` and the summary as the comment.
 
 When `$1` is a third-party **PR** adopted via `/pr-review` (we re-implemented rather than merged), the close target is a PR, not an issue.
-Verify with `gh api repos/gotgenes/pi-packages/issues/$1 --jq '.pull_request != null'`.
+Verify with `gh api repos/lazuee/pi-packages/issues/$1 --jq '.pull_request != null'`.
 Close it with `gh pr comment` then `gh pr close` — never merge — crediting the contributor by `@login`.
 An adopted PR and the issue it addresses are both close targets: shipping either one closes the other too — read the retro's PR Review stage for the counterpart number.
 The multi-SHA credit list here is where hand-extended short hashes slip in.
@@ -223,7 +223,7 @@ A co-shipped issue shows as a stacked refactor/enabler, a subject-trailing `(#M)
 A roadmap step heading in the package's `docs/architecture/architecture.md` that names a second issue (`#### Step 16: … ([#885], with [#896])`) is a fold-in: its work shipped here and it closes with this issue, even where no commit subject carries its number.
 A mid-batch sibling that shipped on its own ship is already closed by it — this scan is for stacked work that never had a ship of its own.
 Close each with its own short summary — `refactor:` commits are omitted from the changelog, so a stacked refactor issue leaves no reminder.
-A co-shipped issue already `CLOSED` still gets its summary: `gh api repos/gotgenes/pi-packages/issues/<M>/events --jq '.[]|select(.event=="closed")'` showing a `commit_id` means a keyword auto-closed it, so post the summary with `gh issue comment`.
+A co-shipped issue already `CLOSED` still gets its summary: `gh api repos/lazuee/pi-packages/issues/<M>/events --jq '.[]|select(.event=="closed")'` showing a `commit_id` means a keyword auto-closed it, so post the summary with `gh issue comment`.
 
 ## 10. Dispatch the release
 

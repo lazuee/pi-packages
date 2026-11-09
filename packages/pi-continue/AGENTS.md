@@ -57,4 +57,4 @@ The end-to-end check is a real `pi` run with a stubbed provider that answers emp
 
 ## Testing
 
-`pnpm --filter @gotgenes/pi-continue run test` — inject `now` through the engine rather than sleeping; the interval brake reads it.
+`pnpm --filter @lazuee/pi-continue run test` — inject `now` through the engine rather than sleeping; the interval brake reads it.

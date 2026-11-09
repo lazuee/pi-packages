@@ -111,10 +111,10 @@ The codebase is split so the implementation reads through file boundaries and na
 - `presentSingleAsMulti` is applied at ask-flow creation; toggling it does not rewrite already-normalized questions in an open flow
 - `main.changeQuestionType` changes the active question type live (`single <-> multi`) and may require confirmation before destructive multi-to-single conversion
 - when the ask config file is missing, the first ask use attempts to write a default persisted config snapshot under `~/.pi/agent/extensions/`; if writing fails, built-in defaults are used for the session
-- upstream config files are not read or changed; the product uses `extensions/gotgenes/pi-ask.json`
+- upstream config files are not read or changed; the product uses `extensions/pi-agent-ask.json`
 - invalid config files are left untouched; defaults are loaded for the session with a notice
 - live config updates can affect an in-progress ask flow immediately
-- remote ask submissions must be explicit `answer` or `cancel` responses; @gotgenes/pi-ask validates ids/values but never infers approve/deny semantics from labels or option values
+- remote ask submissions must be explicit `answer` or `cancel` responses; @lazuee/pi-ask validates ids/values but never infers approve/deny semantics from labels or option values
 
 ## Documentation rule
 

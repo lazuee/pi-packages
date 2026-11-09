@@ -1,16 +1,16 @@
 {
-  "name": "@gotgenes/pi-subagents",
+  "name": "@lazuee/pi-subagents",
   "version": "25.0.5",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/public.d.ts",
-      "@gotgenes/source": "./src/service/service.ts",
+      "@lazuee/source": "./src/service/service.ts",
       "default": "./src/service/service.ts"
     },
     "./settings": {
       "types": "./dist/settings.d.ts",
-      "@gotgenes/source": "./src/layered-settings.ts",
+      "@lazuee/source": "./src/layered-settings.ts",
       "default": "./src/layered-settings.ts"
     }
   },
@@ -28,17 +28,24 @@
   },
   "description": "A focused, in-process sub-agent core for pi \u2014 autonomous agents plus a typed API and lifecycle events other extensions build on. Friendly fork of @tintinweb/pi-subagents.",
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-subagents"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-subagents#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-subagents#readme",
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
   "keywords": [
     "pi-package",
@@ -87,6 +94,6 @@
     "extensions": [
       "./src/index.ts"
     ],
-    "image": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-subagents/docs/assets/demo.webp"
+    "image": "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-subagents/docs/assets/demo.webp"
   }
 }

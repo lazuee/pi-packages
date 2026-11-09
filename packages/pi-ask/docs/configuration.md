@@ -1,11 +1,11 @@
-# @gotgenes/pi-ask configuration
+# @lazuee/pi-ask configuration
 
-This is the configuration guide for `@gotgenes/pi-ask`.
+This is the configuration guide for `@lazuee/pi-ask`.
 Edit the config file, validate keymaps, then run `/reload` or restart Pi.
 
 ## Config file
 
-`~/.pi/agent/extensions/gotgenes/pi-ask.json`
+`~/.pi/agent/extensions/pi-agent-ask.json`
 
 The extension attempts to create this file with defaults when it initializes the question mode.
 A read-only location uses in-memory defaults and shows a notice.
@@ -125,7 +125,7 @@ A queued receipt is not an answer or approval.
 Without a TUI queue, calls keep the cancelled non-interactive result and never open a synchronous external form.
 
 The global file stores `behaviour.backgroundOnly` (default `false`).
-A trusted project's `.pi/extensions/gotgenes/pi-ask.json` can override just this setting:
+A trusted project's `.pi/extensions/pi-agent-ask.json` can override just this setting:
 
 ```json
 {
@@ -237,7 +237,7 @@ Command channels receive:
 
 ```sh
 ASK_NOTIFY_EVENT=question.waiting
-ASK_NOTIFY_TITLE="@gotgenes/pi-ask"
+ASK_NOTIFY_TITLE="@lazuee/pi-ask"
 ASK_NOTIFY_MESSAGE="Question waiting: <label or prompt>"
 ```
 

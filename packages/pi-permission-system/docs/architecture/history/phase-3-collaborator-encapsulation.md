@@ -223,19 +223,19 @@ flowchart TD
 | D: Composition root        | 15                                | Reframe `index.ts` as collaborator injection (after Tracks B and C)                                                                                                                                                                                                                                                        |
 | E: Test duplication        | 16                                | Migrate the four largest clone families onto shared fixtures (best last)                                                                                                                                                                                                                                                   |
 
-[#314]: https://github.com/gotgenes/pi-packages/issues/314
-[#315]: https://github.com/gotgenes/pi-packages/issues/315
-[#316]: https://github.com/gotgenes/pi-packages/issues/316
-[#317]: https://github.com/gotgenes/pi-packages/issues/317
-[#318]: https://github.com/gotgenes/pi-packages/issues/318
-[#319]: https://github.com/gotgenes/pi-packages/issues/319
-[#320]: https://github.com/gotgenes/pi-packages/issues/320
-[#321]: https://github.com/gotgenes/pi-packages/issues/321
-[#322]: https://github.com/gotgenes/pi-packages/issues/322
-[#323]: https://github.com/gotgenes/pi-packages/issues/323
-[#325]: https://github.com/gotgenes/pi-packages/issues/325
-[#326]: https://github.com/gotgenes/pi-packages/issues/326
-[#327]: https://github.com/gotgenes/pi-packages/issues/327
-[#329]: https://github.com/gotgenes/pi-packages/issues/329
-[#330]: https://github.com/gotgenes/pi-packages/issues/330
-[#331]: https://github.com/gotgenes/pi-packages/issues/331
+[#314]: https://github.com/lazuee/pi-packages/issues/314
+[#315]: https://github.com/lazuee/pi-packages/issues/315
+[#316]: https://github.com/lazuee/pi-packages/issues/316
+[#317]: https://github.com/lazuee/pi-packages/issues/317
+[#318]: https://github.com/lazuee/pi-packages/issues/318
+[#319]: https://github.com/lazuee/pi-packages/issues/319
+[#320]: https://github.com/lazuee/pi-packages/issues/320
+[#321]: https://github.com/lazuee/pi-packages/issues/321
+[#322]: https://github.com/lazuee/pi-packages/issues/322
+[#323]: https://github.com/lazuee/pi-packages/issues/323
+[#325]: https://github.com/lazuee/pi-packages/issues/325
+[#326]: https://github.com/lazuee/pi-packages/issues/326
+[#327]: https://github.com/lazuee/pi-packages/issues/327
+[#329]: https://github.com/lazuee/pi-packages/issues/329
+[#330]: https://github.com/lazuee/pi-packages/issues/330
+[#331]: https://github.com/lazuee/pi-packages/issues/331

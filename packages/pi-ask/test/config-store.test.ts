@@ -14,7 +14,7 @@ import {
 const DEFAULT_KEYMAPS_NOTICE_PATTERN =
   /Using default ask keymaps for this session/;
 const SAVE_FAILURE_PATTERN =
-  /Unable to save ask config .* managed outside @gotgenes\/pi-ask/;
+  /Unable to save ask config .* managed outside @lazuee\/pi-ask/;
 
 function expectedConfigFile(
   overrides: { behaviour?: typeof DEFAULT_ASK_CONFIG.behaviour } = {},

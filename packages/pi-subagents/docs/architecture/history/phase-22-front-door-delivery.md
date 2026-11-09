@@ -16,12 +16,12 @@ The operator's cadence decision: keep the regular improvement rotation after thi
 
 | Metric                                                                                           | Baseline   | Phase 22 target | Delivered     | Recompute                                                                                                                                               |
 | ------------------------------------------------------------------------------------------------ | ---------- | --------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Health score                                                                                     | 78/100 (B) | ≥ 78 (B)        | 78/100 (B) ✅ | `pnpm fallow health --score --hotspots --targets --workspace @gotgenes/pi-subagents`                                                                    |
+| Health score                                                                                     | 78/100 (B) | ≥ 78 (B)        | 78/100 (B) ✅ | `pnpm fallow health --score --hotspots --targets --workspace @lazuee/pi-subagents`                                                                      |
 | `invocation` storage-chain and widget-filter sites (`src/lifecycle/` + `src/ui/agent-widget.ts`) | 8          | 0 ✅            | 0 ✅          | `grep -rEn 'invocation\??:\|\.invocation\b' packages/pi-subagents/src/lifecycle packages/pi-subagents/src/ui/agent-widget.ts --include='*.ts' \| wc -l` |
 | Blanket `agentConfig?.<field> ?? params` precedence merges in `invocation-config.ts`             | 5          | 0 ✅            | 0 ✅          | `grep -cE 'agentConfig\?\..*\?\?' packages/pi-subagents/src/config/invocation-config.ts`                                                                |
 | Foreground result text carries the resume handle (`Agent ID` in `foreground-runner.ts`)          | 0          | ≥ 1 ✅          | 2 ✅          | `grep -c 'Agent ID' packages/pi-subagents/src/tools/foreground-runner.ts`                                                                               |
 | Inherited-prompt skills-block strip present in `prompts.ts`                                      | 0          | 3 ✅            | 3 ✅          | `grep -c 'available_skills' packages/pi-subagents/src/session/prompts.ts`                                                                               |
-| Dead code / production duplication                                                               | 0 / 0      | 0 / 0           | 0 / 0 ✅      | `pnpm fallow dead-code --workspace @gotgenes/pi-subagents` / `pnpm fallow dupes --workspace @gotgenes/pi-subagents`                                     |
+| Dead code / production duplication                                                               | 0 / 0      | 0 / 0           | 0 / 0 ✅      | `pnpm fallow dead-code --workspace @lazuee/pi-subagents` / `pnpm fallow dupes --workspace @lazuee/pi-subagents`                                         |
 
 The `Agent ID` and `available_skills` rows grep for names the fix has not created yet; Steps 5 and 7 must either use those spellings or update the row in the same commit.
 The `agentConfig?.` row counts the mechanism Step 3 replaces; if the adopted locked-fields shape legitimately retains a merge of that spelling, Step 3 updates the row with its rationale.
@@ -197,7 +197,7 @@ The design note's "strip only when the duplication is real" could not be honored
 The answer to "whether other Pi-appended blocks belong to the same strip" is yes, including the extension tail, which costs less shared prefix than excising around it would: nothing remaining in the child's prompt moves out of the cached region, so its prefilled token count is unchanged.
 [#640]'s equal-cwd exception was withdrawn as a consequence rather than a choice — the catalogue precedes the footer, so the exception preserved no prefix once the catalogue was cut.
 The `prompts.ts` grep row went 0 → 3 (measured).
-Recorded as `docs/decisions/0006-inherited-prompt-is-identity-only.md`; [#846] tracks the `@gotgenes/pi-nocd` docs this invalidates.
+Recorded as `docs/decisions/0006-inherited-prompt-is-identity-only.md`; [#846] tracks the `@lazuee/pi-nocd` docs this invalidates.
 
 Release: independent
 
@@ -352,7 +352,7 @@ Release: independent
 
 **Cause:** `Workspace.dispose()` returns a `resultAddendum` the core folds into the child's result text, so the string only has a reader while a result is still being built.
 Step 10 holds a question-ending child's workspace open and moves its disposal to `releaseSession()`/`disposeSession()`, where the child's result was delivered long ago — the addendum is produced and dropped.
-For `@gotgenes/pi-subagents-worktrees` that string is the only thing naming the rescue branch, and the preserved-worktree scan does not cover a cleanup that succeeded.
+For `@lazuee/pi-subagents-worktrees` that string is the only thing naming the rescue branch, and the preserved-worktree scan does not cover a cleanup that succeeded.
 
 - **Smell:** Category C (a value produced at an edge with no channel) plus `bug`.
 - **Target:** to be settled by the step's plan — candidates are a completion nudge (`src/observation/notification.ts`), a `child-lifecycle.ts` event, and a record field `get_subagent_result` surfaces.
@@ -367,7 +367,7 @@ The record carries the notice and the four existing outcome carriers report it, 
 A standalone `<workspace-notice>` announcement covers the retention sweep and the session switch.
 Neither reaches shutdown: `handleSessionShutdown` disposes notifications before the manager, deliberately, so no in-band channel exists there at all.
 
-The shutdown edge is covered outside the core instead, by a stateless scan in `@gotgenes/pi-subagents-worktrees` for `pi-agent-*` branches unmerged into `HEAD`, reported at the next session start beside the preserved-worktree warning.
+The shutdown edge is covered outside the core instead, by a stateless scan in `@lazuee/pi-subagents-worktrees` for `pi-agent-*` branches unmerged into `HEAD`, reported at the next session start beside the preserved-worktree warning.
 A scan of durable state rather than a record of what was dropped, so it covers a crash too, and `--no-merged` makes it self-validating — a branch leaves the report when its work is merged, with no clearing rule to get wrong.
 The cost, accepted at plan time, is that it also names a branch the parent was told about and never merged.
 An earlier candidate that would have told the provider its addendum has no reader was dropped: the scan needs no per-disposal signal, so `WorkspaceDisposeOutcome` is unchanged.
@@ -503,12 +503,12 @@ Release: independent
 
 ### ✅ Step 18: Decide what the inherited prompt region guarantees ([#890])
 
-**Cause:** `AgentPrepHandler` in `@gotgenes/pi-permission-system` narrows the child's `Available tools:` list by rewriting the assembled prompt in place and returning it from `before_agent_start`.
+**Cause:** `AgentPrepHandler` in `@lazuee/pi-permission-system` narrows the child's `Available tools:` list by rewriting the assembled prompt in place and returning it from `before_agent_start`.
 That block sits inside the identity region [ADR-0006] keeps, and `buildAgentPrompt` places that region first precisely so the child's leading bytes match the parent's, so for any child with a narrowed tool set the shared prefix ends at the tool list — measured at offset 412 of a 22,157-character prompt.
 The conflict is arithmetic rather than a defect in either package: a byte-identical prefix and an honest child tool list cannot coexist while the list lives inside the prefix.
 
 - **Smell:** Category A (two packages asserting different invariants over the same bytes, with load order deciding which wins) plus `bug`.
-- **Target:** `src/session/prompts.ts` (`inheritedIdentity` and what it guarantees), `docs/decisions/0006-inherited-prompt-is-identity-only.md` (amended or superseded), and the contract `@gotgenes/pi-permission-system`'s tool-surface pass writes against.
+- **Target:** `src/session/prompts.ts` (`inheritedIdentity` and what it guarantees), `docs/decisions/0006-inherited-prompt-is-identity-only.md` (amended or superseded), and the contract `@lazuee/pi-permission-system`'s tool-surface pass writes against.
 - **Hard dependency:** none, but it is the one step here whose resolution binds another package; [#890] records the four candidate resolutions.
 - **Design decision at plan time:** which invariant wins, and whether the child's tool section is cut from the inherited identity like the catalogue and footer before it, appended after it, or built at assembly time from the `toolSnippets` `before_agent_start` already carries — the last composes with the other two rather than replacing them.
 - **Outcome:** one recorded decision about what the inherited region guarantees, and the two packages stop using "byte-stable" for two different invariants.
@@ -671,7 +671,7 @@ flowchart TD
 - **Track E — Agent config resolution:** Step 13 (fully independent; it corrects the base list Step 11 appends to, but neither step needs the other).
 - **Track F — Service surface:** Steps 16 → 22 (Step 16 is downstream of Step 14; it re-enters Track A's front-door concern at the one door Step 1 left in the tool layer, and Step 22 fixes the abort lever that door stops masking).
 - **Track G — Outcome truthfulness:** Steps 17 → 19 (Track D delivers the outcome, this decides whether the outcome is true; Step 19 reaches the one door Step 17's failure read cannot see).
-- **Track H — Inherited-prompt contract:** Steps 18 → 20 (Track B's Step 5 informs Step 18 — both settle what the inherited region contains — but neither blocks the other; Step 18 is the one step whose resolution binds `@gotgenes/pi-permission-system`, and Step 20 applies its reasoning to the fallback identity Step 18 did not reach).
+- **Track H — Inherited-prompt contract:** Steps 18 → 20 (Track B's Step 5 informs Step 18 — both settle what the inherited region contains — but neither blocks the other; Step 18 is the one step whose resolution binds `@lazuee/pi-permission-system`, and Step 20 applies its reasoning to the fallback identity Step 18 did not reach).
 
 ## Release batches
 
@@ -683,77 +683,77 @@ flowchart TD
   Steps 1, 5, 6, 7, 9, 10, 12, 13, 14, 15, 17, 19, 20, 21, 22 are `fix:`, Steps 2 and 16 are `feat:`, and Steps 8 and 11 are `feat:` — each an unhidden release vehicle on its own.
   Step 18 releases only if it lands as `fix:`; a `docs:` outcome that accepts the loss cuts no release.
 
-[#180]: https://github.com/gotgenes/pi-packages/issues/180
-[#400]: https://github.com/gotgenes/pi-packages/issues/400
-[#423]: https://github.com/gotgenes/pi-packages/issues/423
-[#451]: https://github.com/gotgenes/pi-packages/issues/451
-[#465]: https://github.com/gotgenes/pi-packages/issues/465
-[#466]: https://github.com/gotgenes/pi-packages/issues/466
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#564]: https://github.com/gotgenes/pi-packages/issues/564
-[#608]: https://github.com/gotgenes/pi-packages/issues/608
-[#636]: https://github.com/gotgenes/pi-packages/issues/636
-[#640]: https://github.com/gotgenes/pi-packages/issues/640
-[#641]: https://github.com/gotgenes/pi-packages/issues/641
-[#660]: https://github.com/gotgenes/pi-packages/issues/660
-[#676]: https://github.com/gotgenes/pi-packages/issues/676
-[#683]: https://github.com/gotgenes/pi-packages/issues/683
-[#695]: https://github.com/gotgenes/pi-packages/issues/695
-[#711]: https://github.com/gotgenes/pi-packages/issues/711
-[#722]: https://github.com/gotgenes/pi-packages/issues/722
-[#724]: https://github.com/gotgenes/pi-packages/issues/724
-[#725]: https://github.com/gotgenes/pi-packages/issues/725
-[#733]: https://github.com/gotgenes/pi-packages/issues/733
-[#735]: https://github.com/gotgenes/pi-packages/issues/735
-[#755]: https://github.com/gotgenes/pi-packages/issues/755
-[#775]: https://github.com/gotgenes/pi-packages/issues/775
-[#779]: https://github.com/gotgenes/pi-packages/issues/779
-[#791]: https://github.com/gotgenes/pi-packages/issues/791
-[#792]: https://github.com/gotgenes/pi-packages/issues/792
-[#793]: https://github.com/gotgenes/pi-packages/issues/793
-[#798]: https://github.com/gotgenes/pi-packages/issues/798
-[#801]: https://github.com/gotgenes/pi-packages/issues/801
-[#827]: https://github.com/gotgenes/pi-packages/issues/827
-[#828]: https://github.com/gotgenes/pi-packages/issues/828
-[#829]: https://github.com/gotgenes/pi-packages/issues/829
-[#830]: https://github.com/gotgenes/pi-packages/issues/830
-[#832]: https://github.com/gotgenes/pi-packages/issues/832
-[#833]: https://github.com/gotgenes/pi-packages/issues/833
-[#834]: https://github.com/gotgenes/pi-packages/issues/834
-[#835]: https://github.com/gotgenes/pi-packages/issues/835
-[#846]: https://github.com/gotgenes/pi-packages/issues/846
-[#849]: https://github.com/gotgenes/pi-packages/issues/849
-[#857]: https://github.com/gotgenes/pi-packages/issues/857
-[#858]: https://github.com/gotgenes/pi-packages/issues/858
-[#864]: https://github.com/gotgenes/pi-packages/issues/864
-[#870]: https://github.com/gotgenes/pi-packages/issues/870
-[#871]: https://github.com/gotgenes/pi-packages/issues/871
-[#872]: https://github.com/gotgenes/pi-packages/issues/872
-[#876]: https://github.com/gotgenes/pi-packages/issues/876
-[#877]: https://github.com/gotgenes/pi-packages/issues/877
-[#878]: https://github.com/gotgenes/pi-packages/issues/878
-[#883]: https://github.com/gotgenes/pi-packages/issues/883
-[#884]: https://github.com/gotgenes/pi-packages/pull/884
-[#889]: https://github.com/gotgenes/pi-packages/issues/889
-[#890]: https://github.com/gotgenes/pi-packages/issues/890
-[#896]: https://github.com/gotgenes/pi-packages/issues/896
-[#897]: https://github.com/gotgenes/pi-packages/issues/897
-[#898]: https://github.com/gotgenes/pi-packages/issues/898
-[#901]: https://github.com/gotgenes/pi-packages/issues/901
-[#903]: https://github.com/gotgenes/pi-packages/issues/903
-[#904]: https://github.com/gotgenes/pi-packages/issues/904
-[#912]: https://github.com/gotgenes/pi-packages/issues/912
-[#913]: https://github.com/gotgenes/pi-packages/issues/913
-[#918]: https://github.com/gotgenes/pi-packages/issues/918
-[#937]: https://github.com/gotgenes/pi-packages/issues/937
-[#942]: https://github.com/gotgenes/pi-packages/issues/942
-[#947]: https://github.com/gotgenes/pi-packages/issues/947
-[#949]: https://github.com/gotgenes/pi-packages/issues/949
+[#180]: https://github.com/lazuee/pi-packages/issues/180
+[#400]: https://github.com/lazuee/pi-packages/issues/400
+[#423]: https://github.com/lazuee/pi-packages/issues/423
+[#451]: https://github.com/lazuee/pi-packages/issues/451
+[#465]: https://github.com/lazuee/pi-packages/issues/465
+[#466]: https://github.com/lazuee/pi-packages/issues/466
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#564]: https://github.com/lazuee/pi-packages/issues/564
+[#608]: https://github.com/lazuee/pi-packages/issues/608
+[#636]: https://github.com/lazuee/pi-packages/issues/636
+[#640]: https://github.com/lazuee/pi-packages/issues/640
+[#641]: https://github.com/lazuee/pi-packages/issues/641
+[#660]: https://github.com/lazuee/pi-packages/issues/660
+[#676]: https://github.com/lazuee/pi-packages/issues/676
+[#683]: https://github.com/lazuee/pi-packages/issues/683
+[#695]: https://github.com/lazuee/pi-packages/issues/695
+[#711]: https://github.com/lazuee/pi-packages/issues/711
+[#722]: https://github.com/lazuee/pi-packages/issues/722
+[#724]: https://github.com/lazuee/pi-packages/issues/724
+[#725]: https://github.com/lazuee/pi-packages/issues/725
+[#733]: https://github.com/lazuee/pi-packages/issues/733
+[#735]: https://github.com/lazuee/pi-packages/issues/735
+[#755]: https://github.com/lazuee/pi-packages/issues/755
+[#775]: https://github.com/lazuee/pi-packages/issues/775
+[#779]: https://github.com/lazuee/pi-packages/issues/779
+[#791]: https://github.com/lazuee/pi-packages/issues/791
+[#792]: https://github.com/lazuee/pi-packages/issues/792
+[#793]: https://github.com/lazuee/pi-packages/issues/793
+[#798]: https://github.com/lazuee/pi-packages/issues/798
+[#801]: https://github.com/lazuee/pi-packages/issues/801
+[#827]: https://github.com/lazuee/pi-packages/issues/827
+[#828]: https://github.com/lazuee/pi-packages/issues/828
+[#829]: https://github.com/lazuee/pi-packages/issues/829
+[#830]: https://github.com/lazuee/pi-packages/issues/830
+[#832]: https://github.com/lazuee/pi-packages/issues/832
+[#833]: https://github.com/lazuee/pi-packages/issues/833
+[#834]: https://github.com/lazuee/pi-packages/issues/834
+[#835]: https://github.com/lazuee/pi-packages/issues/835
+[#846]: https://github.com/lazuee/pi-packages/issues/846
+[#849]: https://github.com/lazuee/pi-packages/issues/849
+[#857]: https://github.com/lazuee/pi-packages/issues/857
+[#858]: https://github.com/lazuee/pi-packages/issues/858
+[#864]: https://github.com/lazuee/pi-packages/issues/864
+[#870]: https://github.com/lazuee/pi-packages/issues/870
+[#871]: https://github.com/lazuee/pi-packages/issues/871
+[#872]: https://github.com/lazuee/pi-packages/issues/872
+[#876]: https://github.com/lazuee/pi-packages/issues/876
+[#877]: https://github.com/lazuee/pi-packages/issues/877
+[#878]: https://github.com/lazuee/pi-packages/issues/878
+[#883]: https://github.com/lazuee/pi-packages/issues/883
+[#884]: https://github.com/lazuee/pi-packages/pull/884
+[#889]: https://github.com/lazuee/pi-packages/issues/889
+[#890]: https://github.com/lazuee/pi-packages/issues/890
+[#896]: https://github.com/lazuee/pi-packages/issues/896
+[#897]: https://github.com/lazuee/pi-packages/issues/897
+[#898]: https://github.com/lazuee/pi-packages/issues/898
+[#901]: https://github.com/lazuee/pi-packages/issues/901
+[#903]: https://github.com/lazuee/pi-packages/issues/903
+[#904]: https://github.com/lazuee/pi-packages/issues/904
+[#912]: https://github.com/lazuee/pi-packages/issues/912
+[#913]: https://github.com/lazuee/pi-packages/issues/913
+[#918]: https://github.com/lazuee/pi-packages/issues/918
+[#937]: https://github.com/lazuee/pi-packages/issues/937
+[#942]: https://github.com/lazuee/pi-packages/issues/942
+[#947]: https://github.com/lazuee/pi-packages/issues/947
+[#949]: https://github.com/lazuee/pi-packages/issues/949
 [ADR-0006]: ../../decisions/0006-inherited-prompt-is-identity-only.md
 [ADR-0008]: ../../decisions/0008-inherited-region-is-shared-parts.md
 [ADR-0009]: ../../decisions/0009-portable-inheritance-is-provider-scoped.md
 [ADR-0010]: ../../decisions/0010-project-context-is-directory-resolved.md
 [ADR 0006]: ../../decisions/0006-inherited-prompt-is-identity-only.md
 [ADR 0008]: ../../decisions/0008-inherited-region-is-shared-parts.md
-[ADR-0014]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md
-[its ADR 0014]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md
+[ADR-0014]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md
+[its ADR 0014]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0014-tool-surface-is-node-local-prose.md

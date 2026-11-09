@@ -122,7 +122,7 @@ Record the audit result in the output document.
 Approve only after it passes:
 
 ```bash
-gh api -X POST repos/gotgenes/pi-packages/actions/runs/<id>/approve
+gh api -X POST repos/lazuee/pi-packages/actions/runs/<id>/approve
 ```
 
 Approval does not gate every fork run: some contributors' pushes execute CI on arrival, and the repository's fork-approval setting is not readable through the API.
@@ -299,7 +299,7 @@ The document contains:
 
    Use `#N` bare (they auto-link on GitHub), mark third-party items, and keep `Why now` to one sentence.
    The `Package(s)` column lets the reader pick items that can run in parallel: work on different packages parallelizes, work on the same package does not.
-   Name every package an item touches (the issue's `pkg:` labels, or the PR's changed `packages/<pkg>/` paths), comma-separated, without the `@gotgenes/` scope; write `repo` for a `scope:repo` item.
+   Name every package an item touches (the issue's `pkg:` labels, or the PR's changed `packages/<pkg>/` paths), comma-separated, without the `@lazuee/` scope; write `repo` for a `scope:repo` item.
    A row grouping several items lists the union of their packages.
    For an `adjacent` item, name the owning package or extension point there.
 4. **Next item per package** — the prioritized table regrouped into parallel lanes, one row per package with at least one ranked item:

@@ -54,7 +54,7 @@ Each scattered item that sits in a file a step already edits is therefore named 
 
 | Metric                                                                                   | Baseline (2026-10-09) | Phase 23 target   | Delivered | Recompute                                                                                                     |
 | ---------------------------------------------------------------------------------------- | --------------------- | ----------------- | --------- | ------------------------------------------------------------------------------------------------------------- |
-| Health score                                                                             | 78 (B)                | ≥ 78 (B)          | 78 (B)    | `pnpm fallow health --score --hotspots --targets --workspace @gotgenes/pi-subagents`                          |
+| Health score                                                                             | 78 (B)                | ≥ 78 (B)          | 78 (B)    | `pnpm fallow health --score --hotspots --targets --workspace @lazuee/pi-subagents`                            |
 | `lifecycle/subagent.ts` lines                                                            | 833                   | ≤ 700 (estimated) | 864 ⚠️    | `wc -l packages/pi-subagents/src/lifecycle/subagent.ts`                                                       |
 | Run-kind-forked lifecycle names in `src/`                                                | 16                    | 0                 | 0         | fenced block below                                                                                            |
 | `resetForResume` occurrences in `src/`                                                   | 8                     | 0                 | 0         | fenced block below                                                                                            |
@@ -62,14 +62,14 @@ Each scattered item that sits in a file a step already edits is therefore named 
 | `_abortController` in `subagent.ts`                                                      | 5                     | 0                 | 0         | `grep -c '_abortController' packages/pi-subagents/src/lifecycle/subagent.ts`                                  |
 | `lifecycle/` files importing `observation/`                                              | 1                     | 0                 | 0         | `grep -rlE '#src/observation/' packages/pi-subagents/src/lifecycle`                                           |
 | `observation/` files importing `ui/`                                                     | 1                     | 0                 | 0         | `grep -rlE '#src/ui/' packages/pi-subagents/src/observation`                                                  |
-| Production duplication                                                                   | 13 lines (1 group)    | 0                 | 0         | `pnpm fallow dupes --workspace @gotgenes/pi-subagents`                                                        |
+| Production duplication                                                                   | 13 lines (1 group)    | 0                 | 0         | `pnpm fallow dupes --workspace @lazuee/pi-subagents`                                                          |
 | `mock.calls[N]` reads in `test/lifecycle/subagent.test.ts`                               | 19                    | ≤ 7 (estimated)   | 1         | `grep -c 'mock\.calls\[' packages/pi-subagents/test/lifecycle/subagent.test.ts`                               |
 | Pre-0.86 renderer mentions in `session/prompts.ts`                                       | 7                     | 0                 | 0         | `grep -c '0\.85' packages/pi-subagents/src/session/prompts.ts`                                                |
 | `result.content[0]` reads in `test/tools/`                                               | 102                   | 0                 | 0         | fenced block below                                                                                            |
 | `as any` in `test/lifecycle/subagent-manager.test.ts`                                    | 8                     | 0                 | 0         | `grep -c 'as any' packages/pi-subagents/test/lifecycle/subagent-manager.test.ts`                              |
 | Hand-written `description: record.description` payloads in `subagent-events-observer.ts` | 5                     | at most 1         | 1         | `grep -c 'description: record.description' packages/pi-subagents/src/observation/subagent-events-observer.ts` |
 | Test files defining a local `AgentConfig` factory                                        | 4                     | 0                 | 0         | `grep -rlE '^function \w+\(overrides: Partial<AgentConfig>' packages/pi-subagents/test`                       |
-| Dead code                                                                                | 0                     | 0                 | 0         | `pnpm fallow dead-code --workspace @gotgenes/pi-subagents`                                                    |
+| Dead code                                                                                | 0                     | 0                 | 0         | `pnpm fallow dead-code --workspace @lazuee/pi-subagents`                                                      |
 
 The three counts that need a pipeline live here rather than in the table:
 
@@ -280,7 +280,7 @@ Landed: `SubagentRun` owns one run's outcome (status, result, error, timestamps,
 A run is born queued with its agent or its resume and wires the caller's signal when it starts, so a queued agent is claimed on the run it is waiting to start, and a resume's caller passes `claimOutcome` so the new run is born claimed.
 `waitUntilSettled` returns the run the wait began on, a resume marks the run it replaces, and a replaced run reports no open question, so `get_subagent_result` reports that run directly; `liveOutcome`, `withoutQuestion`, and the superseded slot are gone, and a wait two resumes overtook now reports its own run instead of the live record.
 A terminal transition lands on the run it ends, so an aborted run whose turn loop returns after a resume started no longer overwrites the resume (`fix:`, reachable through `SubagentsService.abort` then `resume`).
-The sweep tests drive the real interval through fake timers; the `_superseded`, `resetForResume`, and `as any` rows read 0, `lifecycle/subagent.ts` fell from 846 to 827 lines, `fallow dupes --workspace @gotgenes/pi-subagents` reports no clone group (the `subagent-state.ts` fixture pairing dissolved), and health reads 88 (A).
+The sweep tests drive the real interval through fake timers; the `_superseded`, `resetForResume`, and `as any` rows read 0, `lifecycle/subagent.ts` fell from 846 to 827 lines, `fallow dupes --workspace @lazuee/pi-subagents` reports no clone group (the `subagent-state.ts` fixture pairing dissolved), and health reads 88 (A).
 
 Release: independent
 
@@ -458,62 +458,62 @@ Every Track A step rewrites `lifecycle/subagent.ts`, so those steps sequence rat
   [#1048] is `refactor:` only and cuts no release on its own.
 - No batches: every step leaves the package releasable, and the refactoring steps preserve behavior.
 
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#564]: https://github.com/gotgenes/pi-packages/issues/564
-[#608]: https://github.com/gotgenes/pi-packages/issues/608
-[#613]: https://github.com/gotgenes/pi-packages/pull/613
-[#615]: https://github.com/gotgenes/pi-packages/pull/615
-[#641]: https://github.com/gotgenes/pi-packages/issues/641
-[#660]: https://github.com/gotgenes/pi-packages/issues/660
-[#676]: https://github.com/gotgenes/pi-packages/issues/676
-[#683]: https://github.com/gotgenes/pi-packages/issues/683
-[#695]: https://github.com/gotgenes/pi-packages/issues/695
-[#711]: https://github.com/gotgenes/pi-packages/issues/711
-[#722]: https://github.com/gotgenes/pi-packages/issues/722
-[#735]: https://github.com/gotgenes/pi-packages/issues/735
-[#740]: https://github.com/gotgenes/pi-packages/pull/740
-[#755]: https://github.com/gotgenes/pi-packages/issues/755
-[#779]: https://github.com/gotgenes/pi-packages/issues/779
-[#791]: https://github.com/gotgenes/pi-packages/issues/791
-[#798]: https://github.com/gotgenes/pi-packages/issues/798
-[#801]: https://github.com/gotgenes/pi-packages/issues/801
-[#812]: https://github.com/gotgenes/pi-packages/issues/812
-[#831]: https://github.com/gotgenes/pi-packages/issues/831
-[#833]: https://github.com/gotgenes/pi-packages/issues/833
-[#835]: https://github.com/gotgenes/pi-packages/issues/835
-[#857]: https://github.com/gotgenes/pi-packages/issues/857
-[#858]: https://github.com/gotgenes/pi-packages/issues/858
-[#889]: https://github.com/gotgenes/pi-packages/issues/889
-[#897]: https://github.com/gotgenes/pi-packages/issues/897
-[#901]: https://github.com/gotgenes/pi-packages/issues/901
-[#903]: https://github.com/gotgenes/pi-packages/issues/903
-[#912]: https://github.com/gotgenes/pi-packages/issues/912
-[#913]: https://github.com/gotgenes/pi-packages/issues/913
-[#947]: https://github.com/gotgenes/pi-packages/issues/947
-[#949]: https://github.com/gotgenes/pi-packages/issues/949
-[#982]: https://github.com/gotgenes/pi-packages/issues/982
-[#987]: https://github.com/gotgenes/pi-packages/issues/987
-[#1006]: https://github.com/gotgenes/pi-packages/issues/1006
-[#1009]: https://github.com/gotgenes/pi-packages/issues/1009
-[#1012]: https://github.com/gotgenes/pi-packages/issues/1012
-[#1013]: https://github.com/gotgenes/pi-packages/issues/1013
-[#1015]: https://github.com/gotgenes/pi-packages/issues/1015
-[#1017]: https://github.com/gotgenes/pi-packages/issues/1017
-[#1021]: https://github.com/gotgenes/pi-packages/issues/1021
-[#1022]: https://github.com/gotgenes/pi-packages/issues/1022
-[#1023]: https://github.com/gotgenes/pi-packages/issues/1023
-[#1025]: https://github.com/gotgenes/pi-packages/issues/1025
-[#1045]: https://github.com/gotgenes/pi-packages/issues/1045
-[#1046]: https://github.com/gotgenes/pi-packages/issues/1046
-[#1047]: https://github.com/gotgenes/pi-packages/issues/1047
-[#1048]: https://github.com/gotgenes/pi-packages/issues/1048
-[#1049]: https://github.com/gotgenes/pi-packages/issues/1049
-[#1050]: https://github.com/gotgenes/pi-packages/issues/1050
-[#1051]: https://github.com/gotgenes/pi-packages/issues/1051
-[#1058]: https://github.com/gotgenes/pi-packages/issues/1058
-[#1075]: https://github.com/gotgenes/pi-packages/issues/1075
-[#1079]: https://github.com/gotgenes/pi-packages/issues/1079
-[#1080]: https://github.com/gotgenes/pi-packages/issues/1080
-[#1085]: https://github.com/gotgenes/pi-packages/issues/1085
-[#1086]: https://github.com/gotgenes/pi-packages/issues/1086
-[#1088]: https://github.com/gotgenes/pi-packages/issues/1088
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#564]: https://github.com/lazuee/pi-packages/issues/564
+[#608]: https://github.com/lazuee/pi-packages/issues/608
+[#613]: https://github.com/lazuee/pi-packages/pull/613
+[#615]: https://github.com/lazuee/pi-packages/pull/615
+[#641]: https://github.com/lazuee/pi-packages/issues/641
+[#660]: https://github.com/lazuee/pi-packages/issues/660
+[#676]: https://github.com/lazuee/pi-packages/issues/676
+[#683]: https://github.com/lazuee/pi-packages/issues/683
+[#695]: https://github.com/lazuee/pi-packages/issues/695
+[#711]: https://github.com/lazuee/pi-packages/issues/711
+[#722]: https://github.com/lazuee/pi-packages/issues/722
+[#735]: https://github.com/lazuee/pi-packages/issues/735
+[#740]: https://github.com/lazuee/pi-packages/pull/740
+[#755]: https://github.com/lazuee/pi-packages/issues/755
+[#779]: https://github.com/lazuee/pi-packages/issues/779
+[#791]: https://github.com/lazuee/pi-packages/issues/791
+[#798]: https://github.com/lazuee/pi-packages/issues/798
+[#801]: https://github.com/lazuee/pi-packages/issues/801
+[#812]: https://github.com/lazuee/pi-packages/issues/812
+[#831]: https://github.com/lazuee/pi-packages/issues/831
+[#833]: https://github.com/lazuee/pi-packages/issues/833
+[#835]: https://github.com/lazuee/pi-packages/issues/835
+[#857]: https://github.com/lazuee/pi-packages/issues/857
+[#858]: https://github.com/lazuee/pi-packages/issues/858
+[#889]: https://github.com/lazuee/pi-packages/issues/889
+[#897]: https://github.com/lazuee/pi-packages/issues/897
+[#901]: https://github.com/lazuee/pi-packages/issues/901
+[#903]: https://github.com/lazuee/pi-packages/issues/903
+[#912]: https://github.com/lazuee/pi-packages/issues/912
+[#913]: https://github.com/lazuee/pi-packages/issues/913
+[#947]: https://github.com/lazuee/pi-packages/issues/947
+[#949]: https://github.com/lazuee/pi-packages/issues/949
+[#982]: https://github.com/lazuee/pi-packages/issues/982
+[#987]: https://github.com/lazuee/pi-packages/issues/987
+[#1006]: https://github.com/lazuee/pi-packages/issues/1006
+[#1009]: https://github.com/lazuee/pi-packages/issues/1009
+[#1012]: https://github.com/lazuee/pi-packages/issues/1012
+[#1013]: https://github.com/lazuee/pi-packages/issues/1013
+[#1015]: https://github.com/lazuee/pi-packages/issues/1015
+[#1017]: https://github.com/lazuee/pi-packages/issues/1017
+[#1021]: https://github.com/lazuee/pi-packages/issues/1021
+[#1022]: https://github.com/lazuee/pi-packages/issues/1022
+[#1023]: https://github.com/lazuee/pi-packages/issues/1023
+[#1025]: https://github.com/lazuee/pi-packages/issues/1025
+[#1045]: https://github.com/lazuee/pi-packages/issues/1045
+[#1046]: https://github.com/lazuee/pi-packages/issues/1046
+[#1047]: https://github.com/lazuee/pi-packages/issues/1047
+[#1048]: https://github.com/lazuee/pi-packages/issues/1048
+[#1049]: https://github.com/lazuee/pi-packages/issues/1049
+[#1050]: https://github.com/lazuee/pi-packages/issues/1050
+[#1051]: https://github.com/lazuee/pi-packages/issues/1051
+[#1058]: https://github.com/lazuee/pi-packages/issues/1058
+[#1075]: https://github.com/lazuee/pi-packages/issues/1075
+[#1079]: https://github.com/lazuee/pi-packages/issues/1079
+[#1080]: https://github.com/lazuee/pi-packages/issues/1080
+[#1085]: https://github.com/lazuee/pi-packages/issues/1085
+[#1086]: https://github.com/lazuee/pi-packages/issues/1086
+[#1088]: https://github.com/lazuee/pi-packages/issues/1088

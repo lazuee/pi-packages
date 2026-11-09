@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-colgrep",
+  "name": "@lazuee/pi-colgrep",
   "version": "2.0.0",
   "description": "Pi extension that integrates ColGrep semantic code search as an agent tool.",
   "type": "module",
@@ -32,17 +32,24 @@
     "code-search"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-colgrep"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-colgrep#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-colgrep#readme",
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
   "engines": {
     "node": ">=22"

@@ -65,5 +65,5 @@ Not a contract, but visible: the text returned to the agent when a call is refus
 It names the surface, the tool, the rule that fired, the flagged path or MCP target or skill, and the operator's or human's reason.
 [ADR 0011] §7 states the rule — the agent renderer identifies the call; it does not reproduce it — and the agent already holds its own arguments, which the harness keeps beside the refusal.
 
-[ADR 0010]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0010-permission-log-secret-exposure.md
-[ADR 0011]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0011-prompt-presentation-contract.md
+[ADR 0010]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0010-permission-log-secret-exposure.md
+[ADR 0011]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/decisions/0011-prompt-presentation-contract.md

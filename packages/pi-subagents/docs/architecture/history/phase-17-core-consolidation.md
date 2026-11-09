@@ -158,8 +158,8 @@ Priority = Impact × (6 − Risk).
 
 - Targets: `src/settings.ts:198-211`, `packages/pi-subagents-worktrees/src/config.ts:51-73`.
 - Smell: Category A — 23-line production clone: the layered global/project JSON read-sanitize-warn-merge loader.
-- Decision: **extract** — `loadLayeredSettings<T>` added to `src/layered-settings.ts` and published via the `@gotgenes/pi-subagents/settings` dedicated subpath export (`dist/settings.d.ts`); `loadSettings` in `settings.ts` delegates to it internally.
-  Option 2 (fallow suppression) was rejected; the public-API cost is accepted as the right long-term tradeoff for a shared convention in the `@gotgenes/pi-*` family.
+- Decision: **extract** — `loadLayeredSettings<T>` added to `src/layered-settings.ts` and published via the `@lazuee/pi-subagents/settings` dedicated subpath export (`dist/settings.d.ts`); `loadSettings` in `settings.ts` delegates to it internally.
+  Option 2 (fallow suppression) was rejected; the public-API cost is accepted as the right long-term tradeoff for a shared convention in the `@lazuee/pi-*` family.
   Worktrees migration (swap `config.ts`'s inlined loader for the shared helper) is deferred to [#415] — worktrees resolves pi-subagents from the registry, so it must wait for a published release carrying the helper.
 - Outcome: `pnpm fallow:dupes --skip-local` no longer reports the `settings.ts` ↔ `config.ts` pair.
   The parametrised helper's token sequence diverged sufficiently that the contiguous identical run dropped below the reporting threshold even before the worktrees migration lands.
@@ -200,15 +200,15 @@ Steps 8 and 9 have no dependencies and can run at any point.
 Tracks A and B intersect only at Step 3 (which needs Step 1's queue relocation); otherwise they proceed in parallel.
 Tracks C and D are fully independent.
 
-[#277]: https://github.com/gotgenes/pi-packages/issues/277
-[#373]: https://github.com/gotgenes/pi-packages/issues/373
-[#374]: https://github.com/gotgenes/pi-packages/issues/374
-[#375]: https://github.com/gotgenes/pi-packages/issues/375
-[#376]: https://github.com/gotgenes/pi-packages/issues/376
-[#377]: https://github.com/gotgenes/pi-packages/issues/377
-[#378]: https://github.com/gotgenes/pi-packages/issues/378
-[#379]: https://github.com/gotgenes/pi-packages/issues/379
-[#380]: https://github.com/gotgenes/pi-packages/issues/380
-[#381]: https://github.com/gotgenes/pi-packages/issues/381
-[#412]: https://github.com/gotgenes/pi-packages/issues/412
-[#415]: https://github.com/gotgenes/pi-packages/issues/415
+[#277]: https://github.com/lazuee/pi-packages/issues/277
+[#373]: https://github.com/lazuee/pi-packages/issues/373
+[#374]: https://github.com/lazuee/pi-packages/issues/374
+[#375]: https://github.com/lazuee/pi-packages/issues/375
+[#376]: https://github.com/lazuee/pi-packages/issues/376
+[#377]: https://github.com/lazuee/pi-packages/issues/377
+[#378]: https://github.com/lazuee/pi-packages/issues/378
+[#379]: https://github.com/lazuee/pi-packages/issues/379
+[#380]: https://github.com/lazuee/pi-packages/issues/380
+[#381]: https://github.com/lazuee/pi-packages/issues/381
+[#412]: https://github.com/lazuee/pi-packages/issues/412
+[#415]: https://github.com/lazuee/pi-packages/issues/415

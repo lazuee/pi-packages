@@ -1,7 +1,7 @@
 ---
 name: package-pi-continue
 description: |
-  Package-specific context for @gotgenes/pi-continue.
+  Package-specific context for @lazuee/pi-continue.
   Load when working on code, tests, or docs in packages/pi-continue/.
 ---
 

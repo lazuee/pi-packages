@@ -1,27 +1,27 @@
-# @gotgenes/pi-subagents-worktrees
+# @lazuee/pi-subagents-worktrees
 
-[![npm version](https://img.shields.io/npm/v/@gotgenes/pi-subagents-worktrees?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@gotgenes/pi-subagents-worktrees) [![CI](https://img.shields.io/github/actions/workflow/status/gotgenes/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/gotgenes/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-F69220?style=flat&logo=pnpm&logoColor=white)](https://pnpm.io/) [![Pi Package](https://img.shields.io/badge/Pi-Package-6366F1?style=flat)](https://pi.mariozechner.at/)
+[![npm version](https://img.shields.io/npm/v/@lazuee/pi-subagents-worktrees?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@lazuee/pi-subagents-worktrees) [![CI](https://img.shields.io/github/actions/workflow/status/lazuee/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/lazuee/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![pnpm](https://img.shields.io/badge/pnpm-%3E%3D11-F69220?style=flat&logo=pnpm&logoColor=white)](https://pnpm.io/) [![Pi Package](https://img.shields.io/badge/Pi-Package-6366F1?style=flat)](https://pi.mariozechner.at/)
 
-Git worktree isolation for [`@gotgenes/pi-subagents`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-subagents).
+Git worktree isolation for [`@lazuee/pi-subagents`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-subagents).
 
 This extension registers a `WorkspaceProvider` with the subagents core: opted-in agents run in a temporary git worktree (an isolated copy of the repo), and any changes they make are saved to a branch when they finish.
 Worktrees are one _workspace strategy_, not core behavior — so the git plumbing lives here, outside the minimal subagents core (see [ADR-0002] in the pi-subagents package).
 
 ## Install
 
-Install **after** `@gotgenes/pi-subagents`.
+Install **after** `@lazuee/pi-subagents`.
 Pi loads packages in the order they are listed in `.pi/settings.json`, and this extension registers its provider with the subagents service at load time — so the subagents core must load first.
 
 ```json
 {
   "packages": [
-    "npm:@gotgenes/pi-subagents",
-    "npm:@gotgenes/pi-subagents-worktrees"
+    "npm:@lazuee/pi-subagents",
+    "npm:@lazuee/pi-subagents-worktrees"
   ]
 }
 ```
 
-If `@gotgenes/pi-subagents` is not loaded first (or not installed at all), this extension does nothing.
+If `@lazuee/pi-subagents` is not loaded first (or not installed at all), this extension does nothing.
 
 ## Configuration
 
@@ -82,7 +82,7 @@ A worktree belonging to a **different** Pi process running against the same repo
 
 ## Migrating from `isolation: "worktree"`
 
-Earlier versions of `@gotgenes/pi-subagents` accepted an `isolation: "worktree"` spawn flag.
+Earlier versions of `@lazuee/pi-subagents` accepted an `isolation: "worktree"` spawn flag.
 That flag was removed from the core; install this package and list the agent types you want isolated in `worktreeAgents` instead.
 
 ## Scope and non-goals
@@ -107,10 +107,10 @@ The git plumbing bracketing a child run, not losing the child's work when cleanu
 - _Worktree knowledge in the subagents core._ `git` does not appear there; uninstalling this package leaves children running in the parent's directory.
 
 **Where adjacent requests belong.**
-Whether a child gets an isolated workspace at all, the seam that asks, and a child's system prompt or working-directory claim → [@gotgenes/pi-subagents](https://www.npmjs.com/package/@gotgenes/pi-subagents).
+Whether a child gets an isolated workspace at all, the seam that asks, and a child's system prompt or working-directory claim → [@lazuee/pi-subagents](https://www.npmjs.com/package/@lazuee/pi-subagents).
 
 ## License
 
 MIT
 
-[ADR-0002]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md
+[ADR-0002]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0002-extensions-on-a-minimal-core.md

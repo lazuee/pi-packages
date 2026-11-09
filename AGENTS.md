@@ -3,9 +3,9 @@
 ## Monorepo structure
 
 This is a pnpm workspace monorepo.
-Each package under `packages/` is a Pi extension published to npm under `@gotgenes/`.
+Each package under `packages/` is a Pi extension published to npm under `@lazuee/`.
 Always launch Pi from the repo root — the root `.pi/settings.json` and `.pi/prompts/` are only discovered from CWD.
-The working directory is always the repo root, so for a package-scoped script run `pnpm --filter @gotgenes/<pkg> run <script>` (or `pnpm -C packages/<pkg> run <script>`) from the root instead of `cd packages/<pkg> && pnpm run <script>`.
+The working directory is always the repo root, so for a package-scoped script run `pnpm --filter @lazuee/<pkg> run <script>` (or `pnpm -C packages/<pkg> run <script>`) from the root instead of `cd packages/<pkg> && pnpm run <script>`.
 Before working on a specific package, load its `package-<name>` skill for architecture, priorities, and testing context.
 Load skills inline — never dispatch a subagent to load skills.
 

@@ -14,7 +14,7 @@ import { z } from "zod";
 
 /** Canonical hosted location of the generated JSON Schema (monorepo raw path). */
 export const PERMISSIONS_SCHEMA_URL =
-  "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json";
+  "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json";
 
 /**
  * The most entries any config array accepts. zod checks `.max()` before it
@@ -562,7 +562,7 @@ export const unifiedConfigSchema = z
     description:
       "Unified config file combining runtime knobs and flat permission policy for pi-permission-system.",
     markdownDescription:
-      "Unified config file combining runtime knobs and flat permission policy for [pi-permission-system](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-system).\n\nPlace at `~/.pi/agent/extensions/pi-permission-system/config.json` (global) or `<project>/.pi/extensions/pi-permission-system/config.json` (project).",
+      "Unified config file combining runtime knobs and flat permission policy for [pi-permission-system](https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-system).\n\nPlace at `~/.pi/agent/extensions/pi-permission-system/config.json` (global) or `<project>/.pi/extensions/pi-permission-system/config.json` (project).",
   });
 
 /** A permission decision. */

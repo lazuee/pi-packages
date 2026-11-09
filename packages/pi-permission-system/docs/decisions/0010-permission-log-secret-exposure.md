@@ -195,9 +195,9 @@ Revisit if a concrete downstream asks.
   A registrant emitting credentials into a log preview is responsible for its own output.
 - Because a hardening failure never throws, no new failure mode reaches the fail-closed tool-call boundary.
 
-[#481]: https://github.com/gotgenes/pi-packages/issues/481
-[#599]: https://github.com/gotgenes/pi-packages/issues/599
-[#645]: https://github.com/gotgenes/pi-packages/issues/645
-[#647]: https://github.com/gotgenes/pi-packages/issues/647
-[#920]: https://github.com/gotgenes/pi-packages/issues/920
-[#923]: https://github.com/gotgenes/pi-packages/issues/923
+[#481]: https://github.com/lazuee/pi-packages/issues/481
+[#599]: https://github.com/lazuee/pi-packages/issues/599
+[#645]: https://github.com/lazuee/pi-packages/issues/645
+[#647]: https://github.com/lazuee/pi-packages/issues/647
+[#920]: https://github.com/lazuee/pi-packages/issues/920
+[#923]: https://github.com/lazuee/pi-packages/issues/923

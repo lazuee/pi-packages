@@ -14,7 +14,7 @@ Accepted.
 Issue [#547] asked for a hosted JSON Schema so editors give completions and flag typos in the permission-system config.
 A schema already existed (`schemas/permissions.schema.json`), the config already accepted a `$schema` key, and the example config already set it — but two defects remained:
 
-- Every hosted URL (`$id`, the example config's `$schema`, doc references) pointed at `raw.githubusercontent.com/gotgenes/pi-permission-system/…`, the pre-monorepo upstream fork, not the monorepo path.
+- Every hosted URL (`$id`, the example config's `$schema`, doc references) pointed at `raw.githubusercontent.com/lazuee/pi-permission-system/…`, the pre-monorepo upstream fork, not the monorepo path.
 - The JSON Schema was hand-maintained separately from the TypeScript types and the hand-rolled loader guards (`value-guards.ts`, `normalizeUnifiedConfig`), so the three could drift — the exact maintenance trap the package skill warns about.
 
 The loader was also **tolerant**: it silently discarded a malformed field (a non-boolean `debugLog`, an invalid permission action, an unknown key) and loaded the rest, so a typo failed quietly.
@@ -49,5 +49,5 @@ Validation is **strict and fail-closed** (breaking): a config file with any inva
 - A new runtime dependency (`zod`) is added.
 - The config-only guards `normalizeOptionalStringArray` and `normalizeOptionalPositiveInt` were removed (superseded by zod), shrinking the scope of the still-open [#532].
 
-[#532]: https://github.com/gotgenes/pi-packages/issues/532
-[#547]: https://github.com/gotgenes/pi-packages/issues/547
+[#532]: https://github.com/lazuee/pi-packages/issues/532
+[#547]: https://github.com/lazuee/pi-packages/issues/547

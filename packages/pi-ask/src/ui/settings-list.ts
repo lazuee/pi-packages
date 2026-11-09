@@ -162,7 +162,7 @@ export class AskSettingsList {
     const lines = [
       this.topBorder(innerWidth),
       this.line(
-        center(this.theme.fg("accent", "@gotgenes/pi-ask"), innerWidth),
+        center(this.theme.fg("accent", "@lazuee/pi-ask"), innerWidth),
         innerWidth,
       ),
       this.line("", innerWidth),

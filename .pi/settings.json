@@ -13,52 +13,52 @@
     "../packages/pi-session-tools",
     "../packages/pi-nocd",
     {
-      "source": "npm:@gotgenes/pi-colgrep",
+      "source": "npm:@lazuee/pi-colgrep",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-github-tools",
+      "source": "npm:@lazuee/pi-github-tools",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-autoformat",
+      "source": "npm:@lazuee/pi-autoformat",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-permission-system",
+      "source": "npm:@lazuee/pi-permission-system",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-permission-model-judge",
+      "source": "npm:@lazuee/pi-permission-model-judge",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-subagents",
+      "source": "npm:@lazuee/pi-subagents",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-subagents-worktrees",
+      "source": "npm:@lazuee/pi-subagents-worktrees",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-session-tools",
+      "source": "npm:@lazuee/pi-session-tools",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-nocd",
+      "source": "npm:@lazuee/pi-nocd",
       "extensions": [],
       "skills": []
     },
     {
-      "source": "npm:@gotgenes/pi-ask",
+      "source": "npm:@lazuee/pi-ask",
       "extensions": [],
       "skills": []
     },

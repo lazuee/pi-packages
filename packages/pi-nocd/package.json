@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-nocd",
+  "name": "@lazuee/pi-nocd",
   "version": "2.0.0",
   "description": "Pi extension that injects the resolved working directory into the system prompt so the agent never cd-prefixes the current working directory",
   "keywords": [
@@ -10,18 +10,25 @@
     "cwd"
   ],
   "author": {
-    "name": "Chris Lasher"
+    "name": "lazuee",
+    "url": "https://github.com/lazuee"
   },
+  "contributors": [
+    {
+      "name": "Chris Lasher",
+      "url": "https://github.com/gotgenes"
+    }
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
     "directory": "packages/pi-nocd"
   },
   "bugs": {
-    "url": "https://github.com/gotgenes/pi-packages/issues"
+    "url": "https://github.com/lazuee/pi-packages/issues"
   },
-  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-nocd#readme",
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-nocd#readme",
   "publishConfig": {
     "access": "public"
   },

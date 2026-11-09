@@ -151,7 +151,7 @@ test("real Pi queues background-only questions and delivers idle answers once wi
   });
   assert.notEqual(receipts[0], receipts[1]);
   const research = observation(result, "research");
-  assert.equal(research.independentPackage, "@gotgenes/pi-ask");
+  assert.equal(research.independentPackage, "@lazuee/pi-ask");
   assert.equal(research.activeForms, 1);
   assert.equal(research.completed, 0);
   assert.equal(research.answerMessages, 0);

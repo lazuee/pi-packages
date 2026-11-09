@@ -1,7 +1,7 @@
 import type {
   PromptPayload,
   PromptPermissionDetails,
-} from "@gotgenes/pi-permission-system";
+} from "@lazuee/pi-permission-system";
 
 /**
  * The ask facts a chain link is handed at `authorize` time.

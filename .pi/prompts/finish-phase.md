@@ -124,20 +124,20 @@ Do not copy a doc metric forward — recompute it:
   ```bash
   rm -rf .fallow/snapshots && mkdir -p .fallow/snapshots
   cp packages/$1/docs/fallow-snapshot.json .fallow/snapshots/baseline.json
-  pnpm --silent fallow health --trend --workspace @gotgenes/$1 --quiet 2>&1 | grep -A 12 'Trend'
+  pnpm --silent fallow health --trend --workspace @lazuee/$1 --quiet 2>&1 | grep -A 12 'Trend'
   ```
 
-  Reconcile duplication with `pnpm fallow dupes --workspace @gotgenes/$1`.
-  The fallow subcommands are root-level and take `--workspace @gotgenes/$1`; the `--filter`/`-C package` forms used elsewhere do **not** apply to them.
+  Reconcile duplication with `pnpm fallow dupes --workspace @lazuee/$1`.
+  The fallow subcommands are root-level and take `--workspace @lazuee/$1`; the `--filter`/`-C package` forms used elsewhere do **not** apply to them.
 - After reconciling, rewrite the snapshot so the next phase starts from this close, and commit it with the reconciliation:
 
   ```bash
-  pnpm --silent fallow health --save-snapshot packages/$1/docs/fallow-snapshot.json --workspace @gotgenes/$1 --quiet >/dev/null
+  pnpm --silent fallow health --save-snapshot packages/$1/docs/fallow-snapshot.json --workspace @lazuee/$1 --quiet >/dev/null
   ```
 
   Never hand-edit the file — every field in it is a number a command produces.
 - "Total LOC" / "Source LOC" counts `src/` only (`find packages/$1/src -name '*.ts' | wc -l` for the file count; `… -exec wc -l {} +` for LOC).
-  Test counts come from `pnpm --filter @gotgenes/$1 run test`.
+  Test counts come from `pnpm --filter @lazuee/$1 run test`.
 - If a doc metric carries a mid-phase label ("as of Step N", "Phase N Step M", "as of [#N]"), replace it with the end-of-phase value and drop the label — the archived doc should read as the settled post-phase baseline, not a snapshot.
 - When the phase findings table records a recompute command for a target metric (a `grep -c`, `wc -l`, or fallow field), run it and record predicted vs. delivered in the history file's health-metrics table (a "delivered" column) and summarise it in the reconciliation commit body.
   Report misses honestly — they are retro input for the next planning round, not something to paper over.

@@ -9,11 +9,11 @@ No polish step is manufactured to fill the ceiling; the scout's scattered findin
 
 | Metric                                                            | Phase 20 (end) | Phase 21 target | Recompute                                                                                                             |
 | ----------------------------------------------------------------- | -------------- | --------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Health score                                                      | 78/100 (B)     | ≥ 78 (B)        | `pnpm fallow health --score --workspace @gotgenes/pi-subagents`                                                       |
+| Health score                                                      | 78/100 (B)     | ≥ 78 (B)        | `pnpm fallow health --score --workspace @lazuee/pi-subagents`                                                         |
 | Multi-status classification groupings outside `subagent-state.ts` | 11             | ≤ 2 → 2 ✅      | `grep -rEn 'status [!=]== "[a-z]+" (\|\||&&) ' packages/pi-subagents/src --include="*.ts" \| grep -vc subagent-state` |
 | `model`/`parentModel` typed `unknown` in `src/`                   | 7              | 0 ✅            | `grep -rEn "model\??: unknown\|parentModel\??: unknown" packages/pi-subagents/src --include="*.ts" \| wc -l`          |
 | Direct `this.mark*` calls inside `resume()`                       | 2              | 0               | `sed -n '/async resume(/,/^\t}/p' packages/pi-subagents/src/lifecycle/subagent.ts \| grep -c 'this\.mark'`            |
-| Dead code / production duplication                                | 0 / 0          | 0 / 0           | `pnpm fallow dead-code --workspace @gotgenes/pi-subagents` / `pnpm fallow dupes --workspace @gotgenes/pi-subagents`   |
+| Dead code / production duplication                                | 0 / 0          | 0 / 0           | `pnpm fallow dead-code --workspace @lazuee/pi-subagents` / `pnpm fallow dupes --workspace @lazuee/pi-subagents`       |
 
 All three targeted metrics were confirmed delivered at archive time (recomputed 2026-07): the classification-grouping grep lands at 2, the `model`/`parentModel` `unknown` grep lands at 0, and the `resume()` `this.mark*` grep lands at 0.
 The recomputed health score reproduces 78/100 (B) using the `--hotspots --targets` form (the bare `--score` form reports 88 A on this workspace — the two forms diverge, and 78 B is the form the baseline was computed with).
@@ -95,13 +95,13 @@ flowchart LR
   Step 2 ([#466]) is a prerequisite for [#465]'s ask-back design, so landing this phase unblocks that track.
 - Craftsmanship polish (scout inventory: `mock.calls[N][idx]` → `toHaveBeenCalledWith` in `test/lifecycle/subagent.test.ts` and `test/lifecycle/subagent-manager.test.ts`, `settings.ts` `sanitize()` range-check triplication, `createManager` fixture density, two `as any` private-state reaches) — deferred to the `tidy-first` boy-scout path; all clusters scored below the phase-step bar and the scout recommends incidental pickup.
 
-[#451]: https://github.com/gotgenes/pi-packages/issues/451
-[#465]: https://github.com/gotgenes/pi-packages/issues/465
-[#466]: https://github.com/gotgenes/pi-packages/issues/466
-[#482]: https://github.com/gotgenes/pi-packages/issues/482
-[#519]: https://github.com/gotgenes/pi-packages/issues/519
-[#563]: https://github.com/gotgenes/pi-packages/issues/563
-[#600]: https://github.com/gotgenes/pi-packages/issues/600
-[#608]: https://github.com/gotgenes/pi-packages/issues/608
-[#610]: https://github.com/gotgenes/pi-packages/issues/610
-[#611]: https://github.com/gotgenes/pi-packages/issues/611
+[#451]: https://github.com/lazuee/pi-packages/issues/451
+[#465]: https://github.com/lazuee/pi-packages/issues/465
+[#466]: https://github.com/lazuee/pi-packages/issues/466
+[#482]: https://github.com/lazuee/pi-packages/issues/482
+[#519]: https://github.com/lazuee/pi-packages/issues/519
+[#563]: https://github.com/lazuee/pi-packages/issues/563
+[#600]: https://github.com/lazuee/pi-packages/issues/600
+[#608]: https://github.com/lazuee/pi-packages/issues/608
+[#610]: https://github.com/lazuee/pi-packages/issues/610
+[#611]: https://github.com/lazuee/pi-packages/issues/611

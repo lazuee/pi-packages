@@ -94,7 +94,7 @@ Managing agent _definitions_ through the menu earns no keep — creating or edit
 
 The spine already made the UI substitutable; a replacement UI is a downstream concern that targets the public broadcast-plus-query surface.
 The surviving UI — the background widget, a focused settings command, and the session-navigation glue — **stays in-core** as a reactive consumer.
-Extraction to a separate `@gotgenes/pi-subagents-ui` package is **not** chosen now.
+Extraction to a separate `@lazuee/pi-subagents-ui` package is **not** chosen now.
 
 This answers the issue's headline question — the UI's _distribution_ — with "keep in core, substitutable," recorded explicitly rather than left implicit.
 Extraction remains an available future option precisely because the composition invariant holds: the core is byte-for-byte identical with or without a given UI consumer.
@@ -272,8 +272,8 @@ This change is pi-subagents-only.
 Whether the colon convention becomes repo-wide (renaming `colgrep-reindex`, `permission-system`, etc.) is deferred — not decided here.
 `/agents` is intentionally left flat: it is slated for removal in the Phase 18 / Step 5 menu retirement, so namespacing it would be churn on a command being deleted.
 
-[#444]: https://github.com/gotgenes/pi-packages/issues/444
-[#445]: https://github.com/gotgenes/pi-packages/issues/445
-[#446]: https://github.com/gotgenes/pi-packages/issues/446
-[#447]: https://github.com/gotgenes/pi-packages/issues/447
-[#463]: https://github.com/gotgenes/pi-packages/issues/463
+[#444]: https://github.com/lazuee/pi-packages/issues/444
+[#445]: https://github.com/lazuee/pi-packages/issues/445
+[#446]: https://github.com/lazuee/pi-packages/issues/446
+[#447]: https://github.com/lazuee/pi-packages/issues/447
+[#463]: https://github.com/lazuee/pi-packages/issues/463

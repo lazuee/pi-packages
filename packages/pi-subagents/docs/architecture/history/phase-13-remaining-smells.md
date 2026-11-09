@@ -80,9 +80,9 @@ Extracted shared setup/assertion helpers for the three heaviest test clone famil
 | Test duplication           | 59 groups, 1,046 lines | 38 groups, 645 lines (overall)    |
 | Churn hotspots             | 6 accelerating         | 1 accelerating (`index.ts`)       |
 
-[#214]: https://github.com/gotgenes/pi-packages/issues/214
-[#215]: https://github.com/gotgenes/pi-packages/issues/215
-[#216]: https://github.com/gotgenes/pi-packages/issues/216
-[#217]: https://github.com/gotgenes/pi-packages/issues/217
-[#218]: https://github.com/gotgenes/pi-packages/issues/218
-[#219]: https://github.com/gotgenes/pi-packages/issues/219
+[#214]: https://github.com/lazuee/pi-packages/issues/214
+[#215]: https://github.com/lazuee/pi-packages/issues/215
+[#216]: https://github.com/lazuee/pi-packages/issues/216
+[#217]: https://github.com/lazuee/pi-packages/issues/217
+[#218]: https://github.com/lazuee/pi-packages/issues/218
+[#219]: https://github.com/lazuee/pi-packages/issues/219

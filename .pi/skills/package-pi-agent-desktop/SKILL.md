@@ -1,7 +1,7 @@
 ---
 name: package-pi-agent-desktop
 description: |
-  Package-specific context for @gotgenes/pi-agent-desktop.
+  Package-specific context for @lazuee/pi-agent-desktop.
   Load when working on code, tests, or docs in packages/pi-agent-desktop/.
 ---
 
@@ -96,7 +96,7 @@ It is not a substitute for one: a changed **meaning** at an unchanged spelling (
 packages/pi-agent-desktop/upstream/npm/bin/agent-desktop <command> --help   # needs the native binary
 ```
 
-Then `pnpm --filter @gotgenes/pi-agent-desktop run test` covers the argv (including the real-binary contract, when built) and `run check` the types.
+Then `pnpm --filter @lazuee/pi-agent-desktop run test` covers the argv (including the real-binary contract, when built) and `run check` the types.
 The checkout answers only once the native binary exists beside it; until then run the installed CLI and diff the two.
 
 ## Refreshing the vendored skill

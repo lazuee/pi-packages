@@ -97,4 +97,4 @@ Prefer version-agnostic fixes that keep the current peer floor.
 
 Then call `ask_user` to ask which findings should become GitHub issues, and whether to apply the proposed watchlist-row changes.
 Do not file anything before asking.
-When the user chooses to file, load the `github-voice` and `roadmap-fit` skills and write each issue in @gotgenes's voice, one issue per finding, with the evidence inline and the package's `pkg:` label.
+When the user chooses to file, load the `github-voice` and `roadmap-fit` skills and write each issue in @lazuee's voice, one issue per finding, with the evidence inline and the package's `pkg:` label.

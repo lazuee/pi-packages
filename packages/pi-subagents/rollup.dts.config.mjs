@@ -15,7 +15,7 @@ export default [
     external,
     plugins: [plugin],
   },
-  // ./settings entry: generic layered config loader for @gotgenes/pi-* extensions
+  // ./settings entry: generic layered config loader for @lazuee/pi-* extensions
   {
     input: "src/layered-settings.ts",
     output: { file: "dist/settings.d.ts", format: "es" },

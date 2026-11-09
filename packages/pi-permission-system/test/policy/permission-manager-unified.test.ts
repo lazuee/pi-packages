@@ -3896,7 +3896,7 @@ describe("a top-level mcp__ key keeps applying to the Pi MCP tool it names", () 
   const toolName = "mcp__danger_srv__wipe";
   const portNotice =
     'Top-level permission keys naming Pi MCP tools are applied as "mcp" rules: "mcp__danger_srv__wipe". ' +
-    'Move them under "mcp" — see https://github.com/gotgenes/pi-packages/blob/main/packages/pi-permission-system/docs/migration/1001-pi-mcp-tools-on-mcp-surface.md';
+    'Move them under "mcp" — see https://github.com/lazuee/pi-packages/blob/main/packages/pi-permission-system/docs/migration/1001-pi-mcp-tools-on-mcp-surface.md';
 
   function withManager<T>(
     permission: Record<string, unknown>,

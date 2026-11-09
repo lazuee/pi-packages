@@ -302,14 +302,14 @@ The table below names what each existing item becomes under the contract, not th
 | [#648] | the payload carries the edit's facts; the renderer decides, and the formatter seam admits a richer downstream display |
 | [#654] | a downstream package plus the annotator seam described in §8                                                          |
 
-[#292]: https://github.com/gotgenes/pi-packages/issues/292
-[#472]: https://github.com/gotgenes/pi-packages/issues/472
-[#610]: https://github.com/gotgenes/pi-packages/issues/610
-[#648]: https://github.com/gotgenes/pi-packages/issues/648
-[#654]: https://github.com/gotgenes/pi-packages/issues/654
-[#656]: https://github.com/gotgenes/pi-packages/pull/656
-[#710]: https://github.com/gotgenes/pi-packages/issues/710
-[#713]: https://github.com/gotgenes/pi-packages/issues/713
-[#716]: https://github.com/gotgenes/pi-packages/pull/716
-[#772]: https://github.com/gotgenes/pi-packages/issues/772
-[#844]: https://github.com/gotgenes/pi-packages/issues/844
+[#292]: https://github.com/lazuee/pi-packages/issues/292
+[#472]: https://github.com/lazuee/pi-packages/issues/472
+[#610]: https://github.com/lazuee/pi-packages/issues/610
+[#648]: https://github.com/lazuee/pi-packages/issues/648
+[#654]: https://github.com/lazuee/pi-packages/issues/654
+[#656]: https://github.com/lazuee/pi-packages/pull/656
+[#710]: https://github.com/lazuee/pi-packages/issues/710
+[#713]: https://github.com/lazuee/pi-packages/issues/713
+[#716]: https://github.com/lazuee/pi-packages/pull/716
+[#772]: https://github.com/lazuee/pi-packages/issues/772
+[#844]: https://github.com/lazuee/pi-packages/issues/844

@@ -74,9 +74,9 @@ Before investigating the issue, load skills relevant to the change:
    A hunt that needs live execution — a CLI repro, an authenticated API spike, a variant table you iterate on — also stays inline; `Explore` is read-only and cannot run it.
    For any bug report, trace what **triggers** the defect, not only what the defect does: name and cite the code path that changes the input (a cache key, an event, a config re-read).
    A fix whose trigger is unreachable is dead code, and the trigger is gate substance.
-   For a third-party report, also establish whether the defect can reach **us**: check the `@gotgenes/*` extensions this repo actually runs under — including ones outside this monorepo, such as `pi-anthropic-auth` — for something that already mitigates it.
+   For a third-party report, also establish whether the defect can reach **us**: check the `@lazuee/*` extensions this repo actually runs under — including ones outside this monorepo, such as `pi-anthropic-auth` — for something that already mitigates it.
    A defect we are immune to is still real; its priority and its owner are not the same.
-   When the change edits a shared mutable artifact several parties write — the system prompt string, a global registry, a config file — enumerate the other writers first, including `@gotgenes/*` extensions outside this monorepo such as `pi-anthropic-auth`.
+   When the change edits a shared mutable artifact several parties write — the system prompt string, a global registry, a config file — enumerate the other writers first, including `@lazuee/*` extensions outside this monorepo such as `pi-anthropic-auth`.
    The issue names the collision it noticed, not the ones it did not.
 7. When the plan introduces a public API pattern (package `exports`, `Symbol.for()` accessor, service interface) or agent-facing message formatting (attribution tags, error prefixes, log labels), use colgrep or grep to search sibling packages for the established convention and follow it unless there is a documented reason to diverge.
    When a config key or public field names an SDK/domain concept (a tool-call part, event, or content type), use the SDK's own term for it — verify against the SDK types — rather than adopting a term from the issue body verbatim.

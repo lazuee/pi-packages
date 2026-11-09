@@ -12,7 +12,7 @@ You are affected only if **all** of the following hold:
 - that link is **allow-capable** (it can return `allow`, not only `deny` / `defer`), and
 - it returns `allow` on a bash `external_directory` ask.
 
-If you run no chain link, or run only a deny-first link (including the first-party [`@gotgenes/pi-permission-model-judge`](https://github.com/gotgenes/pi-packages/tree/main/packages/pi-permission-model-judge), which only ever denies or defers), **nothing changes for you**.
+If you run no chain link, or run only a deny-first link (including the first-party [`@lazuee/pi-permission-model-judge`](https://github.com/lazuee/pi-packages/tree/main/packages/pi-permission-model-judge), which only ever denies or defers), **nothing changes for you**.
 
 ## What changed
 

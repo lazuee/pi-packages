@@ -54,8 +54,8 @@ Tool-input paths (`read`/`write`/`edit`) keep native win32 semantics: Node's `fs
 - The `PermissionsService` RPC path-query surface is unchanged: an external query for a POSIX-shaped path on win32 still answers with win32 semantics, since a path query carries no bash-surface context.
   This is an accepted inconsistency, to revisit only if a consumer reports it.
 
-[#382]: https://github.com/gotgenes/pi-packages/issues/382
-[#508]: https://github.com/gotgenes/pi-packages/issues/508
-[#533]: https://github.com/gotgenes/pi-packages/issues/533
-[#653]: https://github.com/gotgenes/pi-packages/issues/653
+[#382]: https://github.com/lazuee/pi-packages/issues/382
+[#508]: https://github.com/lazuee/pi-packages/issues/508
+[#533]: https://github.com/lazuee/pi-packages/issues/533
+[#653]: https://github.com/lazuee/pi-packages/issues/653
 [earendil-works/pi#4731]: https://github.com/earendil-works/pi/issues/4731

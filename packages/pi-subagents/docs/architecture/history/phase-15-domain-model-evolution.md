@@ -65,9 +65,9 @@ Extracted `queue[]`, `runningBackground`, `_getMaxConcurrent`, `drainQueue()`, `
 | `resume()` duplicates observer subscribe/unsubscribe pattern       | A: Redundant | ✅ Resolved           |
 | `exec`/`registry` relay-only deps on `AgentManager`                | C: Coupling  | ✅ Resolved           |
 
-[#227]: https://github.com/gotgenes/pi-packages/issues/227
-[#228]: https://github.com/gotgenes/pi-packages/issues/228
-[#229]: https://github.com/gotgenes/pi-packages/issues/229
-[#230]: https://github.com/gotgenes/pi-packages/issues/230
-[#231]: https://github.com/gotgenes/pi-packages/issues/231
-[#232]: https://github.com/gotgenes/pi-packages/issues/232
+[#227]: https://github.com/lazuee/pi-packages/issues/227
+[#228]: https://github.com/lazuee/pi-packages/issues/228
+[#229]: https://github.com/lazuee/pi-packages/issues/229
+[#230]: https://github.com/lazuee/pi-packages/issues/230
+[#231]: https://github.com/lazuee/pi-packages/issues/231
+[#232]: https://github.com/lazuee/pi-packages/issues/232

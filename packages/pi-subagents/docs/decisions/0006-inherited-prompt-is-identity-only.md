@@ -51,7 +51,7 @@ The alternative was to cut the catalogue and footer out while keeping the extens
 It was rejected on both criteria.
 
 On accuracy, the inherited tail is the least defensible layer of the three.
-It was built for the parent's directory and the parent's extension set: `@gotgenes/pi-nocd`'s block names the parent's cwd — the [#640] defect itself — and a package excluded from children through `excludedExtensionPackages` ([#696]) still reaches them through the inherited copy, which is the exact opposite of what that setting asks for.
+It was built for the parent's directory and the parent's extension set: `@lazuee/pi-nocd`'s block names the parent's cwd — the [#640] defect itself — and a package excluded from children through `excludedExtensionPackages` ([#696]) still reaches them through the inherited copy, which is the exact opposite of what that setting asks for.
 
 On cost, excision is strictly worse for the constituency [#180] exists to protect.
 Removing an interior span leaves the tail in the child but displaces it past the divergence point, moving it from cached to prefilled — measured at roughly 275 characters in [#640]'s environment.
@@ -88,23 +88,23 @@ Both anchors match whole lines, which keeps a footer naming a directory that mer
   The trade is accepted because the alternative is inheriting a block built for another directory and another extension set, which is wrong rather than merely absent.
 - The shared prefix a child holds with its parent is shorter by the three dropped regions.
   Nothing that remains in the child's prompt moved out of that prefix, so no additional tokens require processing.
-- `@gotgenes/pi-nocd` documents a rewrite path premised on subagents inheriting the prompt verbatim, which this decision ends.
+- `@lazuee/pi-nocd` documents a rewrite path premised on subagents inheriting the prompt verbatim, which this decision ends.
   Tracked as [#846].
 - A consumer that recovers the inherited region by searching a child's prompt for the parent's *full* assembled prompt finds nothing, because truncation ends the containment it matches on.
   `pi-claude-bridge` does exactly this to project a child's prompt onto another harness, so a child on that provider forwards Pi's base prompt where the parent forwards only its portable parts.
   Reported as [#883]; a consumer-side matcher fix is proposed at [pi-claude-bridge#88].
   A child whose cwd differs from its parent's is beyond any such fix: Pi's `useExtensionCacheCwd` clears the extension cache on a cwd change, so the consumer's capture of the parent never exists in the child's module instance at all.
 
-[#180]: https://github.com/gotgenes/pi-packages/issues/180
-[#400]: https://github.com/gotgenes/pi-packages/issues/400
-[#640]: https://github.com/gotgenes/pi-packages/issues/640
-[#696]: https://github.com/gotgenes/pi-packages/issues/696
-[#801]: https://github.com/gotgenes/pi-packages/issues/801
-[#846]: https://github.com/gotgenes/pi-packages/issues/846
-[#890]: https://github.com/gotgenes/pi-packages/issues/890
-[#918]: https://github.com/gotgenes/pi-packages/issues/918
+[#180]: https://github.com/lazuee/pi-packages/issues/180
+[#400]: https://github.com/lazuee/pi-packages/issues/400
+[#640]: https://github.com/lazuee/pi-packages/issues/640
+[#696]: https://github.com/lazuee/pi-packages/issues/696
+[#801]: https://github.com/lazuee/pi-packages/issues/801
+[#846]: https://github.com/lazuee/pi-packages/issues/846
+[#890]: https://github.com/lazuee/pi-packages/issues/890
+[#918]: https://github.com/lazuee/pi-packages/issues/918
 [ADR 0008]: 0008-inherited-region-is-shared-parts.md
 [ADR 0010]: 0010-project-context-is-directory-resolved.md
 [ADR 0011]: 0011-tool-surface-sections-are-session-resolved.md
-[#883]: https://github.com/gotgenes/pi-packages/issues/883
+[#883]: https://github.com/lazuee/pi-packages/issues/883
 [pi-claude-bridge#88]: https://github.com/elidickinson/pi-claude-bridge/issues/88

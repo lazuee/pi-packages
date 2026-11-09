@@ -274,7 +274,7 @@ describe("createPermissionSystemLogger", () => {
     });
 
     test("defaults to a width that leaves ordinary commands whole", () => {
-      const command = "pnpm run test --filter @gotgenes/pi-permission-system";
+      const command = "pnpm run test --filter @lazuee/pi-permission-system";
 
       makeLogger().review("permission_request.waiting", {
         toolName: "bash",

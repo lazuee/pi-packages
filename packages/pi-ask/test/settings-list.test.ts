@@ -65,7 +65,7 @@ test("settings list renders behaviour settings and config path", () => {
   const text = list.render(72).join("\n");
 
   assert(text.includes("╭"));
-  assert(text.includes("@gotgenes/pi-ask"));
+  assert(text.includes("@lazuee/pi-ask"));
   assert(text.includes("Live settings"));
   assert(text.includes("Defaults for future asks"));
   assert(text.includes("Auto-submit when answered without notes"));

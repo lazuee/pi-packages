@@ -85,8 +85,8 @@ A whole-session grant is never made wider by skew, only unavailable, so no upgra
   The tree is depth-2 today, so "parent" and "root" coincide and the dialog offers two scopes.
   The three-way split waits on multi-hop escalation — admitted-not-shipped, the same shape as the escalation chain.
 
-[#292]: https://github.com/gotgenes/pi-packages/issues/292
-[#807]: https://github.com/gotgenes/pi-packages/issues/807
-[#810]: https://github.com/gotgenes/pi-packages/issues/810
-[#557]: https://github.com/gotgenes/pi-packages/issues/557
-[#565]: https://github.com/gotgenes/pi-packages/issues/565
+[#292]: https://github.com/lazuee/pi-packages/issues/292
+[#807]: https://github.com/lazuee/pi-packages/issues/807
+[#810]: https://github.com/lazuee/pi-packages/issues/810
+[#557]: https://github.com/lazuee/pi-packages/issues/557
+[#565]: https://github.com/lazuee/pi-packages/issues/565

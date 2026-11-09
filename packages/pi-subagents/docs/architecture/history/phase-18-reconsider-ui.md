@@ -117,7 +117,7 @@ Folding the live activity onto the record (the single owner of run state, consis
    - **Foreground widget redundancy.**
      In foreground the tool's inline `onUpdate` stream already shows progress, so the above-editor widget duplicates it; the widget earns its keep only for background agents — a per-mode judgment the fused UI cannot vary.
    Candidate redesign to record: replace the bespoke overlay with "open the child session in the same viewer Pi uses for any session," following the recursive-Pi insight and the already-persisted session file.
-   Judge the widget, conversation viewer, and `/agents` menu per component — keep, shrink, extract to `@gotgenes/pi-subagents-ui`, or remove — and capture the decision in an ADR that gateways Phase 19.
+   Judge the widget, conversation viewer, and `/agents` menu per component — keep, shrink, extract to `@lazuee/pi-subagents-ui`, or remove — and capture the decision in an ADR that gateways Phase 19.
    Smell: Category E (organization / boundary).
    Outcome: a recorded per-component decision motivated by the two concerns; the inherited UI is substitutable and no longer preserved by default.
    Landed: [ADR-0004] records the per-component decision — (A) shrink the widget to background agents only; (B) remove the bespoke `ConversationViewer`, replacing it with native session navigation over the persisted child JSONL (`switchSession`/`loadEntriesFromFile`, mechanism gated on a Phase 19 spike); (C) dissolve the `/agents` command (remove the create wizard and the agent-types config editor, re-home running-agent visibility onto the widget + session navigation, extract settings to a focused `/subagents:settings` command); (D) keep the surviving UI in-core (substitutable, not extracted).
@@ -156,11 +156,11 @@ flowchart TB
 
 [ADR-0004]: ../../decisions/0004-reconsider-ui-direction.md
 [first-principles refinement]: ../architecture.md#first-principles-refinement-and-the-deeper-target
-[#420]: https://github.com/gotgenes/pi-packages/issues/420
-[#421]: https://github.com/gotgenes/pi-packages/issues/421
-[#422]: https://github.com/gotgenes/pi-packages/issues/422
-[#423]: https://github.com/gotgenes/pi-packages/issues/423
-[#424]: https://github.com/gotgenes/pi-packages/issues/424
-[#425]: https://github.com/gotgenes/pi-packages/issues/425
-[#426]: https://github.com/gotgenes/pi-packages/issues/426
-[#427]: https://github.com/gotgenes/pi-packages/issues/427
+[#420]: https://github.com/lazuee/pi-packages/issues/420
+[#421]: https://github.com/lazuee/pi-packages/issues/421
+[#422]: https://github.com/lazuee/pi-packages/issues/422
+[#423]: https://github.com/lazuee/pi-packages/issues/423
+[#424]: https://github.com/lazuee/pi-packages/issues/424
+[#425]: https://github.com/lazuee/pi-packages/issues/425
+[#426]: https://github.com/lazuee/pi-packages/issues/426
+[#427]: https://github.com/lazuee/pi-packages/issues/427

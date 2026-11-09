@@ -21,7 +21,7 @@ With a custom prompt, the custom text is the preamble and none of `<tools>`, `<r
 Both are resolved against one session's tool set, exactly as the catalogue is resolved against its skills.
 A child's prompt is a `customPrompt`, so Pi writes neither section for it; an inherited copy is the parent's tool surface presented as the child's ([#901]).
 
-Until now `@gotgenes/pi-permission-system` hid this by stripping the two sections from every node's head and appending each node's own after `<cwd>` (its ADR 0014).
+Until now `@lazuee/pi-permission-system` hid this by stripping the two sections from every node's head and appending each node's own after `<cwd>` (its ADR 0014).
 It did so by returning a forced `systemPrompt`, which drops every section a later extension adds, Pi's `<mcp_servers>` among them ([#999]).
 The fix for that leaves Pi's `<tools>`/`<rules>` in place, narrowed through the active tool set.
 Once it ships, a child would carry the parent's narrowed list in its inherited identity and its own list after `<cwd>`: two lists that disagree.
@@ -43,7 +43,7 @@ On the section shape, `inheritedIdentity` excises Pi's `<tools>` and `<rules>` s
 [ADR 0006] rejected excising the catalogue and footer while keeping the extension tail, because the tail it kept was itself built for the parent and would have moved from cached to prefilled.
 Neither reason reaches these two sections.
 What follows them (`<docs>`, the addendum, project context) is identity, accurate for the child, and is kept.
-The excised span is not dropped from the child's view of its tools: the child's own tool definitions describe them, and `@gotgenes/pi-permission-system`, when installed, states them as the child's own `<tools>`/`<rules>` after `<cwd>`.
+The excised span is not dropped from the child's view of its tools: the child's own tool definitions describe them, and `@lazuee/pi-permission-system`, when installed, states them as the child's own `<tools>`/`<rules>` after `<cwd>`.
 Truncating at `<tools>` instead would discard the child's project context for no gain.
 
 ### The cost
@@ -64,8 +64,8 @@ The trade was accepted on [#999], and it falls on [#180]'s constituency alone: [
 - If Pi renames these sections or reorders them, the anchor stops matching and a child keeps its parent's copy: the behavior before this record, not a new failure mode.
   `buildSystemPrompt` is not exported, so the tests pin hand-built fixtures, and the package's upstream-assumptions table watches the order.
 
-[#180]: https://github.com/gotgenes/pi-packages/issues/180
-[#901]: https://github.com/gotgenes/pi-packages/issues/901
-[#999]: https://github.com/gotgenes/pi-packages/issues/999
+[#180]: https://github.com/lazuee/pi-packages/issues/180
+[#901]: https://github.com/lazuee/pi-packages/issues/901
+[#999]: https://github.com/lazuee/pi-packages/issues/999
 [ADR 0006]: 0006-inherited-prompt-is-identity-only.md
 [ADR 0008]: 0008-inherited-region-is-shared-parts.md

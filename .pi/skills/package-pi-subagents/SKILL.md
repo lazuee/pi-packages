@@ -1,7 +1,7 @@
 ---
 name: package-pi-subagents
 description: |
-  Package-specific context for @gotgenes/pi-subagents.
+  Package-specific context for @lazuee/pi-subagents.
   Load when working on code, tests, or docs in packages/pi-subagents/.
 ---
 
@@ -16,7 +16,7 @@ See `docs/architecture/architecture.md` for the full decomposition plan and `doc
 The fork carries two original patches from the thin-patch era, still present in the codebase:
 
 1. **Peer-dep rename** - peer dependencies point at `@earendil-works/pi-*` (the active scope) rather than the deprecated `@mariozechner/pi-*` scope.
-2. **Patch 3 (active_agent tag)** - `buildAgentPrompt` includes `<active_agent name="${agentConfig.name}"/>` in every assembled child system prompt (both `replace` and `append` modes); the tag follows the cacheable parent-prompt prefix so `@gotgenes/pi-permission-system` can resolve per-agent `permission:` frontmatter inside the child.
+2. **Patch 3 (active_agent tag)** - `buildAgentPrompt` includes `<active_agent name="${agentConfig.name}"/>` in every assembled child system prompt (both `replace` and `append` modes); the tag follows the cacheable parent-prompt prefix so `@lazuee/pi-permission-system` can resolve per-agent `permission:` frontmatter inside the child.
    Since #890 the two modes differ only in the `<agent_instructions>` wrapper: the hard-coded `<sub_agent_context>` bridge append mode carried was removed, because its tool bullets duplicated the `promptGuidelines` pi's own tools contribute and named `edit`/`write` to children that have neither.
 
 There is no post-bind active-tool re-filter: `EXCLUDED_TOOL_NAMES` reaches the SDK as the `excludeTools` denylist at session creation, which it reapplies on every tool-registry rebuild.
@@ -47,7 +47,7 @@ Do not re-add the equal-cwd exception #640 originally carried: the catalogue pre
 What that placement guarantees is **shared parts, not shared bytes** (`docs/decisions/0008-inherited-region-is-shared-parts.md`, amending ADR 0006).
 The benefit is host-dependent and the package must not claim otherwise: Anthropic builds its cache prefix as `tools` → `system` → `messages`, so a child — whose tool array always differs from its parent's, if only by `ask_parent`/`notify_parent` — gets no hit from a byte-identical system prompt.
 It pays on hosts that render tool definitions after the system text, which is #180's own local-model constituency.
-Per-session prose about the tool surface therefore does not belong in the inherited region: on Pi's section-shaped prompt `inheritedIdentity` excises Pi's own `<tools>` and `<rules>` sections, the one interior span it removes (`docs/decisions/0011-tool-surface-sections-are-session-resolved.md`), and `@gotgenes/pi-permission-system` states each child's tools after `<cwd>`.
+Per-session prose about the tool surface therefore does not belong in the inherited region: on Pi's section-shaped prompt `inheritedIdentity` excises Pi's own `<tools>` and `<rules>` sections, the one interior span it removes (`docs/decisions/0011-tool-surface-sections-are-session-resolved.md`), and `@lazuee/pi-permission-system` states each child's tools after `<cwd>`.
 Without that extension a child carries no tool prose at all (#901).
 The shared prefix is pinned by tests in `test/session/prompts.test.ts` (`shared prefix with the parent`); it had none before #890.
 
@@ -109,7 +109,7 @@ service-adapter ─wraps─→ SubagentManager
   Other packages hook into these to add permissions, rendering, or telemetry.
   Pi-subagents has zero knowledge of its consumers - dependency arrows point inward, never outward.
 - Narrow core - the extension owns agent spawning, execution, and result retrieval; everything else is a consumer.
-- **No policy enforcement** - tool restrictions, skill access control, and extension filtering belong in `@gotgenes/pi-permission-system`, not in this package.
+- **No policy enforcement** - tool restrictions, skill access control, and extension filtering belong in `@lazuee/pi-permission-system`, not in this package.
   The `disallowed_tools` frontmatter field and `extensions: string[]` allowlist were removed in Phase 14 (#237, #238, #239).
   Users should use `permission:` frontmatter for tool restrictions.
   The one carve-out is **prevent-load**, which cannot be reduced to observation: the global/project `excludedExtensionPackages` setting keeps named packages' extensions out of children (#696).
@@ -145,9 +145,9 @@ This package publishes two public subpath entries, each with a rolled self-conta
 | Subpath      | Source                    | Declaration          | Purpose                                                                   |
 | ------------ | ------------------------- | -------------------- | ------------------------------------------------------------------------- |
 | `.`          | `src/service/service.ts`  | `dist/public.d.ts`   | Cross-extension service contract: spawn/abort/steer/resume/workspace seam |
-| `./settings` | `src/layered-settings.ts` | `dist/settings.d.ts` | Generic layered JSON config loader for `@gotgenes/pi-*` extensions        |
+| `./settings` | `src/layered-settings.ts` | `dist/settings.d.ts` | Generic layered JSON config loader for `@lazuee/pi-*` extensions          |
 
-Use `loadLayeredSettings<T>({ agentDir, cwd, filename, sanitize, warnLabel })` from `@gotgenes/pi-subagents/settings` to read global + project JSON config with the standard `@gotgenes/pi-*` layering convention.
+Use `loadLayeredSettings<T>({ agentDir, cwd, filename, sanitize, warnLabel })` from `@lazuee/pi-subagents/settings` to read global + project JSON config with the standard `@lazuee/pi-*` layering convention.
 See the `## For Extension Authors` section of `README.md` for the full wiring example.
 
 What `SubagentRecord` may carry is settled by `docs/decisions/0005-subagent-record-admission-policy.md`, not by a per-field vote: the snapshot admits identity, lifecycle status (including `resumeRefusal`, why a resume would be refused), resolved spawn facts, cumulative metrics, and durable-artifact pointers, and withholds live objects, momentary activity (`activeTools`, `responseText`), package-internal bookkeeping, and display snapshots.
@@ -161,7 +161,7 @@ The bundles are gitignored, regenerated at `prepack`, and shipped via the `packa
 Never commit `dist/`.
 `pnpm run verify:public-types` (`scripts/verify-public-types.sh`, also a CI step) packs the tarball and type-checks a throwaway consumer against both entries - run it after any change to the public surface, the `exports` map, or the rollup config.
 Sibling packages consume this one from the **published** registry release (the repo sets `linkWorkspacePackages: false`), not via a workspace symlink - a symlink resolves `exports.types` to the gitignored, unbuilt `dist/*.d.ts`.
-See `@gotgenes/pi-subagents-worktrees` for the pattern.
+See `@lazuee/pi-subagents-worktrees` for the pattern.
 
 ## Upstream assumptions
 
@@ -210,4 +210,4 @@ When working in this package:
 2. The upstream test suite is run periodically as a regression canary for the session assembly core.
 3. Modules marked `← removing` or `← replacing` in the architecture doc's current-state listing are slated for deletion - do not add features to them.
 
-[ADR-0003]: https://github.com/gotgenes/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0003-publish-bundled-type-declarations.md
+[ADR-0003]: https://github.com/lazuee/pi-packages/blob/main/packages/pi-subagents/docs/decisions/0003-publish-bundled-type-declarations.md

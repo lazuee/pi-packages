@@ -1,7 +1,7 @@
 ---
 name: package-pi-nocd
 description: |
-  Package-specific context for @gotgenes/pi-nocd.
+  Package-specific context for @lazuee/pi-nocd.
   Load when working on code, tests, or docs in packages/pi-nocd/.
 ---
 

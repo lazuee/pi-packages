@@ -1,5 +1,5 @@
 {
-  "name": "@gotgenes/pi-agent-desktop",
+  "name": "@lazuee/pi-agent-desktop",
   "version": "0.1.0",
   "description": "Pi extension that drives macOS, Windows and Linux desktop apps by their native accessibility trees, on top of the agent-desktop CLI",
   "keywords": [

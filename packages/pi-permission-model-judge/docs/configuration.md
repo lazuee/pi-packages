@@ -1,19 +1,19 @@
 # Configuration
 
-`@gotgenes/pi-permission-model-judge` reads one config file per scope, following the standard `@gotgenes/pi-*` convention.
+`@lazuee/pi-permission-model-judge` reads one config file per scope, following the standard `@lazuee/pi-*` convention.
 
 - Global: `~/.pi/agent/extensions/pi-permission-model-judge/config.json` (respects `PI_CODING_AGENT_DIR`).
 - Project: `<cwd>/.pi/extensions/pi-permission-model-judge/config.json`.
 
 The project file overrides the global one field-by-field; array fields (`typoPatterns`) replace wholesale rather than merging.
-The project file is read only when Pi trusts the project, the same boundary `@gotgenes/pi-permission-system` applies to its own project scope.
+The project file is read only when Pi trusts the project, the same boundary `@lazuee/pi-permission-system` applies to its own project scope.
 In an untrusted project the file contributes nothing, not even a validation issue, and the judge warns once per session that it skipped it, as a Pi notification when the session has a UI and on the console otherwise.
 Point your editor at the bundled [JSON Schema](../schemas/model-judge.schema.json) via `$schema` for completion and validation.
 
 ## Two config files, one link name
 
 This extension owns only the *model mechanism*.
-The *chain policy* — whether the link runs at all, and its order — lives in `@gotgenes/pi-permission-system`.
+The *chain policy* — whether the link runs at all, and its order — lives in `@lazuee/pi-permission-system`.
 The two files are joined only by the link name `model-judge`:
 
 ```jsonc

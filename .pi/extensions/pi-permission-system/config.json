@@ -1,11 +1,11 @@
 {
-  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
+  "$schema": "https://raw.githubusercontent.com/lazuee/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
   "permission": {
     "bash": {
       "pnpm add*": "ask",
       "cd packages/*": {
         "action": "deny",
-        "reason": "Run package-scoped work from the repo root: `pnpm --filter @gotgenes/<pkg> run|exec …` or `pnpm -C packages/<pkg> …`, and root-relative paths (`packages/<pkg>/src/…`) for grep, sed, and read. A package-directory cwd breaks fallow's root-relative zones and mixes up relative paths"
+        "reason": "Run package-scoped work from the repo root: `pnpm --filter @lazuee/<pkg> run|exec …` or `pnpm -C packages/<pkg> …`, and root-relative paths (`packages/<pkg>/src/…`) for grep, sed, and read. A package-directory cwd breaks fallow's root-relative zones and mixes up relative paths"
       },
       "rg -r*": {
         "action": "deny",

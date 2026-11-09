@@ -12,8 +12,8 @@ Introduces the repository's first build step, scoped to type declarations only.
 
 ## Context
 
-`@gotgenes/pi-subagents` could not be imported by another TypeScript package in this workspace.
-Issue #263 (extract worktree isolation to `@gotgenes/pi-subagents-worktrees`) is the first intra-repo consumer: it must `implements WorkspaceProvider` and call `getSubagentsService().registerWorkspaceProvider(...)`, both of which require importing the package by name.
+`@lazuee/pi-subagents` could not be imported by another TypeScript package in this workspace.
+Issue #263 (extract worktree isolation to `@lazuee/pi-subagents-worktrees`) is the first intra-repo consumer: it must `implements WorkspaceProvider` and call `getSubagentsService().registerWorkspaceProvider(...)`, both of which require importing the package by name.
 
 A `tsc --traceResolution` of a sibling consuming the package surfaced two compounding failures.
 
@@ -63,7 +63,7 @@ It is deliberately narrow: it produces type declarations only and changes nothin
 ## Consequences
 
 - The repository now has a build step, but it is type-only and isolated to this package; the ship-source model is otherwise intact.
-- Consumers (including `@gotgenes/pi-subagents-worktrees` in #263) consume the packaged public interface like any external developer — no `workspace:*` privileges.
+- Consumers (including `@lazuee/pi-subagents-worktrees` in #263) consume the packaged public interface like any external developer — no `workspace:*` privileges.
 - The `types` condition points at a build-time artifact; an in-repo workspace-linked consumer that imported the package would need `dist/public.d.ts` present.
   This is acceptable because no in-repo package imports the surface yet; #263 consumes the built artifact from the published tarball.
 - Sequencing: #270 must be published (its release-please PR merged) before #263 edits `pi-subagents` core, so #263's changes do not batch into the same `pi-subagents` release.

@@ -1,6 +1,6 @@
 # Agent-doc audit snapshot — 2026-09-17
 
-Measurements taken while filing [#934](https://github.com/gotgenes/pi-packages/issues/934).
+Measurements taken while filing [#934](https://github.com/lazuee/pi-packages/issues/934).
 Each audit commits its own dated directory; the CSVs here are the record, not a cache to refresh in place.
 
 ## Files

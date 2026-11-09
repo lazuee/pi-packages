@@ -174,16 +174,16 @@ Step 7 has no dependencies and runs in parallel with everything.
   Step 4 alone left both the new `AccessPath` type and the old free helpers in place — a transitional state — so it shipped with Step 5.
 - Independently releasable: Steps 6, 7, 8.
 
-[#309]: https://github.com/gotgenes/pi-packages/issues/309
-[#393]: https://github.com/gotgenes/pi-packages/issues/393
-[#418]: https://github.com/gotgenes/pi-packages/issues/418
-[#473]: https://github.com/gotgenes/pi-packages/issues/473
-[#474]: https://github.com/gotgenes/pi-packages/issues/474
-[#475]: https://github.com/gotgenes/pi-packages/issues/475
-[#476]: https://github.com/gotgenes/pi-packages/issues/476
-[#477]: https://github.com/gotgenes/pi-packages/issues/477
-[#478]: https://github.com/gotgenes/pi-packages/issues/478
-[#479]: https://github.com/gotgenes/pi-packages/issues/479
-[#480]: https://github.com/gotgenes/pi-packages/issues/480
-[#486]: https://github.com/gotgenes/pi-packages/issues/486
-[#487]: https://github.com/gotgenes/pi-packages/issues/487
+[#309]: https://github.com/lazuee/pi-packages/issues/309
+[#393]: https://github.com/lazuee/pi-packages/issues/393
+[#418]: https://github.com/lazuee/pi-packages/issues/418
+[#473]: https://github.com/lazuee/pi-packages/issues/473
+[#474]: https://github.com/lazuee/pi-packages/issues/474
+[#475]: https://github.com/lazuee/pi-packages/issues/475
+[#476]: https://github.com/lazuee/pi-packages/issues/476
+[#477]: https://github.com/lazuee/pi-packages/issues/477
+[#478]: https://github.com/lazuee/pi-packages/issues/478
+[#479]: https://github.com/lazuee/pi-packages/issues/479
+[#480]: https://github.com/lazuee/pi-packages/issues/480
+[#486]: https://github.com/lazuee/pi-packages/issues/486
+[#487]: https://github.com/lazuee/pi-packages/issues/487
