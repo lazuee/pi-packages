@@ -1,0 +1,153 @@
+import { removeKey } from "#src/state/remove-key";
+import type { AskImage, AskState, AskStateAnswer } from "#src/types";
+import { hasCustomAnswer, isAnswerEmpty } from "./answers";
+import {
+  getAnswer,
+  getCurrentOption,
+  getCurrentQuestion,
+  getOptionNote,
+  getQuestionNote,
+  isSubmitTab,
+} from "./selectors";
+import {
+  enterInputMode,
+  saveCustomAnswer,
+  saveNote,
+  submitCustomAnswer,
+} from "./transitions";
+import { isEditingView } from "./view";
+
+/** Read the images owned by the currently open editor. */
+export function getEditorImages(state: AskState): AskImage[] {
+  const view = state.view;
+  if (view.kind !== "input" && view.kind !== "note") {
+    return [];
+  }
+  // `answers` is typed as a total Record, but the index is not total at run
+  // time: an editor opens on a question with no saved answer yet.
+  const answer = state.answers[view.questionId] as AskStateAnswer | undefined;
+  if (!answer) {
+    return [];
+  }
+  if (view.kind === "input") {
+    return answer.customImages ?? [];
+  }
+  const images = view.optionValue
+    ? answer.optionNoteImages?.[view.optionValue]
+    : answer.noteImages;
+  return images ?? [];
+}
+
+/** Replace images only in the active editor; text and other editors are untouched. */
+export function setEditorImages(state: AskState, images: AskImage[]): AskState {
+  const view = state.view;
+  if (view.kind !== "input" && view.kind !== "note") {
+    return state;
+  }
+  const answer = updateEditorImages(
+    state.answers[view.questionId] ?? { selected: [] },
+    view,
+    images,
+  );
+  const answers = { ...state.answers };
+  if (isAnswerEmpty(answer)) {
+    removeKey(answers, view.questionId);
+  } else {
+    answers[view.questionId] = answer;
+  }
+  return { ...state, answers };
+}
+function updateEditorImages(
+  saved: AskStateAnswer,
+  view: Extract<AskState["view"], { kind: "input" | "note" }>,
+  images: AskImage[],
+): AskStateAnswer {
+  const answer = { ...saved };
+  if (view.kind === "input") {
+    answer.customImages = images.length ? images : undefined;
+  } else if (view.optionValue) {
+    const notes = { ...answer.optionNoteImages };
+    if (images.length) {
+      notes[view.optionValue] = images;
+    } else {
+      removeKey(notes, view.optionValue);
+    }
+    answer.optionNoteImages = Object.keys(notes).length ? notes : undefined;
+  } else {
+    answer.noteImages = images.length ? images : undefined;
+  }
+  return answer;
+}
+export function getEditorDraft(state: AskState): string {
+  if (state.view.kind === "submit-note") {
+    return state.submitNotes?.[state.view.action] ?? "";
+  }
+  if (state.view.kind === "input") {
+    return getAnswer(state, state.view.questionId)?.customText ?? "";
+  }
+  if (state.view.kind === "note") {
+    if (state.view.optionValue) {
+      return (
+        getOptionNote(state, state.view.questionId, state.view.optionValue) ??
+        ""
+      );
+    }
+    return getQuestionNote(state, state.view.questionId) ?? "";
+  }
+  return "";
+}
+
+export function saveEditorDraft(state: AskState, text: string): AskState {
+  if (state.view.kind === "submit-note") {
+    return saveSubmitNote(state, text);
+  }
+  if (state.view.kind === "input") {
+    return saveCustomAnswer(state, text);
+  }
+  if (state.view.kind === "note") {
+    return saveNote(state, text);
+  }
+  return state;
+}
+
+export function submitEditorDraft(state: AskState, text: string): AskState {
+  if (state.view.kind === "submit-note") {
+    return saveSubmitNote(state, text);
+  }
+  if (state.view.kind === "input") {
+    return submitCustomAnswer(state, text);
+  }
+  if (state.view.kind === "note") {
+    return saveNote(state, text);
+  }
+  return state;
+}
+
+function saveSubmitNote(state: AskState, text: string): AskState {
+  if (state.view.kind !== "submit-note") {
+    return state;
+  }
+  const notes = {
+    ...state.submitNotes,
+    [state.view.action]: text.trim() || undefined,
+  };
+  return { ...state, submitNotes: notes, view: { kind: "submit" } };
+}
+
+export function syncStateToSelection(state: AskState): AskState {
+  if (isEditingView(state) || isSubmitTab(state)) {
+    return state;
+  }
+
+  const question = getCurrentQuestion(state);
+  const option = getCurrentOption(state);
+  if (!(question && option?.isCustomOption)) {
+    return state;
+  }
+
+  if (hasCustomAnswer(getAnswer(state, question.id))) {
+    return state;
+  }
+
+  return enterInputMode(state, question.id);
+}

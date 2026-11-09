@@ -2743,7 +2743,7 @@ describe("Subagent — a workspace its provider can reopen", () => {
 	});
 
 	it("does not resurrect a session released while restoration was in flight", async () => {
-		const gate = Promise.withResolvers<void>();
+		const gate = Promise.withResolvers<void>(); // eslint-disable-line @typescript-eslint/no-invalid-void-type -- Promise.withResolvers<void> is valid; rule does not allow void in generic fn call type args
 		const { agent, workspace, stub } = await runResumableAgent({ onResume: () => gate.promise });
 		const resuming = agent.resume("continue", { background: true });
 		agent.stopQueued();
@@ -2954,7 +2954,7 @@ describe("Subagent — a workspace its provider can reopen", () => {
 	});
 
 	it("does not resurrect a session released while restoration was in flight", async () => {
-		const gate = Promise.withResolvers<void>();
+		const gate = Promise.withResolvers<void>(); // eslint-disable-line @typescript-eslint/no-invalid-void-type -- Promise.withResolvers<void> is valid; rule does not allow void in generic fn call type args
 		const { agent, workspace, stub } = await runResumableAgent({ onResume: () => gate.promise });
 		const resuming = agent.resume("continue", { background: true });
 		agent.stopQueued();

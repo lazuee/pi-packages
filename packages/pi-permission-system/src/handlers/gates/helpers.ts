@@ -4,8 +4,8 @@ import { classifyToolKind } from "#src/access-intent/tool-kind";
 import type { ForwardedAccessFacts } from "#src/authority/permission-forwarding";
 import type { PromptPermissionDetails } from "#src/authority/permission-prompter";
 import type { PermissionDecisionResolution } from "#src/service/permission-events";
-import { getNonEmptyString, toRecord } from "#src/value-guards";
 import type { PermissionCheckResult } from "#src/types";
+import { getNonEmptyString, toRecord } from "#src/value-guards";
 import type { DecisionEventFacts } from "./descriptor";
 import type { ToolCallContext } from "./types";
 
@@ -130,7 +130,7 @@ export function deriveDecisionValue(
     case "path":
     case "skill":
     case "extension":
-      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty path falls through to toolName (the original `if (path)` truthiness)
+      // `||`, not `??`: an empty path falls through to the tool name.
       return path || toolName;
   }
 }

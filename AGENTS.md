@@ -136,7 +136,7 @@ Before you do the thing in the left column, load the skill in the right one.
 | touch code, tests, or docs in `packages/<pkg>/`                                                      | `package-<pkg>`          |
 | write, refactor, or review TypeScript, or design around a Pi SDK internal                            | `code-design`            |
 | add a parameter to a shared interface or rewire layers                                               | `design-review`          |
-| write or debug a test, or sequence TDD steps                                                         | `testing`                |
+| write an extension that resumes a stalled turn, or edit `packages/pi-continue/`                      | `pi-extension-lifecycle` |
 | write or edit markdown, an architecture doc, or a plan/retro                                         | `markdown-conventions`   |
 | author or review a Mermaid diagram                                                                   | `mermaid`                |
 | explore unfamiliar code                                                                              | `colgrep`                |

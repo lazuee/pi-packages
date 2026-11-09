@@ -1,0 +1,73 @@
+{
+  "name": "@gotgenes/pi-ask",
+  "version": "0.1.0",
+  "description": "Pi extension giving the agent an interactive ask_user clarification tool, with a form, background questions, and child-agent forwarding",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-extension",
+    "ask_user",
+    "clarification",
+    "human-in-the-loop",
+    "terminal-ui"
+  ],
+  "author": {
+    "name": "Chris Lasher"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gotgenes/pi-packages.git",
+    "directory": "packages/pi-ask"
+  },
+  "bugs": {
+    "url": "https://github.com/gotgenes/pi-packages/issues"
+  },
+  "homepage": "https://github.com/gotgenes/pi-packages/tree/main/packages/pi-ask#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "files": [
+    "src",
+    "docs/*.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "lint": "biome check . && eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.11",
+    "@earendil-works/pi-ai": "1.0.0",
+    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@earendil-works/pi-tui": "1.0.0",
+    "@lydell/node-pty": "1.2.0-beta.18",
+    "@types/node": "^22.15.3",
+    "pi-coding-agent-test": "0.1.3",
+    "typebox": "^1.3.7",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=1.0.0",
+    "@earendil-works/pi-coding-agent": ">=1.0.0",
+    "@earendil-works/pi-tui": ">=1.0.0",
+    "typebox": "*"
+  }
+}

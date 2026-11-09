@@ -1,0 +1,133 @@
+<p align="center">
+  <img src="assets/ask.webp" alt="A puzzled robot holding coffee and wondering what you meant" width="320">
+</p>
+
+[![npm version](https://img.shields.io/npm/v/@gotgenes/pi-ask?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/package/@gotgenes/pi-ask) [![CI](https://img.shields.io/github/actions/workflow/status/gotgenes/pi-packages/ci.yml?style=flat&logo=github&label=CI)](https://github.com/gotgenes/pi-packages/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://opensource.org/licenses/MIT)
+
+## Give your agent permission to ask “What the fuck?”
+
+You gave your agent an obscure task.
+It didn't understand a damn thing.
+
+Instead of blindly following your bullshit, it asks a question.
+
+**And it keeps working while you answer.**
+
+## Install
+
+Install [Pi](https://pi.dev/), then:
+
+```bash
+pi install npm:@gotgenes/pi-ask
+```
+
+Or install directly from GitHub:
+
+```bash
+pi install git:github.com/gotgenes/pi-packages
+```
+
+Remove any other pi-ask installation so only one extension provides `ask_user`, then reload Pi.
+
+## Why this one
+
+- The agent asks in the background and keeps working.
+  You answer when you get to it.
+- The question panel isn't modal.
+  It sits above your input, your message draft stays, and `Esc` puts the questions aside for later.
+- Answers arrive as you give them: between turns, or by waking an idle agent.
+  When the agent has nothing else to do, it can call `wait_for_answers`.
+  In Background-only mode it never waits at all.
+- It's lean on context: two short tool descriptions, a small schema and compact answers.
+  The whole `ask_user` declaration is about 2,000 characters.
+  The package adds no system-prompt rules or bundled skill, so when and how often to ask stays with your own instructions.
+- You answer with more than a click: pick options, write your own answer, leave notes on any option, paste screenshots.
+- A question can carry its context, as text or as the absolute path of a file.
+  The form shows it beside the options, so you don't have to dig through the chat.
+
+## Ask. Keep working. Get the answer
+
+The agent calls `ask_user`.
+You get a form with choices, the context you need to answer, your own answer, and notes.
+Not another wall of text to untangle.
+
+With `background: true`, the form appears above your normal input and takes keyboard focus.
+`Alt+Q` or a click switches between answering and writing a message.
+Your answer arrives between turns, or wakes an idle agent.
+Forms queue one at a time, in order.
+
+A small indicator below the editor shows how many questions belong to unfinished forms, even when the panel is hidden.
+The count clears as forms are submitted or cancelled.
+
+Press `Esc` in the question panel or run `/ask-defer` to put all questions aside.
+The queue and drafts stay saved; `/ask-queue` reopens them.
+Press `D` on a question to skip just that question.
+Cancelling a background form cancels that question, not the agent.
+
+On Review, highlight Submit or Cancel and press `n` to add a text comment.
+Enter saves it; then confirm the action.
+A commented cancellation reaches the agent as a cancellation, not approval.
+
+The agent can call `wait_for_answers` to wait for your answers.
+Hiding the panel or sending a normal message releases that wait without cancelling the questions.
+
+Want the agent to stay available instead of waiting?
+Run `/ask-mode` and opt into Background-only, globally or for a trusted project.
+Every question then uses the queue, and the agent has no wait tool.
+Changing the mode after the first model request asks for confirmation because changing tools can invalidate the prompt cache.
+See [question modes](docs/configuration.md#question-mode).
+
+An open question panel marks the session as blocked in [Herdr](https://herdr.dev), so pending questions are visible outside the terminal.
+Hiding the panel clears that mark while keeping the queue, unless another form or explicit wait still needs input.
+
+The new Herdr desktop app receives OSC 7501 through Pi's `terminal.setProgramStatus` API (verified with Pi 1.4.0).
+Reporting uses terminal capability negotiation; `PI_PROGRAM_STATUS=0` disables it, and `PI_PROGRAM_STATUS=1` forces it when negotiation is unavailable.
+Older Pi hosts without this API keep the legacy `herdr:blocked` events.
+No Pi patch or legacy Herdr socket variables are needed for the desktop integration.
+See [status lifecycle and concurrency limits](docs/contract.md#herdr-blocked-lifecycle).
+
+## Paste a screenshot into your answer
+
+In **Type your own**, a question note, or an option note, use Pi's image-paste shortcut shown in the form.
+It is usually `Ctrl+V` on Linux/macOS and `Alt+V` on Windows/WSL.
+Paste several images if needed; `Ctrl+Alt+D` removes the last image in that editor.
+
+The form shows `[1 image]`, not a graphical preview.
+Text is optional.
+The agent receives the image itself, including in background answers.
+Images stay in session history; Markdown exports embed them as data URIs, which not every viewer can display.
+
+Linux needs a working native clipboard, `wl-paste`, or `xclip`.
+WSL can read screenshots from the Windows clipboard through PowerShell.
+File-path attachments and remote-client image uploads are not included.
+
+## Your answers aren't disposable
+
+Questions and answers are recorded automatically.
+To let the agent look them up and export them as Markdown, enable the opt-in [history tools](docs/configuration.md#history-tools):
+
+- `list_ask_history` finds past questions.
+- `read_ask_history` reads the question, choices, answer, and notes.
+- `export_ask_history` exports all or selected records.
+
+The journal survives **compaction, reload, and resume**.
+It follows the current session branch, not every conversation you've ever had.
+Unfinished forms can recover too.
+
+## The boring bits
+
+Use `/ask-settings`, or press `?` in a form.
+See [configuration](docs/configuration.md), [tool behavior](docs/contract.md), and [integration events](docs/remote-events.md).
+
+This fork of [eko24ive/pi-ask](https://github.com/eko24ive/pi-ask) adds background questions, waiting, question context, durable history/export, external UI support, and Herdr status.
+It drops chat question extraction, manual answer/replay commands, and the Elaborate action.
+The agent asks directly; the form needs no extra model call.
+
+Herdr support includes [maudelv's work](https://github.com/maudelv/pi-ask/tree/feat/herdr-blocked-state).
+
+Found a weird case?
+[Open an issue](https://github.com/alexshpunt/pi-agent-ask/issues).
+Got an idea?
+[Start a discussion](https://github.com/alexshpunt/pi-agent-ask/discussions).
+[Contributions](https://github.com/gotgenes/pi-packages/blob/main/CONTRIBUTING.md) welcome.
+[MIT](LICENSE).

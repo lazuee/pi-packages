@@ -1,9 +1,5 @@
 packages:
   - "packages/*"
-  # A bare clone of vercel-labs/agent-desktop kept for exploration; it has no
-  # package.json of its own, so it would otherwise match the glob and import as
-  # an empty workspace project.
-  - "!packages/pi-agent-desktop"
 
 # Cross-package links use the workspace: protocol explicitly, so a sibling
 # always resolves to its source here rather than to whatever npm last published.
@@ -51,6 +47,7 @@ allowBuilds:
   esbuild: false
   fallow: true
   koffi: true
+  node-pty: true
   protobufjs: true
   tree-sitter-bash: true
 

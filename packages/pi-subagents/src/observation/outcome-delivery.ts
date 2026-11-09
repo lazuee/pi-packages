@@ -260,6 +260,6 @@ export function renderOutcomeBody(outcome: OutcomeBody): string {
 	if (outcome.stoppedWhileQueued)
 		return "Agent was stopped while queued and never started. No work was performed.";
 	const trimmed = outcome.result?.trim();
-	// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: converts falsy values to fallback
+	// `||`, not `??`: any falsy result is as uninformative as an absent one.
 	return trimmed || "No output.";
 }

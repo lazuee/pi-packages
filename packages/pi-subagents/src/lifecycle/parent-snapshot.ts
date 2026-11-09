@@ -72,7 +72,7 @@ export function buildParentSnapshot(
     systemPrompt: ctx.getSystemPrompt(),
     model: ctx.model,
     modelRegistry: ctx.modelRegistry,
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: converts empty string to undefined as well as null/undefined
+     
     parentContext: parentContext || undefined,
     portablePrompt: buildPortablePrompt(promptOptions),
   };

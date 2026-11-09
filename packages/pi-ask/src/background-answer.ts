@@ -1,0 +1,170 @@
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import { Box, Text } from "@earendil-works/pi-tui";
+import { successfulResponse } from "./ask-tool-helpers";
+import {
+  ASK_ANSWER_MESSAGE,
+  ASK_COMPLETED_ENTRY,
+  type QueuedAnswer,
+} from "./background-ask-state";
+import { summarizeResult } from "./state/result";
+import type { AskResultAnswer } from "./types";
+import { pushSavedNote } from "./ui/render-helpers";
+import { renderReviewQuestion } from "./ui/render-submit";
+import { toReviewQuestionModel } from "./ui/view-models/review";
+
+/** Keep background answers understandable without the original tool call in context. */
+export function formatQueuedAnswer(answer: QueuedAnswer): string {
+  const result = answer.result;
+  const header = `Background answer [${answer.requestId}]${result?.title ? ` — ${result.title}` : ""}:`;
+  if (!result) {
+    return `${header}\nQuestion form failed: ${answer.error}`;
+  }
+  const questions = result.questions.map(
+    (question) => `- [${question.id}] ${question.label}: ${question.prompt}`,
+  );
+  const summary = summarizeResult({
+    ...result,
+    questions: result.questions.map((question) => ({
+      ...question,
+      label: `${question.label} [${question.id}]`,
+    })),
+  });
+  return `${header}\nQuestions:\n${questions.join("\n")}\nResponse:\n${summary}`;
+}
+
+/** Render the user-facing card without transport names or correlation IDs. */
+export function renderBackgroundAnswer(
+  answer: QueuedAnswer,
+  theme: Pick<Theme, "fg" | "bg" | "bold">,
+  outputPad: number,
+): Box {
+  const box = new Box(outputPad, 1, (text) =>
+    theme.bg("customMessageBg", text),
+  );
+  box.addChild({
+    render(width) {
+      const status = answerStatus(answer);
+      const title = answer.result?.title;
+      const header =
+        theme.fg(status.color, theme.bold(status.text)) +
+        (title ? theme.fg("muted", ` · ${title}`) : "");
+      const lines = [header, ...answerBody(answer, theme, width)];
+      const result = answer.result;
+      if (result && !result.cancelled && !result.error) {
+        if (title) {
+          lines[0] =
+            theme.fg("accent", theme.bold(title)) +
+            theme.fg(status.color, ` · ${status.text}`);
+        }
+        const border = theme.fg("accent", "─".repeat(Math.max(1, width)));
+        lines.unshift(border);
+        lines.push("", border);
+      }
+      return new Text(lines.join("\n"), 0, 0).render(width);
+    },
+    invalidate: () => undefined,
+  });
+  return box;
+}
+
+function answerStatus(answer: QueuedAnswer): {
+  color: "error" | "warning" | "success";
+  text: string;
+} {
+  if (!answer.result || answer.result.error) {
+    return { color: "error", text: "! Question form failed" };
+  }
+  if (answer.result.cancelled) {
+    return { color: "warning", text: "? Questions cancelled" };
+  }
+  if (
+    answer.result.skippedQuestionIds?.length === answer.result.questions.length
+  ) {
+    return { color: "warning", text: "? Questions skipped" };
+  }
+  return { color: "success", text: "✓ Answers received" };
+}
+
+function answerBody(
+  answer: QueuedAnswer,
+  theme: Pick<Theme, "fg" | "bold">,
+  width: number,
+): string[] {
+  const result = answer.result;
+  if (!result) {
+    return [theme.fg("error", answer.error ?? "No form result available.")];
+  }
+  if (result.error) {
+    return [theme.fg("error", successfulResponse(result).content[0].text)];
+  }
+  if (result.cancelled) {
+    return [
+      theme.fg("muted", "No approval given."),
+      ...(result.comment ? [theme.fg("muted", result.comment)] : []),
+    ];
+  }
+  const lines: string[] = [];
+  for (const question of result.questions) {
+    lines.push("");
+    const response = result.answers[question.id] as AskResultAnswer | undefined;
+    const model = toReviewQuestionModel(question.prompt, response);
+    model.skipped = result.skippedQuestionIds?.includes(question.id);
+    model.unanswered = !response?.values.length && !response?.customText;
+    renderReviewQuestion(lines, model, theme, width);
+    if (model.unanswered && model.note) {
+      pushSavedNote({
+        lines,
+        note: model.note,
+        width,
+        theme,
+        indent: "     ",
+      });
+    }
+  }
+  if (
+    result.questions.some(
+      (question) =>
+        question.presentedType && question.presentedType !== question.type,
+    )
+  ) {
+    lines.push(
+      "",
+      theme.fg(
+        "dim",
+        "Note: Some questions were presented as multi-select by user preference.",
+      ),
+    );
+  }
+  appendFinalComment(lines, result.comment, theme, width);
+  return lines;
+}
+
+function appendFinalComment(
+  lines: string[],
+  note: string | undefined,
+  theme: Pick<Theme, "fg" | "bold">,
+  width: number,
+) {
+  if (note) {
+    pushSavedNote({ lines, note, width, theme, indent: " " });
+  }
+}
+
+/** Give asynchronous answer messages their own transcript renderer. */
+export function registerBackgroundAnswerRenderer(pi: ExtensionAPI): void {
+  // Older journals keep their visible messages; new completion entries own presentation.
+  pi.registerEntryRenderer<QueuedAnswer & { display?: boolean }>(
+    ASK_COMPLETED_ENTRY,
+    (entry, _options, theme) =>
+      entry.data?.display
+        ? renderBackgroundAnswer(entry.data, theme, 1)
+        : undefined,
+  );
+  pi.registerMessageRenderer<QueuedAnswer>(
+    ASK_ANSWER_MESSAGE,
+    (message, { outputPad }, theme) =>
+      message.details
+        ? renderBackgroundAnswer(message.details, theme, outputPad)
+        : undefined,
+  );
+}

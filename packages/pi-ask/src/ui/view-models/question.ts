@@ -1,0 +1,221 @@
+import { CURSOR_MARKER } from "@earendil-works/pi-tui";
+import { UI_DIMENSIONS, UI_TEXT } from "#src/constants/ui";
+import { withImageMarker } from "#src/images";
+import { hasCustomAnswer, isOptionSelected } from "#src/state/answers";
+import {
+  getAnswer,
+  getOptionNote,
+  getQuestionNote,
+  isInputOpenForQuestion,
+  isOptionNoteOpen,
+  isQuestionNoteOpen,
+} from "#src/state/selectors";
+import type { AskDisplayOption } from "#src/types";
+import type { QuestionRenderContext } from "#src/ui/render-types";
+
+export type QuestionNoteModel =
+  | { kind: "editor"; placeholder: string }
+  | { kind: "saved"; text: string };
+
+export type OptionDetailModel =
+  | { kind: "editor"; placeholder: string }
+  | { kind: "saved-note"; text: string }
+  | { kind: "custom-text"; text: string };
+
+export interface OptionRowModel {
+  color: "accent" | "text" | "success";
+  description?: string;
+  detail?: OptionDetailModel;
+  index: number;
+  isCustom: boolean;
+  label: string;
+  pointer: string;
+  prefix: string;
+  recommended: boolean;
+  selected: boolean;
+}
+
+export interface QuestionScreenModel {
+  context?: string;
+  contextLayout?: "custom" | "stacked" | "wide";
+  mode: "context" | "standard";
+  questionNote?: QuestionNoteModel;
+  rows: OptionRowModel[];
+  selectedOptionDetail?: OptionDetailModel;
+}
+
+export function buildQuestionScreenModel(
+  context: QuestionRenderContext,
+): QuestionScreenModel {
+  const rows = context.options.map((option, index) =>
+    buildOptionRowModel(context, option, index),
+  );
+  const questionNote = buildQuestionNoteModel(context);
+  if (!context.question.context) {
+    return {
+      mode: "standard",
+      questionNote,
+      rows,
+    };
+  }
+
+  const selectedOption = context.options[context.state.activeOptionIndex];
+  return {
+    context: context.question.context,
+    contextLayout: getContextLayout(context, selectedOption),
+    mode: "context",
+    questionNote,
+    rows,
+    selectedOptionDetail: editorOnly(
+      buildOptionDetailModel(context, selectedOption, true),
+    ),
+  };
+}
+
+function buildQuestionNoteModel(
+  context: QuestionRenderContext,
+): QuestionNoteModel | undefined {
+  const { state, question } = context;
+  if (isQuestionNoteOpen(state, question.id)) {
+    return { kind: "editor", placeholder: UI_TEXT.editorPlaceholderNote };
+  }
+  const note = withImageMarker(
+    getQuestionNote(state, question.id),
+    getAnswer(state, question.id)?.noteImages,
+  );
+  return note ? { kind: "saved", text: note } : undefined;
+}
+
+function buildOptionRowModel(
+  context: QuestionRenderContext,
+  option: AskDisplayOption,
+  index: number,
+): OptionRowModel {
+  const { question, state } = context;
+  const answer = getAnswer(state, question.id);
+  const selected = index === state.activeOptionIndex;
+  const answered = option.isCustomOption
+    ? !!(answer?.customSelected && hasCustomAnswer(answer))
+    : isOptionSelected(answer, option.value);
+  const pointer = getOptionPointer(selected, context.markActiveRow);
+  return {
+    color: getOptionColor(answered, selected),
+    description: option.description,
+    detail: context.question.context
+      ? savedOnly(buildOptionDetailModel(context, option, selected))
+      : buildOptionDetailModel(context, option, selected),
+    index,
+    isCustom: !!option.isCustomOption,
+    label: option.label,
+    pointer,
+    prefix: getOptionPrefix(question.type, option, answered),
+    recommended: option.recommended === true,
+    selected,
+  };
+}
+
+function getOptionPointer(selected: boolean, markActiveRow = false): string {
+  return selected ? `${markActiveRow ? CURSOR_MARKER : ""}❯ ` : "  ";
+}
+
+function buildOptionDetailModel(
+  context: QuestionRenderContext,
+  option: AskDisplayOption | undefined,
+  selected: boolean,
+): OptionDetailModel | undefined {
+  if (!option) {
+    return;
+  }
+
+  const { state, question } = context;
+  const answer = getAnswer(state, question.id);
+  const inputOpen =
+    !!option.isCustomOption &&
+    selected &&
+    isInputOpenForQuestion(state, question.id);
+  const noteOpen =
+    !option.isCustomOption &&
+    isOptionNoteOpen(state, question.id, option.value);
+  const customText = option.isCustomOption
+    ? withImageMarker(answer?.customText, answer?.customImages)
+    : undefined;
+  const note = option.isCustomOption
+    ? undefined
+    : withImageMarker(
+        getOptionNote(state, question.id, option.value),
+        answer?.optionNoteImages?.[option.value],
+      );
+
+  if (noteOpen) {
+    return {
+      kind: "editor",
+      placeholder: UI_TEXT.editorPlaceholderNote,
+    };
+  }
+  if (inputOpen) {
+    return {
+      kind: "editor",
+      placeholder: UI_TEXT.editorPlaceholderInput,
+    };
+  }
+  if (customText) {
+    return {
+      kind: "custom-text",
+      text: customText,
+    };
+  }
+  if (note) {
+    return { kind: "saved-note", text: note };
+  }
+  return;
+}
+
+/** With context, open editors render below the list; saved text stays on its row. */
+function editorOnly(
+  detail: OptionDetailModel | undefined,
+): OptionDetailModel | undefined {
+  return detail?.kind === "editor" ? detail : undefined;
+}
+
+function savedOnly(
+  detail: OptionDetailModel | undefined,
+): OptionDetailModel | undefined {
+  return detail?.kind === "editor" ? undefined : detail;
+}
+
+function getContextLayout(
+  context: QuestionRenderContext,
+  selectedOption: AskDisplayOption | undefined,
+): "custom" | "stacked" | "wide" {
+  if (selectedOption?.isCustomOption) {
+    return "custom";
+  }
+  return context.width >= UI_DIMENSIONS.previewWideMinWidth &&
+    context.options.length > 0
+    ? "wide"
+    : "stacked";
+}
+
+function getOptionPrefix(
+  questionType: QuestionRenderContext["question"]["type"],
+  _option: AskDisplayOption,
+  answered: boolean,
+): string {
+  if (questionType !== "multi") {
+    return "";
+  }
+  return `[${answered ? "x" : " "}] `;
+}
+
+function getOptionColor(
+  answered: boolean,
+  selected: boolean,
+): "accent" | "text" | "success" {
+  if (answered) {
+    return "success";
+  }
+  if (selected) {
+    return "accent";
+  }
+  return "text";
+}

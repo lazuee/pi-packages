@@ -170,7 +170,6 @@ function reasonEvidence(reason?: string): PromptEvidence[] {
     : [{ label: "reason", text: reason, detail: null }];
 }
 
-
 /**
  * The blame a bash path gate stamps: the deciding path and what established
  * its direction, flattened once so no gate spells the attribution's shape.

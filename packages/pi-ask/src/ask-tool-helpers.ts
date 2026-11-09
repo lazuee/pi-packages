@@ -1,0 +1,212 @@
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text, truncateToWidth } from "@earendil-works/pi-tui";
+import type { Static } from "typebox";
+import type { AskQueuedSchema } from "./background-ask-state";
+import { UI_DIMENSIONS } from "./constants/ui";
+import { imageContent } from "./images";
+import { renderResultText } from "./result";
+import { toAskOutput } from "./result-schema";
+import { createInitialState } from "./state/create";
+import { collectValidationIssues } from "./state/normalize";
+import { summarizeResult, toAskResult } from "./state/result";
+import type {
+  AskParams,
+  AskQuestionInput,
+  AskResult,
+  AskValidationIssue,
+} from "./types";
+
+export const ASK_TOOL_DESCRIPTION =
+  "Use ask_user when you need something only the user can provide: information you could not find through search or other tools, their opinion or preference, or a choice between options. The call returns the user's answers.";
+
+export const ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION =
+  "Use ask_user when you need something only the user can provide: information you could not find through search or other tools, their opinion or preference, or a choice between options. The call returns a request ID; the answers arrive later as a background-answer message.";
+
+interface ValidateParamsOptions {
+  presentSingleAsMulti?: boolean;
+}
+
+export function validateParams(
+  params: AskParams,
+  options: ValidateParamsOptions = {},
+):
+  | { ok: true; state: ReturnType<typeof createInitialState> }
+  | { ok: false; issues: AskValidationIssue[] } {
+  const issues = collectValidationIssues(params);
+  if (issues.length > 0) {
+    return { ok: false, issues };
+  }
+
+  return {
+    ok: true,
+    state: createInitialState(params, options),
+  };
+}
+
+export function invalidPayloadResponse(
+  params: AskParams,
+  issues: AskValidationIssue[],
+) {
+  const result = errorResultDetails(params, issues);
+  return {
+    content: [{ type: "text" as const, text: formatValidationError(issues) }],
+    details: result,
+    structuredContent: toAskOutput(result),
+  };
+}
+
+export function nonInteractiveResponse(
+  state: ReturnType<typeof createInitialState>,
+) {
+  const result: AskResult = {
+    ...toAskResult(state),
+    cancelled: true,
+  };
+  return {
+    content: [
+      { type: "text" as const, text: formatNonInteractiveMessage(state) },
+    ],
+    details: result,
+    structuredContent: toAskOutput(result),
+  };
+}
+
+export function successfulResponse(result: AskResult) {
+  const content: [TextContent, ...(TextContent | ImageContent)[]] = [
+    { type: "text", text: formatCompletedResult(result) },
+    ...imageContent(result),
+  ];
+  return {
+    content,
+    details: result,
+    structuredContent: toAskOutput(result),
+  };
+}
+
+/** Agent-facing completion text; native rendering continues to use the full result. */
+function formatCompletedResult(result: AskResult): string {
+  if (result.error) {
+    return formatValidationError(result.error.issues);
+  }
+  if (result.cancelled) {
+    return summarizeResult(result);
+  }
+  const questions = result.questions.map(
+    (question) => `- [${question.id}] ${question.label}: ${question.prompt}`,
+  );
+  const summary = summarizeResult({
+    ...result,
+    questions: result.questions.map((question) => ({
+      ...question,
+      label: `${question.label} [${question.id}]`,
+    })),
+  });
+  return [
+    "User submitted the question form. Answers are included below; skipped or unanswered questions are not approval.",
+    ...(result.title ? [`Title: ${result.title}`] : []),
+    "Questions:",
+    ...questions,
+    "Response:",
+    summary,
+  ].join("\n");
+}
+
+type ToolTheme = ExtensionContext["ui"]["theme"];
+
+export function renderAskToolCall(args: unknown, theme: ToolTheme) {
+  const params = args as AskParams;
+  const labels = Array.isArray(params.questions)
+    ? params.questions
+        .map(
+          (question: AskQuestionInput, index) =>
+            question.label?.trim() ?? `Q${index + 1}`,
+        )
+        .join(", ")
+    : "";
+  let text = theme.fg("toolTitle", theme.bold("ask_user "));
+  text += theme.fg("muted", `${params.questions.length} question(s)`);
+  if (labels) {
+    text += theme.fg(
+      "dim",
+      ` (${truncateToWidth(labels, UI_DIMENSIONS.callLabelTruncateWidth)})`,
+    );
+  }
+  return new Text(text, 0, 0);
+}
+
+export function renderAskToolResult(
+  result: {
+    content: Array<{ type?: string; text?: string }>;
+    details?: AskResult | Static<typeof AskQueuedSchema>;
+  },
+  _options: unknown,
+  theme: ToolTheme,
+) {
+  const details = result.details;
+  if (!details) {
+    return new Text("", 0, 0);
+  }
+  if ("status" in details) {
+    return new Text(
+      `${details.questionIds.length} question(s) queued · ${details.pendingRequests} form(s) pending`,
+      0,
+      0,
+    );
+  }
+  if (!Array.isArray(details.questions)) {
+    const text = result.content[0];
+    return new Text(text.type === "text" ? (text.text ?? "") : "", 0, 0);
+  }
+  const text = renderResultText(details);
+  return new Text(
+    details.error || details.cancelled ? theme.fg("warning", text) : text,
+    0,
+    0,
+  );
+}
+
+function errorResultDetails(
+  params: AskParams,
+  issues: AskValidationIssue[],
+): AskResult {
+  return {
+    title: params.title,
+    cancelled: true,
+    questions: [],
+    answers: {},
+    error: {
+      kind: "invalid_input",
+      issues,
+    },
+  };
+}
+
+function formatValidationError(issues: AskValidationIssue[]): string {
+  return [
+    "Invalid ask_user payload:",
+    ...issues.map((issue) => `- ${issue.path}: ${issue.message}`),
+  ].join("\n");
+}
+
+function formatNonInteractiveMessage(
+  state: ReturnType<typeof createInitialState>,
+): string {
+  const lines = [
+    "Needs user input: ask_user requires interactive TUI mode.",
+    "Run same tool call in interactive TUI mode, or ask user these questions manually:",
+  ];
+
+  for (const [index, question] of state.questions.entries()) {
+    lines.push(`${index + 1}. ${question.label}: ${question.prompt}`);
+    for (const option of question.options) {
+      lines.push(`   - ${option.label} [${option.value}]`);
+    }
+    lines.push("   - Type your own [custom]");
+  }
+
+  lines.push(
+    "details.questions contains normalized pending questions. details.answers stays empty until user responds.",
+  );
+  return lines.join("\n");
+}

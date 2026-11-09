@@ -329,8 +329,8 @@ function collectTurnFailure(session: AgentSession) {
     if (event.type !== "message_end" || event.message.role !== "assistant") return;
     failure =
       event.message.stopReason === "error"
-        ? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty errorMessage is as uninformative as an absent one, and ?? would pass it through
-          event.message.errorMessage || PROVIDER_ERROR_WITHOUT_MESSAGE
+        // `||`, not `??`: an empty errorMessage is as uninformative as an absent one.
+        ? event.message.errorMessage || PROVIDER_ERROR_WITHOUT_MESSAGE
         : undefined;
   });
   return { getFailure: () => failure, unsubscribe };
@@ -342,7 +342,7 @@ function readLastTurnFailure(session: AgentSession): string | undefined {
     const msg = session.messages[i];
     if (msg.role !== "assistant") continue;
     if (msg.stopReason !== "error") return undefined;
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty errorMessage is as uninformative as an absent one, and ?? would pass it through
+    // `||`, not `??`: an empty name has to become undefined, not "".
     return msg.errorMessage || PROVIDER_ERROR_WITHOUT_MESSAGE;
   }
   return undefined;

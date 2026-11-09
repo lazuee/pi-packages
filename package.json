@@ -37,16 +37,18 @@
   "license": "MIT",
   "pi": {
     "extensions": [
+      "packages/pi-ask/src/index.ts",
       "packages/pi-autoformat/src/extension.ts",
       "packages/pi-colgrep/src/extension.ts",
+      "packages/pi-continue/src/extension.ts",
       "packages/pi-github-tools/src/extension.ts",
+      "packages/pi-macos-harness/src/extension.ts",
       "packages/pi-nocd/src/index.ts",
       "packages/pi-permission-model-judge/src/index.ts",
       "packages/pi-permission-system/src/index.ts",
       "packages/pi-session-tools/src/index.ts",
-      "packages/pi-subagents/src/index.ts",
       "packages/pi-subagents-worktrees/src/index.ts",
-      "packages/pi-macos-harness/src/extension.ts"
+      "packages/pi-subagents/src/index.ts"
     ],
     "skills": [
       "packages/pi-colgrep/skills",

@@ -1,0 +1,122 @@
+# Architecture
+
+The codebase is split so the implementation reads through file boundaries and names, not through large explanatory docs.
+
+## Design goals
+
+- thin pi-specific wiring
+- pure, testable state transitions
+- rendering separated from decision logic
+- a small stable tool contract
+
+## Module map
+
+### Tool surface
+
+- `src/background-ask-state.ts` — queue schemas and active-branch replay; transcript delivery is authoritative
+- `src/background-answer.ts` — complete agent context and durable completion-entry cards, independent of answer consumption; accepted cards reuse the questionnaire's review model and question renderer
+- `src/background-ask.ts` — detached FIFO runtime, execution-root ownership, recovery, and completion routing; restores at `resources_discover` after status consumers initialize, and holds Herdr indication only while the queue panel is visible, including FIFO handoffs
+- `src/wait-for-answers-tool.ts` — explicit wait gate with complete model results and brief visible consumption confirmations
+- `src/ask-surface.ts` — shared input-surface lock for foreground tool and recovery flows; background widgets do not hold this lock
+- `src/ask-draft.ts` — validated question-panel snapshots for branch-local draft recovery
+- `src/herdr-wait-state.ts` — aggregates visible queue panels, foreground forms, and explicit waits into one balanced Herdr blocked acquisition/release; one owner cannot clear another's status
+- `src/program-status.ts` — optional negotiated OSC 7501 transport; binds the host terminal from question surfaces, consumes the existing wait aggregate, restores active/resting state, and coalesces best-effort lifecycle reassertion without patching Pi.
+  Owns no separate wait count.
+- `src/index.ts` — extension entrypoint; registers history tools at session startup only when the persisted opt-in is enabled, without injecting configuration guidance
+- `src/ask-mode.ts` / `src/ask-mode-command.ts` — trusted mode resolution and confirmed mode changes; re-registers the question tool schema and wait-tool exposure without replacing the queue
+- `src/blocked-status.ts` — shared status ownership for the unresolved background queue and foreground surfaces
+- `src/ask-tool.ts` — tool registration, non-interactive fallback, transcript rendering, ask payload capture
+- `src/ask-history.ts` / `src/ask-history-schema.ts` — journal entries, generated identities, per-question outcomes, and active-branch reads
+- `src/ask-history-tools.ts` — silent list/search, read, and export tools
+- `src/ask-history-export.ts` — literal Markdown snapshots and exclusive file creation
+- `src/ask-payload-store.ts` — persisted tool payloads for interrupted-form recovery
+- `src/pending-ask.ts` — active-branch unresolved tool-call detection and recovery dismissal persistence
+- `src/resume-pending-ask.ts` — detached lifecycle wiring and recovered answer delivery
+- `src/notifications.ts` — best-effort ask notification payload rendering and channel execution
+- `src/remote-ask.ts` — package-prefixed local event contract, active-flow registry, and explicit remote submission validation
+- `src/external-ui.ts` — per-call external UI negotiation and foreground wait, using the same input lock, remote validation, and result serialization
+- `src/schema.ts` — TypeBox schema
+- `src/result-schema.ts` — full result schema for details and history, plus the compact output schema returned to programmatic callers
+- `src/context-files.ts` — loads question contexts given as absolute paths of UTF-8 text files before UI and payload capture; state and rendering remain filesystem-free
+- `src/types.ts` — shared types
+- `src/images.ts` — attachment markers and model image blocks with question/note context
+- `src/clipboard-image.ts` — public native clipboard, Linux command, and WSL clipboard adapters; temporary files are removed after reading
+
+### State
+
+- `src/state/normalize.ts` — normalize incoming questions
+- `src/state/answers.ts` — mutate and serialize answers
+- `src/state/selectors.ts` — read-only selectors
+- `src/state/transitions.ts` — navigation, selection, notes, input, submit, cancel
+- `src/state/result.ts` — convert UI state to `AskResult`
+- `src/state/skip.ts` — remove one question from navigation while preserving original result order and explicit skipped identities
+- `src/state/view.ts` — view-mode helpers
+- `src/state.ts` — state barrel used by UI and tests
+
+### Config
+
+- `src/config/defaults.ts` — canonical runtime defaults
+- `src/config/schema.ts` — persisted config schema and runtime type
+- `src/config/migrate.ts` — persisted-file validation boundary, including schema migration and context-aware keymap normalization/fallback
+- `src/config/migrations/` — ordered schema-version migration framework for persisted config shape changes
+- `src/config/store.ts` — non-destructive product config loading, load, save, notice, and runtime subscription store
+
+### UI
+
+- `src/ui/controller.ts` — connects key input, editor lifecycle, live config subscription, dirty-dismiss confirmation, and pure state transitions
+- `src/ui/wait-for-editor.ts` — uses an empty native widget to wait for the editor to return before opening recovered background forms
+- `src/ui/persistent-ask.ts` — shows the question controller beside the native editor; translates native widget mouse coordinates through the rendered viewport and explicitly focuses a non-capturing keyboard overlay without replacing normal input
+- `src/ui/input.ts` — raw input to commands using resolved context-aware config-backed keymaps
+- `src/ui/dismiss-guard.ts` — pure helpers for dirty-flow exit confirmation behavior
+- `src/ui/render.ts` and `src/ui/render-*.ts` — screen rendering, including config-backed footer/keymap hints
+- `src/ui/settings-list.ts` / `src/ui/show-settings.ts` — lightweight ask settings list rendering and launcher
+- `src/ui/constants.ts` and `src/ui/render-types.ts` — rendering constants/contracts
+
+### Result formatting
+
+- `src/result-format.ts` — shared summary/result line formatting
+- `src/result.ts` — final result rendering
+- `src/text.ts` / `src/constants.ts` — shared display strings
+
+### Tests
+
+- `tests/program-status.test.ts` — optional OSC transport, shared wait ownership, lifecycle reassertion, and stale-write cleanup
+- `tests/integration/herdr-core-status.test.ts` — real Pi inside a Herdr core PTY; opt in with `ASK_HERDR_CORE_TEST=1 node --test tests/integration/herdr-core-status.test.ts` on a host with `hc` and Pi's status API.
+  `ASK_HERDR_TEST_EXTENSION` can select an installed package entrypoint instead of the source checkout.
+  The fixture owns and removes its terminals.
+- `tests/state.test.ts` — state transitions and serialization
+- `tests/input.test.ts` — editing/navigation key behavior
+- `tests/result.test.ts` — summaries and transcript output
+- `tests/render-*.test.ts` / `tests/text.test.ts` — rendering helpers
+
+## Invariants worth preserving
+
+- submit is never blocked by unanswered questions
+- single-select answers serialize as arrays
+- when `behaviour.presentSingleAsMulti` is enabled, future single-select questions are handled with multi-select state semantics while result metadata preserves the requested `type` and adds `presentedType`
+- active-flow question type changes are per-question runtime overrides handled in state/controller logic; they do not mutate the stored source payload or global config
+- single-select free-form answers replace selected options for that question
+- multi-select free-form answers augment selected options instead of clearing them
+- questions with context show it beside the options while keeping the synthetic custom-answer option
+- deselected option notes stay in UI state and are emitted in the final result
+- editor lifecycle stays in the controller, not in the reducers
+- persisted ask settings are migrated to the current schema version in memory, validated, and normalized before use without rewriting the config file on load
+- config schema migrations preserve user-provided values and add new defaults only when fields are absent
+- interrupted-ask recovery selects only the newest unresolved `ask_user` call on the active branch, prefers its valid persisted payload, and validates original arguments as fallback
+- recovered forms open only for TUI `startup`, `resume`, and `fork` events; the flow stays detached from the lifecycle handler
+- recovered submit and cancel persist dismissal before the same tool call can reopen
+- invalid persisted keymaps fall back to default keymaps for the current session without discarding valid behaviour and notification settings
+- invalid notification channels are skipped and fall back to the default bell channel if none are valid
+- ask settings behaviour and notification enabled changes attempt to persist immediately from the settings list; save failures revert the change and show an error; config reset is guarded by a short double-press confirmation
+- `presentSingleAsMulti` is applied at ask-flow creation; toggling it does not rewrite already-normalized questions in an open flow
+- `main.changeQuestionType` changes the active question type live (`single <-> multi`) and may require confirmation before destructive multi-to-single conversion
+- when the ask config file is missing, the first ask use attempts to write a default persisted config snapshot under `~/.pi/agent/extensions/`; if writing fails, built-in defaults are used for the session
+- upstream config files are not read or changed; the product uses `extensions/gotgenes/pi-ask.json`
+- invalid config files are left untouched; defaults are loaded for the session with a notice
+- live config updates can affect an in-progress ask flow immediately
+- remote ask submissions must be explicit `answer` or `cancel` responses; @gotgenes/pi-ask validates ids/values but never infers approve/deny semantics from labels or option values
+
+## Documentation rule
+
+Docs should explain contracts, responsibilities, and invariants.
+Code and tests should explain the rest.

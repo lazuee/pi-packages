@@ -136,7 +136,7 @@ function adoptedIdentity(inherited: InheritedPrompt, cwd: string): string {
       cwd !== inherited.cwd,
     );
   }
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: a whitespace-only capture must fall back too, which ?? would not do
+  // `||`, not `??`: a whitespace-only capture must fall back too.
   return inherited.portablePrompt?.trim() || genericBase;
 }
 

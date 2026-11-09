@@ -275,7 +275,8 @@ function requesterFact(payload: PromptPayload): Fact | undefined {
   if (!forwarded) {
     return agentName ? { label: "agent", text: agentName } : undefined;
   }
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: a version-skewed request carries "" rather than null
+
+  // `||`, not `??`: a version-skewed request carries "" rather than null.
   const name = agentName || "unknown";
   return {
     label: "subagent",

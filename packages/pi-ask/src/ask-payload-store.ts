@@ -1,0 +1,87 @@
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+import { Value } from "typebox/value";
+import { validateParams } from "./ask-tool-helpers";
+import { AskParamsSchema } from "./schema";
+import { prepareAskParams } from "./state/normalize";
+import type { AskParams } from "./types";
+
+export const ASK_PAYLOAD_ENTRY_TYPE = "ask:payload";
+export const ASK_PAYLOAD_ENTRY_VERSION = 1;
+
+export type AskPayloadSource = "tool";
+
+export interface AskPayloadEntryData {
+  params: AskParams;
+  source: AskPayloadSource;
+  sourceEntryId?: string;
+  timestamp: number;
+  version: typeof ASK_PAYLOAD_ENTRY_VERSION;
+}
+
+export function appendAskPayload(
+  pi: Pick<ExtensionAPI, "appendEntry">,
+  data: Omit<AskPayloadEntryData, "timestamp" | "version">,
+): void {
+  pi.appendEntry(ASK_PAYLOAD_ENTRY_TYPE, {
+    version: ASK_PAYLOAD_ENTRY_VERSION,
+    timestamp: Date.now(),
+    ...data,
+  });
+}
+
+export function findPayloadForSourceEntry(
+  ctx: Pick<ExtensionContext, "sessionManager">,
+  sourceEntryId: string,
+  source: AskPayloadSource,
+): AskPayloadEntryData | undefined {
+  for (const entry of [...ctx.sessionManager.getBranch()].reverse()) {
+    if (!isAskPayloadEntry(entry)) {
+      continue;
+    }
+    const data = entry.data;
+    if (data?.source !== source || data.sourceEntryId !== sourceEntryId) {
+      continue;
+    }
+    const migrated = { ...data, params: prepareAskParams(data.params) };
+    if (isValidAskPayloadData(migrated)) {
+      return migrated;
+    }
+  }
+  return;
+}
+
+function isAskPayloadEntry(entry: unknown): entry is {
+  customType: string;
+  data?: Partial<AskPayloadEntryData>;
+  type: "custom";
+} {
+  return (
+    !!entry &&
+    typeof entry === "object" &&
+    (entry as { type?: unknown }).type === "custom" &&
+    (entry as { customType?: unknown }).customType === ASK_PAYLOAD_ENTRY_TYPE
+  );
+}
+
+function isValidAskPayloadData(data: unknown): data is AskPayloadEntryData {
+  if (!(data && typeof data === "object")) {
+    return false;
+  }
+  const payload = data as Partial<AskPayloadEntryData>;
+  if (payload.version !== ASK_PAYLOAD_ENTRY_VERSION) {
+    return false;
+  }
+  if (payload.source !== "tool") {
+    return false;
+  }
+  if (
+    !Value.Check(AskParamsSchema, payload.params) ||
+    !validateParams(payload.params).ok
+  ) {
+    return false;
+  }
+  return true;
+}

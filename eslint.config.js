@@ -188,6 +188,13 @@ export default tseslint.config(
       "@typescript-eslint/prefer-reduce-type-parameter": "error",
       "@typescript-eslint/prefer-return-this-type": "error",
       "@typescript-eslint/unified-signatures": "error",
+      // `??` keeps "", so an optional string whose contract is "blank means
+      // absent" still needs `||`. Enabled as an ignore means the rule only
+      // reports a `||` that throws away null/undefined it should have kept.
+      "@typescript-eslint/prefer-nullish-coalescing": [
+        "error",
+        { ignorePrimitives: { string: true, number: true } },
+      ],
     },
     languageOptions: {
       globals: { ...globals.node },

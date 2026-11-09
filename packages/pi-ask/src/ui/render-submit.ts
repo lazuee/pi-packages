@@ -1,0 +1,236 @@
+import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui";
+import { UI_TEXT } from "#src/constants/ui";
+import type { AskState } from "#src/types";
+import {
+  mergeColumns,
+  pushSavedNote,
+  pushWrappedText,
+  renderEditorBlock,
+} from "./render-helpers";
+import type {
+  AskMouseTarget,
+  QuestionRenderContext,
+  Theme,
+} from "./render-types";
+import { buildReviewScreenModel } from "./view-models/review";
+
+export function renderSubmitScreen(
+  lines: string[],
+  state: AskState,
+  theme: Theme,
+  width: number,
+  reviewShortcutHint?: string,
+  markActiveRow = false,
+  targets?: AskMouseTarget[],
+  editor?: QuestionRenderContext["editor"],
+) {
+  const model = buildReviewScreenModel(state, width);
+  if (model.layout === "wide") {
+    const rightWidth = Math.max(1, width - model.actionColumnWidth - 2);
+    const reviewLines = renderSubmitReviewLines(model, theme, rightWidth);
+    const actionLines = renderSubmitActions(
+      model,
+      theme,
+      model.actionColumnWidth,
+      markActiveRow,
+      targets,
+      lines.length,
+      state,
+      editor,
+    );
+    for (const line of mergeColumns(
+      actionLines,
+      reviewLines,
+      model.actionColumnWidth,
+      width,
+    )) {
+      lines.push(line);
+    }
+    appendReviewShortcutHint(lines, reviewShortcutHint, theme, width);
+    return;
+  }
+
+  const reviewLines = renderSubmitReviewLines(model, theme, width);
+  const actionLines = renderSubmitActions(
+    model,
+    theme,
+    width,
+    markActiveRow,
+    targets,
+    lines.length + reviewLines.length + 1,
+    state,
+    editor,
+  );
+  lines.push(...reviewLines);
+  lines.push("");
+  lines.push(...actionLines);
+  appendReviewShortcutHint(lines, reviewShortcutHint, theme, width);
+}
+
+function renderSubmitReviewLines(
+  model: ReturnType<typeof buildReviewScreenModel>,
+  theme: Theme,
+  width: number,
+): string[] {
+  const lines: string[] = [];
+  pushWrappedText(lines, UI_TEXT.reviewTitle, width, theme, "accent", " ", " ");
+  lines.push("");
+
+  for (const [index, question] of model.questions.entries()) {
+    renderReviewQuestion(lines, question, theme, width);
+    if (index < model.questions.length - 1) {
+      lines.push("");
+    }
+  }
+
+  return lines;
+}
+
+/** Render one review question, its selected answers, and saved notes. */
+export function renderReviewQuestion(
+  lines: string[],
+  question: ReturnType<typeof buildReviewScreenModel>["questions"][number],
+  theme: Pick<Theme, "fg">,
+  width: number,
+) {
+  pushWrappedText(lines, question.label, width, theme, "text", " ", " ");
+  if (question.skipped) {
+    lines.push(truncateToWidth(`   ${theme.fg("dim", "(skipped)")}`, width));
+    return;
+  }
+  if (question.unanswered) {
+    lines.push(
+      truncateToWidth(`   ${theme.fg("dim", UI_TEXT.unanswered)}`, width),
+    );
+    return;
+  }
+
+  if (question.note) {
+    pushSavedNote({
+      lines,
+      note: question.note,
+      width,
+      theme,
+      indent: "     ",
+    });
+  }
+
+  for (const selection of question.selections ?? []) {
+    pushWrappedText(
+      lines,
+      `→ ${selection.label}`,
+      width,
+      theme,
+      "success",
+      "   ",
+      "     ",
+    );
+    if (selection.note) {
+      pushSavedNote({
+        lines,
+        note: selection.note,
+        width,
+        theme,
+        indent: "     ",
+      });
+    }
+  }
+
+  if (question.answerText) {
+    pushWrappedText(
+      lines,
+      `→ ${question.answerText}`,
+      width,
+      theme,
+      question.isCustomOnly ? "text" : "success",
+      "   ",
+      "     ",
+    );
+  }
+
+  for (const optionNote of question.extraOptionNotes ?? []) {
+    pushSavedNote({
+      lines,
+      note: optionNote.note,
+      width,
+      theme,
+      indent: "     ",
+      label: optionNote.label,
+    });
+  }
+}
+
+function renderSubmitActions(
+  model: ReturnType<typeof buildReviewScreenModel>,
+  theme: Theme,
+  width: number,
+  markActiveRow: boolean,
+  targets: AskMouseTarget[] | undefined,
+  rowOffset: number,
+  state: AskState,
+  editor: QuestionRenderContext["editor"] | undefined,
+): string[] {
+  const lines: string[] = [];
+  for (const [index, action] of model.actions.entries()) {
+    const y = lines.length;
+    const prefix = action.selected
+      ? `${markActiveRow ? CURSOR_MARKER : ""}❯ `
+      : "  ";
+    pushWrappedText(
+      lines,
+      `${index + 1}. ${action.label}`,
+      width,
+      theme,
+      action.selected ? "accent" : "text",
+      prefix,
+      prefix,
+    );
+    renderActionNote(lines, action, state, editor, theme, width);
+    targets?.push({
+      kind: "submit",
+      index,
+      x: 0,
+      y: rowOffset + y,
+      width,
+      height: lines.length - y,
+    });
+  }
+  return lines;
+}
+
+function renderActionNote(
+  lines: string[],
+  action: ReturnType<typeof buildReviewScreenModel>["actions"][number],
+  state: AskState,
+  editor: QuestionRenderContext["editor"] | undefined,
+  theme: Theme,
+  width: number,
+) {
+  if (state.view.kind === "submit-note" && action.selected && editor) {
+    renderEditorBlock({
+      lines,
+      editorLines: editor.render(Math.max(8, width - 7)),
+      width,
+      theme,
+      indent: "     ",
+      availableWidth: width - 5,
+      placeholder: UI_TEXT.editorPlaceholderNote,
+      isEmpty: editor.getText().length === 0,
+    });
+  } else if (action.note) {
+    pushSavedNote({ lines, note: action.note, width, theme, indent: "     " });
+  }
+}
+
+function appendReviewShortcutHint(
+  lines: string[],
+  hint: string | undefined,
+  theme: Theme,
+  width: number,
+) {
+  if (!hint) {
+    return;
+  }
+  lines.push("");
+  pushWrappedText(lines, hint, width, theme, "dim", " ", " ");
+}

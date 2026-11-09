@@ -46,7 +46,7 @@ export function describePromptNotice(
 
 /** The session's name, or the name of the directory it runs in, as Pi's own terminal title does. */
 function sessionLabel(session: NotificationSession): string {
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty name is unnamed
+  // `||`, not `??`: an empty name means unnamed.
   return session.name || basename(session.cwd);
 }
 
@@ -55,7 +55,7 @@ function askSubject(request: NoticeRequestFacts): string {
   const what = request.toolName ?? request.surface;
   const who = request.requester.agentName;
   if (what && who) return `${what} (${who})`;
-  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- || intentional: an empty label names nothing
+
   return what || who || "";
 }
 
