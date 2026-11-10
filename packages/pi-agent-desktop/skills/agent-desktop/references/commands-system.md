@@ -21,7 +21,11 @@ For an `--arg` value that starts with `-`, use `--arg=<value>`.
 The process running and the app showing a window are separate facts:
 
 ```json
-{ "app": "TextEdit", "pid": 611, "window": { "id": "w-110407", "title": "Open", "visible": true } }
+{
+  "app": "TextEdit",
+  "pid": 611,
+  "window": { "id": "w-110407", "title": "Open", "visible": true }
+}
 ```
 
 - `window` is present when the app already has one, and omitted when it has none.
@@ -46,8 +50,16 @@ It launches the app fresh with a loopback-only debugging port, polls until the e
 Pass a port, or omit it to let the OS pick a free one.
 
 ```json
-{ "app": "Obsidian", "pid": 4821, "cdp": { "port": 9229, "http_endpoint": "http://127.0.0.1:9229",
-  "websocket_url": "ws://127.0.0.1:9229/devtools/browser/<id>", "product": "Chrome/142.0.7444.265" } }
+{
+  "app": "Obsidian",
+  "pid": 4821,
+  "cdp": {
+    "port": 9229,
+    "http_endpoint": "http://127.0.0.1:9229",
+    "websocket_url": "ws://127.0.0.1:9229/devtools/browser/<id>",
+    "product": "Chrome/142.0.7444.265"
+  }
+}
 ```
 
 The port exists only for a fresh process.
