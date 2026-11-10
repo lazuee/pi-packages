@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildArgs, cliError, render, shotContent } from "#src/extension";
+import {
+  afterSnapshot,
+  buildArgs,
+  cliError,
+  render,
+  shotContent,
+} from "#src/extension";
 
 // The CLI's own spellings are the contract here, and every case below was
 // measured against the real binary plus `--help`, not inferred. Three defects
@@ -241,6 +247,19 @@ describe("buildArgs", () => {
         window_id: "w-1",
       }),
     ).toContain("--window-id");
+  });
+
+  // The follow-up snapshot repeats the action window; without it the read is
+  // the app only, which two windows refuse, and a working action looks broken.
+  it("snapshots the same window the action was pinned to", () => {
+    expect(
+      afterSnapshot({ action: "click", app: "Notes", window_id: "w-1" }),
+    ).toEqual(["snapshot", "--app", "Notes", "--window-id", "w-1"]);
+    expect(afterSnapshot({ action: "click", app: "Notes" })).toEqual([
+      "snapshot",
+      "--app",
+      "Notes",
+    ]);
   });
 
   it("omits empty strings so clap does not see a blank value", () => {

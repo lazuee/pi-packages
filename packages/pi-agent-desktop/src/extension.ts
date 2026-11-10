@@ -58,7 +58,9 @@ const READ_ACTIONS = new Set<string>([
 
 // Tool action -> CLI command, for the two that differ. Everything else is a
 // plain dash-for-underscore swap, so it needs no entry.
-const COMMANDS: Record<string, string> = { list_apps: "list-apps" };
+const COMMANDS: Record<string, string> = {
+  list_apps: "list-apps",
+};
 
 const cli = defineTool({
   name: "agent_desktop",
@@ -73,7 +75,6 @@ const cli = defineTool({
   promptGuidelines: [
     "Use agent_desktop when a task needs an app's UI and no CLI or API does it.",
     "Call snapshot once before acting. After every action the tool returns the new state itself; read that result instead of assuming the action worked.",
-    "Act by ref (@e3, from the snapshot) wherever one exists; fall back to x/y only when no ref addresses the element.",
     "Every result is plain text, so read it directly: get reads one property of a ref and is checks one state. get bounds gives exact points, which beats a pixel estimated from a screenshot.",
     "is answering 'not applicable' means the element has no such state; that is not the same as false.",
     "A menu, sheet or repaint renumbers every ref. Act from the most recent snapshot only, never from a ref in an older one.",
@@ -220,11 +221,7 @@ const cli = defineTool({
 
     // An action's own output is just "Done", which says nothing about what it did.
     // Snapshot again rather than trust it, and let a failed read not hide success.
-    const [afterBin, afterArgs] = withSession(bin, [
-      "snapshot",
-      "--app",
-      String(p.app),
-    ]);
+    const [afterBin, afterArgs] = withSession(bin, afterSnapshot(p));
     const after = await api
       .exec(afterBin, afterArgs, { timeout: 60_000 })
       .catch(() => null);
@@ -271,6 +268,23 @@ let cmd: string | undefined;
 let session: string | undefined;
 
 /** pi.exec carries no env, so the id is prefixed onto the command instead. */
+/**
+ * The snapshot taken after an action, to show what the action did.
+ *
+ * It repeats the window the action was pinned to: without that it is the app
+ * only, which an app with two windows refuses, so a window-scoped action would
+ * report success and then look like it broke.
+ */
+export function afterSnapshot(p: Record<string, unknown>): string[] {
+  const window = p.window_id;
+  return [
+    "snapshot",
+    "--app",
+    String(p.app),
+    ...(typeof window === "string" && window ? ["--window-id", window] : []),
+  ];
+}
+
 function withSession(bin: string, args: string[]): [string, string[]] {
   if (!session) return [bin, args];
   // export, because sh would otherwise not pass it to the binary it starts.
@@ -531,7 +545,6 @@ function property(
  */
 const LEGEND =
   "Elements read `ref role name value`; act by the ref, from this result only. " +
-  "`at` is x,y wxh in points (pixel fallback); `acts` is what it accepts. " +
   "No `acts` on a ref-less node means only RightClick, ScrollTo and SetFocus, which need no ref. " +
   "`+n` means cut by depth — pass the ref as root to read just that region. " +
   "A … value is clamped; `get text` reads it whole.";
