@@ -1,3 +1,4 @@
+import { validateToolCall } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -36,20 +37,27 @@ export function registerAskTool(
   backgroundAsk?: BackgroundAskRuntime,
   isBackgroundOnly: () => boolean = () => false,
 ) {
-  const backgroundOnly = isBackgroundOnly();
+  if (!isToolRegistered(pi, "ask_user"))
+    registerAskUserTool(pi, remoteAsk, backgroundAsk, isBackgroundOnly);
+}
+
+const reachesEverything = () => "all" as const;
+
+/** Safe to call on every session start: Pi keeps registrations for the whole process. */
+export function isToolRegistered(pi: ExtensionAPI, name: string): boolean {
+  return pi.getAllTools().some((tool) => tool.name === name);
+}
+
+function registerAskUserTool(
+  pi: ExtensionAPI,
+  remoteAsk?: RemoteAskRuntime,
+  backgroundAsk?: BackgroundAskRuntime,
+  isBackgroundOnly: () => boolean = () => false,
+) {
+  const lateRegistration = !isToolRegistered(pi, "ask_user");
   pi.registerTool({
-    name: "ask_user",
-    label: "Ask User",
-    description: backgroundOnly
-      ? ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION
-      : ASK_TOOL_DESCRIPTION,
-    promptSnippet:
-      "Ask the user for what you cannot find yourself: missing facts, preferences, decisions",
-    parameters: backgroundOnly
-      ? AskBackgroundOnlyParamsSchema
-      : AskParamsSchema,
-    outputSchema: Type.Union([AskOutputSchema, AskQueuedSchema]),
-    prepareArguments: (args) => prepareAskParams(args) as AskParams,
+    ...definition(isBackgroundOnly()),
+    prepareArguments: prepareAskParams as never,
     execute: (toolCallId, params, signal, onUpdate, ctx) =>
       executeAskTool(
         pi,
@@ -62,10 +70,26 @@ export function registerAskTool(
         backgroundAsk,
         isBackgroundOnly,
       ),
+    // Registering after session_start leaves the tool out of the turn's tool snapshot,
+    // where the SDK validates arguments. A "reaches" tool is executed even when its
+    // call names no tool, so execute() validates the arguments itself.
+    ...(lateRegistration ? { reachesTools: reachesEverything } : {}),
     renderCall: renderAskToolCall,
     renderResult: renderAskToolResult,
   });
 }
+
+const definition = (backgroundOnly: boolean) => ({
+  name: "ask_user",
+  label: "Ask User",
+  description: backgroundOnly
+    ? ASK_BACKGROUND_ONLY_TOOL_DESCRIPTION
+    : ASK_TOOL_DESCRIPTION,
+  promptSnippet:
+    "Ask the user for what you cannot find yourself: missing facts, preferences, decisions",
+  parameters: backgroundOnly ? AskBackgroundOnlyParamsSchema : AskParamsSchema,
+  outputSchema: Type.Union([AskOutputSchema, AskQueuedSchema]),
+});
 
 async function executeNonTuiAsk(
   pi: Pick<ExtensionAPI, "events">,
@@ -95,8 +119,8 @@ async function executeNonTuiAsk(
   }
   return successfulResponse(result);
 }
-async function executeAskTool(
-  pi: Pick<ExtensionAPI, "appendEntry" | "events">,
+export async function executeAskTool(
+  pi: Pick<ExtensionAPI, "appendEntry" | "events" | "getAllTools">,
   toolCallId: string,
   input: AskParams,
   signal: AbortSignal | undefined,
@@ -106,12 +130,20 @@ async function executeAskTool(
   backgroundAsk?: BackgroundAskRuntime,
   isBackgroundOnly: () => boolean = () => false,
 ) {
-  const resolved = await resolveContextFiles(input);
-  if (!resolved.ok) {
-    return invalidPayloadResponse(input, resolved.issues);
-  }
   const config = await getAskConfigStore().getConfig();
   const backgroundOnly = isBackgroundOnly();
+  // Re-run the SDK's two steps here: a late-registered tool skips both of them.
+  const call = definition(backgroundOnly);
+  const input_ = validateToolCall([call], {
+    type: "toolCall",
+    id: toolCallId,
+    name: "ask_user",
+    arguments: prepareAskParams(input) as never,
+  }) as AskParams;
+  const resolved = await resolveContextFiles(input_);
+  if (!resolved.ok) {
+    return invalidPayloadResponse(input_, resolved.issues);
+  }
   const params = backgroundOnly
     ? { ...resolved.params, background: true }
     : resolved.params;
@@ -144,6 +176,7 @@ async function executeAskTool(
       remoteAsk,
       backgroundAsk,
       backgroundOnly,
+      isBackgroundOnly,
     );
   } catch (error) {
     appendAskHistoryCompletion(pi, {
@@ -165,6 +198,7 @@ async function executeRecordedAsk(
   remoteAsk?: RemoteAskRuntime,
   backgroundAsk?: BackgroundAskRuntime,
   backgroundOnly = false,
+  backgroundOnlyCheck: () => boolean = () => backgroundOnly,
 ) {
   if (ctx.mode !== "tui") {
     const response = await executeNonTuiAsk(
@@ -178,7 +212,7 @@ async function executeRecordedAsk(
     );
     return recordResponse(pi, requestId, response);
   }
-  if (params.background) {
+  if (params.background || backgroundOnlyCheck()) {
     if (!backgroundAsk) {
       throw new Error("Background question queue is unavailable.");
     }

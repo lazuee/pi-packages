@@ -36,6 +36,11 @@ export class AskModeController {
     this.onChange = onChange;
   }
 
+  /**
+   * Read the policy once. Resolves after the config store's first load, so a caller that
+   * needs the mode before registering tools can await it; the mode itself may still
+   * change later, which is why tool exposure reads it at call time.
+   */
   async initialize(ctx: ModeContext): Promise<void> {
     const generation = ++this.generation;
     this.modelRequested = false;

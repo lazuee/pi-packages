@@ -583,19 +583,7 @@ export function createBackgroundAskRuntime(
   remoteAsk?: RemoteAskRuntime,
 ): BackgroundAskRuntime {
   const runtime = new BackgroundAskRuntime(pi, remoteAsk);
-  pi.on("tool_execution_start", (event) => runtime.trackExecution(event));
-  pi.on("tool_execution_end", (event) =>
-    runtime.forgetExecution(event.toolCallId),
-  );
-  // Wait for all session_start handlers, including Herdr's status consumer.
-  pi.on("resources_discover", (_event, ctx) => runtime.restore(ctx));
-  pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
-  pi.on("session_shutdown", () => runtime.dispose());
-  pi.on("input", (event) => {
-    if (event.source === "interactive") {
-      runtime.onUserInput();
-    }
-  });
+  registerBackgroundAskEvents(pi, runtime);
   pi.registerCommand("ask-queue", {
     description: "Reopen pending questions without replacing normal input",
     handler: (_args, ctx) => {
@@ -611,13 +599,33 @@ export function createBackgroundAskRuntime(
       return Promise.resolve();
     },
   });
+  return runtime;
+}
+
+/** Queue lifecycle only; the ask commands need a TUI, so they register separately. */
+export function registerBackgroundAskEvents(
+  pi: ExtensionAPI,
+  runtime: BackgroundAskRuntime,
+): void {
+  pi.on("tool_execution_start", (event) => runtime.trackExecution(event));
+  pi.on("tool_execution_end", (event) =>
+    runtime.forgetExecution(event.toolCallId),
+  );
+  // Wait for all session_start handlers, including Herdr's status consumer.
+  pi.on("resources_discover", (_event, ctx) => runtime.restore(ctx));
+  pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
+  pi.on("session_shutdown", () => runtime.dispose());
+  pi.on("input", (event) => {
+    if (event.source === "interactive") {
+      runtime.onUserInput();
+    }
+  });
   pi.on("agent_settled", () => runtime.deliverIdle());
   pi.on("turn_start", (_event, ctx) => runtime.reconcileDelivery(ctx));
   pi.on("turn_end", (event, ctx) => runtime.deliverBoundary(event, ctx));
   pi.on("agent_before_settle", (event, ctx) =>
     runtime.deliverBoundary(event, ctx),
   );
-  return runtime;
 }
 
 function waitInterrupted(): DOMException {

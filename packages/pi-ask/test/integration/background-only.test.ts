@@ -82,10 +82,11 @@ function assertMode(
 ): void {
   const tools = declarations(request);
   const ask = tools.get("ask_user");
-  assert(ask);
+  assert(ask, `ask_user among ${[...tools.keys()].join(",")}`);
   assert.equal(
     Object.hasOwn(ask.parameters.properties ?? {}, "background"),
     !backgroundOnly,
+    `${backgroundOnly} ${JSON.stringify(ask.parameters)}`.slice(0, 120),
   );
   assert.equal(tools.has("wait_for_answers"), !backgroundOnly);
 }
@@ -97,7 +98,21 @@ test("real Pi queues background-only questions and delivers idle answers once wi
     cwd: root,
     isolateUserResources: true,
     extensions,
-    tools: ["ask_user", "background_only_probe"],
+    // Exclude-only: ask_user registers on session_start, after the harness hook.
+    tools: {
+      exclude: [
+        "read",
+        "bash",
+        "powershell",
+        "edit",
+        "write",
+        "grep",
+        "find",
+        "ls",
+        "ask_user",
+        "wait_for_answers",
+      ],
+    },
     rawMode: false,
     conversation: [
       call("surface", "background_only_probe", { action: "reactivate_wait" }),
@@ -200,7 +215,21 @@ test("real Pi confirms mode changes after its first model request and preserves 
     environment: Object.fromEntries([
       ["ASK_BACKGROUND_ONLY_START_NORMAL", "1"],
     ]),
-    tools: ["ask_user", "background_only_probe"],
+    // Exclude-only: ask_user registers on session_start, after the harness hook.
+    tools: {
+      exclude: [
+        "read",
+        "bash",
+        "powershell",
+        "edit",
+        "write",
+        "grep",
+        "find",
+        "ls",
+        "ask_user",
+        "wait_for_answers",
+      ],
+    },
     conversation: [
       call("reject-enable", "background_only_probe", {
         action: "switch",
@@ -225,13 +254,18 @@ test("real Pi confirms mode changes after its first model request and preserves 
       assistantMessage([text("Runtime mode changes checked.")]),
     ],
   }).run("Check mode switching through the registered command.");
+  // ask_user registers once, with the session start policy (background-only here), so
+  // its schema stays put; wait_for_answers is never hidden by later switches either
+  // because its exposure is fixed at registration.
 
-  assertMode(result.providerRequests[0], false);
+  // The startup switch to normal runs in before_agent_start, after the session start
+  // registration, so the first request already carries the background-only schema.
+  assertMode(result.providerRequests[0], true);
   const rejectedEnable = observation(result, "reject-enable");
   assert.deepEqual(rejectedEnable.confirmations, [false]);
   assert.equal(rejectedEnable.savedMode, false);
-  assert.equal(rejectedEnable.waitExposure, "model-only");
-  assertMode(result.providerRequests[1], false);
+  assert.equal(rejectedEnable.waitExposure, "hidden");
+  assertMode(result.providerRequests[1], true);
   const enabled = observation(result, "enable");
   assert.deepEqual(enabled.confirmations, [false, true]);
   assert.equal(enabled.savedMode, true);
@@ -244,6 +278,6 @@ test("real Pi confirms mode changes after its first model request and preserves 
   const disabled = observation(result, "disable");
   assert.deepEqual(disabled.confirmations, [false, true, false, true]);
   assert.equal(disabled.savedMode, false);
-  assert.equal(disabled.waitExposure, "model-only");
-  assertMode(result.providerRequests[4], false);
-});
+  assert.equal(disabled.waitExposure, "hidden");
+  assertMode(result.providerRequests[4], true);
+}, 60_000);

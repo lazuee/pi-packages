@@ -15,6 +15,30 @@ const form = {
   ],
 };
 
+const tuiCtx = () => ({
+  mode: "tui",
+  cwd: process.cwd(),
+  ui: {
+    // A foreground form stays open until done(); the fixture answers it inline.
+    custom: async (factory: any) => {
+      let answer!: (result: unknown) => void;
+      const done = new Promise((resolve) => {
+        answer = resolve;
+      });
+      factory(
+        { requestRender() {}, terminal: { rows: 24, cols: 80 } },
+        { fg: (_color: string, text: string) => text },
+        {},
+        answer,
+      );
+      answer({ cancelled: true, answers: {}, questions: [] });
+      return done;
+    },
+    setWorkingVisible() {},
+    notify() {},
+  },
+});
+
 function register(initialBackgroundOnly = true, queue?: unknown) {
   let backgroundOnly = initialBackgroundOnly;
   const tools: any[] = [];
@@ -23,6 +47,7 @@ function register(initialBackgroundOnly = true, queue?: unknown) {
     registerTool(tool: unknown) {
       tools.push(tool);
     },
+    getAllTools: () => tools,
     appendEntry(type: string, data: unknown) {
       entries.push({ type, data });
     },
@@ -60,7 +85,7 @@ test("background-only mode forces stale false calls into the queue and records t
     { ...form, background: false },
     undefined,
     undefined,
-    { mode: "tui", cwd: process.cwd() },
+    tuiCtx(),
   );
   assert.equal(response.structuredContent.status, "queued");
   assert.deepEqual(queued, { ...form, background: true });
@@ -88,7 +113,7 @@ test("a mode switch during asynchronous preparation cannot open a foreground for
     { ...form, background: false },
     undefined,
     undefined,
-    { mode: "tui", cwd: process.cwd() },
+    tuiCtx(),
   );
   state.setBackgroundOnly(true);
   assert.equal((await pending).structuredContent.status, "queued");
@@ -96,10 +121,7 @@ test("a mode switch during asynchronous preparation cannot open a foreground for
 test("background-only mode fails instead of opening foreground UI when its queue is missing", async () => {
   const { tool } = register();
   await assert.rejects(
-    tool.execute("missing-queue", form, undefined, undefined, {
-      mode: "tui",
-      cwd: process.cwd(),
-    }),
+    tool.execute("missing-queue", form, undefined, undefined, tuiCtx()),
     QUEUE_UNAVAILABLE,
   );
 });
@@ -125,6 +147,9 @@ test("a captured wait implementation also rejects after the policy changes", asy
       registerTool(value: unknown) {
         tool = value;
       },
+      getAllTools() {
+        return tool ? [tool] : [];
+      },
     } as never,
     {
       wait() {
@@ -135,7 +160,7 @@ test("a captured wait implementation also rejects after the policy changes", asy
   );
   backgroundOnly = true;
   await assert.rejects(
-    tool.execute("old-wait", {}, undefined, undefined, { mode: "tui" }),
+    tool.execute("old-wait", {}, undefined, undefined, tuiCtx()),
     WAIT_UNAVAILABLE,
   );
 });

@@ -46,13 +46,17 @@ export function prepareAskParams(input: unknown): unknown {
   return {
     ...input,
     questions: (input.questions as unknown[]).map((question) => {
-      if (!(isRecord(question) && Array.isArray(question.options))) {
+      if (!isRecord(question)) {
         return question;
       }
-      return migrateLegacyPreview({
-        ...question,
-        options: question.options.map(prepareOption),
-      });
+      const options = Array.isArray(question.options)
+        ? question.options.map(prepareOption)
+        : question.options;
+      return migrateLegacyPreview(
+        Array.isArray(options)
+          ? { ...question, options }
+          : { ...question, options: [] },
+      );
     }),
   };
 }
@@ -317,7 +321,7 @@ function assertOptionsPresent(
 ) {
   // A caller reaching this without the schema has to say "no options" by sending
   // `[]`; an absent field is the schema's own required-field error, not ours.
-  if (options !== undefined && options.length === 0) {
+  if (options?.length === 0) {
     collector.add(path, message);
   }
 }

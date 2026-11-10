@@ -79,10 +79,15 @@ export default function backgroundOnlyDriver(pi: ExtensionAPI): void {
       );
     });
 
+  pi.on("session_start", (_event) => {
+    require("node:fs").appendFileSync("/tmp/who.log", "driver start\n");
+  });
   pi.on("session_start", async (_event, ctx) => {
     // The extension factory resets the singleton after this driver loads.
     const store = getAskConfigStore();
     const config = await store.getConfig();
+    // The extension reads the same singleton at its own session_start; wait a tick so
+    // its defaults-driven backgroundOnly=true is in place before the tools register.
     await store.save({
       ...config,
       behaviour: { ...config.behaviour, backgroundOnly: true },

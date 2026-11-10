@@ -57,6 +57,7 @@ function harness() {
     registerTool(tool: any) {
       tools.set(tool.name, tool);
     },
+    getAllTools: () => [...tools.values()],
     appendEntry(customType: string, data: unknown) {
       branch.push({ type: "custom", customType, data });
     },

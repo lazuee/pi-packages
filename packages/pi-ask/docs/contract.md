@@ -446,6 +446,17 @@ Dirty dismiss:
 - when `Confirm dismiss when dirty` is enabled, cancelling or dismissing a dirty ask flow requires the same action a second time
 - the dirty-dismiss warning stays visible until the user changes tabs in the ask flow
 
+## Registration and the run mode
+
+The run mode is only known at `session_start`, so the question tools register there instead of when the extension loads.
+The form UI has no degraded fallback, so `wait_for_answers`, the `/ask-mode`, `/ask-settings`, and `/ask-queue` commands, and the background question queue are registered in TUI mode only; `ask_user` also registers in the other modes, where it can reach an external UI.
+
+A turn's tool snapshot is taken before `session_start` runs, so the first call of a session can be rejected with `Tool ask_user not found`.
+A `tool_call` handler notices a call whose tool is registered but absent from the snapshot, executes it in-process, blocks the SDK's own copy, and delivers the result to the agent as a follow-up turn.
+Every later call runs normally.
+
+Because `ask_user` registers once, its `background` parameter follows the mode in force at `session_start`; a later mode switch keeps that schema and only changes how a call is executed.
+
 ## Non-TUI and non-interactive modes
 
 The rich ask flow uses `ctx.ui.custom()` and opens only in TUI mode.

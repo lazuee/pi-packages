@@ -115,12 +115,15 @@ Submit to `pi-agent-ask:submit`; receive the acknowledgement on `pi-agent-ask:su
 type RemoteAskResponse =
   | {
       kind: "answer";
-      answers: Record<string, {
-        values?: string[];
-        customText?: string;
-        note?: string;
-        optionNotes?: Record<string, string>;
-      }>;
+      answers: Record<
+        string,
+        {
+          values?: string[];
+          customText?: string;
+          note?: string;
+          optionNotes?: Record<string, string>;
+        }
+      >;
     }
   | { kind: "cancel" };
 

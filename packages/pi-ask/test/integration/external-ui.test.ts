@@ -38,7 +38,22 @@ async function runScenario(
           new URL("../fixtures/external-ui-driver.ts", import.meta.url),
         ),
       ],
-      tools: ["ask_user", "external_ui_stats"],
+      // Exclude-only: the ask tools register on session_start, after the harness's
+      // session_start, so naming them here would leave them inactive.
+      tools: {
+        exclude: [
+          "read",
+          "bash",
+          "powershell",
+          "edit",
+          "write",
+          "grep",
+          "find",
+          "ls",
+          "ask_user",
+          "wait_for_answers",
+        ],
+      },
       conversation: [
         assistantMessage(
           [

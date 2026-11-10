@@ -14,10 +14,9 @@ const CUSTOM_OPTION_RE = /- Type your own \[custom\]/;
 const DUPLICATE_ID_RE =
   /questions\[1\]\.id: Question 2: duplicate question id "scope"/;
 const MISSING_OPTION_VALUE_RE =
-  /questions\[0\]\.options\[0\]\.value: Question 1, option 1: value is required/;
+  /Validation failed for tool "ask_user":\n +- questions\.0\.options\.0\.value: missing/;
 const EMPTY_QUESTIONS_RE = /questions: At least one question is required/;
-const INVALID_TYPE_RE =
-  /questions\[0\]\.type: Question 1: invalid type "grid"; expected "single" or "multi"/;
+const INVALID_TYPE_RE = /questions\.0\.type: expected one of/;
 const UI_FAILED_RE = /UI failed/;
 const HAS_UI = "hasUI";
 const noop = () => {
@@ -35,6 +34,7 @@ function registerMockTool() {
     registerTool(tool: unknown) {
       tools.push(tool as Record<string, unknown>);
     },
+    getAllTools: () => tools,
     events: {
       emit(channel: string, data: unknown) {
         events.push({ channel, data });
@@ -450,37 +450,33 @@ test("ask tool rejects invalid payloads before UI opens with structured issues",
   assert.match(result.content[0].text, DUPLICATE_ID_RE);
 });
 
-test("ask tool reports missing option values with structured issues", async () => {
+test("ask tool rejects payloads that fail the parameter schema", async () => {
   const { tool } = registerMockTool();
+  const execute = (params: unknown) =>
+    tool.execute("call-1", params, undefined, noop, makeCtx(true));
 
-  const result = await tool.execute(
-    "call-1",
-    {
+  // Structure is the schema's job; thinned text and duplicate ids are validateParams'.
+  await assert.rejects(
+    execute({
+      title: "Clarify",
+      questions: [{ id: "api_style", prompt: "Pick API style", options: [{}] }],
+    }),
+    MISSING_OPTION_VALUE_RE,
+  );
+  await assert.rejects(
+    execute({
       title: "Clarify",
       questions: [
         {
-          id: "api_style",
-          prompt: "Pick API style",
-          options: [{ label: "REST" } as never],
+          id: "layout",
+          prompt: "Pick layout",
+          type: "grid",
+          options: [{ value: "compact", label: "Compact" }],
         },
       ],
-    },
-    undefined,
-    noop,
-    makeCtx(true),
+    }),
+    INVALID_TYPE_RE,
   );
-
-  assert.equal(result.details.cancelled, true);
-  assert.deepEqual(result.details.error, {
-    kind: "invalid_input",
-    issues: [
-      {
-        path: "questions[0].options[0].value",
-        message: "Question 1, option 1: value is required",
-      },
-    ],
-  });
-  assert.match(result.content[0].text, MISSING_OPTION_VALUE_RE);
 });
 
 test("ask tool reports empty questions with structured issues", async () => {
@@ -508,41 +504,6 @@ test("ask tool reports empty questions with structured issues", async () => {
     ],
   });
   assert.match(result.content[0].text, EMPTY_QUESTIONS_RE);
-});
-
-test("ask tool reports invalid question types with structured issues", async () => {
-  const { tool } = registerMockTool();
-
-  const result = await tool.execute(
-    "call-1",
-    {
-      title: "Clarify",
-      questions: [
-        {
-          id: "layout",
-          prompt: "Pick layout",
-          type: "grid" as never,
-          options: [{ value: "compact", label: "Compact" }],
-        },
-      ],
-    },
-    undefined,
-    noop,
-    makeCtx(true),
-  );
-
-  assert.equal(result.details.cancelled, true);
-  assert.deepEqual(result.details.error, {
-    kind: "invalid_input",
-    issues: [
-      {
-        path: "questions[0].type",
-        message:
-          'Question 1: invalid type "grid"; expected "single" or "multi"',
-      },
-    ],
-  });
-  assert.match(result.content[0].text, INVALID_TYPE_RE);
 });
 
 test("ask tool converts legacy preview questions into question context", async () => {

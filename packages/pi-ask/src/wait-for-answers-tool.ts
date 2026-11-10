@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { isToolRegistered } from "./ask-tool";
 import { formatQueuedAnswer } from "./background-answer";
 import type { BackgroundAskRuntime } from "./background-ask";
 import {
@@ -15,6 +16,7 @@ export function registerWaitForAnswersTool(
   queue: BackgroundAskRuntime,
   isBackgroundOnly: () => boolean = () => false,
 ): void {
+  if (isToolRegistered(pi, "wait_for_answers")) return;
   pi.registerTool({
     name: "wait_for_answers",
     exposure: isBackgroundOnly() ? "hidden" : "model-only",

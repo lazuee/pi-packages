@@ -16,8 +16,6 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
   const remote = createRemoteAskRuntime(pi.events);
   const queue = createBackgroundAskRuntime(pi, remote);
   registerBackgroundAnswerRenderer(pi);
-  registerAskTool(pi, remote, queue);
-  registerWaitForAnswersTool(pi, queue);
   let panel: Component | undefined;
   let ready: (() => void) | undefined;
   let startedFlows = 0;
@@ -27,6 +25,9 @@ export default function recoveryEditorDriver(pi: ExtensionAPI): void {
     ready = undefined;
   });
   pi.on("session_start", (_event, ctx) => {
+    // Pi offers no tool lookup while extensions load.
+    registerAskTool(pi, remote, queue);
+    registerWaitForAnswersTool(pi, queue);
     const setWidget = ctx.ui.setWidget.bind(ctx.ui);
     ctx.ui.setWidget = (key, content, options) => {
       if (typeof content === "function") {

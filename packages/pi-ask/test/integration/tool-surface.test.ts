@@ -8,6 +8,7 @@ import {
   assistantMessage,
   getToolExecution,
   getToolExecutionDetails,
+  getToolResultText,
   PiIntegrationTest,
   testArtifactsDir,
   text,
@@ -29,7 +30,22 @@ test("real Pi exposes question tools without default history tools or prompt rul
           new URL("../fixtures/tool-surface-driver.ts", import.meta.url),
         ),
       ],
-      tools: ["ask_user", "wait_for_answers", "inspect_ask_surface"],
+      // ask_user is excluded so the nested call is rejected, then retried by the
+      // extension once it registered on session_start.
+      tools: {
+        exclude: [
+          "read",
+          "bash",
+          "powershell",
+          "edit",
+          "write",
+          "grep",
+          "find",
+          "ls",
+          "ask_user",
+          "wait_for_answers",
+        ],
+      },
       conversation: [
         assistantMessage(
           [
@@ -39,6 +55,10 @@ test("real Pi exposes question tools without default history tools or prompt rul
               arguments: {},
             }),
           ],
+          { stopReason: "toolUse" },
+        ),
+        assistantMessage(
+          [toolCall({ id: "ask", name: "ask_a_question", arguments: {} })],
           { stopReason: "toolUse" },
         ),
         assistantMessage([text("Question tool surface checked.")]),
@@ -51,7 +71,10 @@ test("real Pi exposes question tools without default history tools or prompt rul
       toolGuidelines: Record<string, string[]>;
       tools: string[];
     };
-    assert(details.commands.includes("ask-settings"));
+    assert(
+      details.commands.includes("ask-settings"),
+      JSON.stringify(details.commands),
+    );
     for (const removed of ["answer", "answer:again", "ask:replay"]) {
       assert(
         !details.commands.includes(removed),
@@ -59,8 +82,17 @@ test("real Pi exposes question tools without default history tools or prompt rul
       );
     }
     for (const tool of ["ask_user", "wait_for_answers"]) {
-      assert(details.tools.includes(tool), tool);
+      assert(
+        details.tools.includes(tool),
+        `${tool} among ${details.tools.join(",")}`,
+      );
     }
+    // A rejected nested call is retried by the extension once the tool registered, so it
+    // reaches the form instead of failing again.
+    assert.match(
+      getToolResultText(result, "ask"),
+      /form still open|User cancelled/i,
+    );
     for (const tool of [
       "list_ask_history",
       "read_ask_history",
@@ -74,4 +106,4 @@ test("real Pi exposes question tools without default history tools or prompt rul
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
-});
+}, 30_000);
