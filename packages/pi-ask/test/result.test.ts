@@ -9,6 +9,7 @@ import {
   enterOptionNoteMode,
   enterQuestionNoteMode,
   moveOption,
+  moveTab,
   saveNote,
   submitCustomAnswer,
   toggleCurrentMultiOption,
@@ -62,9 +63,12 @@ test("submitted results surface unanswered questions without serializing answers
     ],
   });
 
+  // The number shortcut selects on the first question and moves the highlight onto the
+  // second one; stepping to Review there keeps the multi question unanswered, because
+  // Enter on it would select its only option.
   state = applyNumberShortcut(state, 1);
-  state = confirmCurrentSelection(state);
-  state = confirmCurrentSelection(state);
+  state = moveTab(state, 1);
+  assert.equal(state.view.kind, "submit");
   const result = toAskResult(state);
 
   assert.equal(result.answers.sources, undefined);

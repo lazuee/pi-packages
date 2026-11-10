@@ -200,13 +200,19 @@ function activateCurrentOption(
   if (!(question && option)) {
     return state;
   }
-  if (question.type === "multi" && trigger === "confirm") {
-    return advanceToNextTab(state);
-  }
   if (option.isCustomOption) {
     return activateCustomOption(state, question.id, question.type, trigger);
   }
   if (question.type === "multi") {
+    // Enter on an already-toggled choice keeps it and moves on, so Space-then-Enter
+    // does not undo the Space; Enter on a fresh choice toggles and stays.
+    const selected = getAnswer(state, question.id)?.selected ?? [];
+    if (
+      trigger === "confirm" &&
+      selected.some((choice) => choice.value === option.value)
+    ) {
+      return advanceToNextTab(state);
+    }
     return updateAnswer(state, question.id, (answer) =>
       toggleSelection(answer, option, state.activeOptionIndex),
     );
@@ -226,6 +232,8 @@ function activateCurrentOption(
     }
     return setSingleSelection(answer, option, state.activeOptionIndex);
   });
+  // Single questions confirm-and-advance; the multi case returned above, so both
+  // bindings toggle there and leaving stays with the tabs and the submit action.
   return trigger === "toggle" ? nextState : advanceToNextTab(nextState);
 }
 
@@ -235,7 +243,7 @@ function activateCustomOption(
   questionType: AskState["questions"][number]["type"],
   trigger: "toggle" | "confirm" | "digit",
 ): AskState {
-  if (questionType === "multi" && trigger !== "confirm") {
+  if (questionType === "multi") {
     const answer = getAnswer(state, questionId);
     if (hasCustomAnswer(answer)) {
       return updateAnswer(state, questionId, (currentAnswer) =>

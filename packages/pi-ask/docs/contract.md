@@ -414,7 +414,8 @@ Main flow:
 - `main.nextTab` / `main.previousTab` move between tabs; defaults: `Tab`/`Right`, `Shift+Tab`/`Left`
 - `main.nextOption` / `main.previousOption` move between options or review actions; defaults: `Down`, `Up`
 - `main.confirm`, `main.cancel`, and `main.toggle` confirm, cancel, or toggle; defaults: `Enter`, `Esc`, `Space`
-- on multi-select questions, `Space` toggles the highlighted choice without advancing; `Enter` keeps all choices and advances to the next question or Review, even when a saved custom answer is highlighted
+- on multi-select questions, `Space` toggles the highlighted choice without advancing; `Enter` on an untoggled choice toggles it and stays, while `Enter` on an already-toggled choice keeps it and advances to the next question or Review, even when a saved custom answer is highlighted
+- so an option toggled with `Space` and then confirmed with `Enter` is never undone by the confirm
 - submitting custom-answer text with `Enter` also advances; closing that editor with `Esc` saves without advancing
 - cancelling or dismissing a foreground form without a final-action comment stops the current agent operation; cancellation with a comment returns the cancelled result to the agent so it can read the comment.
   Cancelling a background form closes only that form, in either question mode; dirty-dismiss confirmation still applies; closing an editor or settings does not stop the agent

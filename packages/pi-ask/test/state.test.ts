@@ -241,25 +241,27 @@ test("single-select number shortcut stores answer and advances to next tab", () 
   assert.equal(state.view.kind, "navigate");
 });
 
-test("multi-select space toggles current option and enter advances to submit", () => {
-  let state = createInitialState(sampleParams());
-  state = applyNumberShortcut(state, 1);
-  state = toggleCurrentMultiOption(state);
-  assert.deepEqual(
-    state.answers.fe.selected.map((selection) => selection.label),
-    ["React"],
-  );
-
+test("multi-select enter toggles a fresh choice and advances from a chosen one", () => {
+  // "fe" is the second question. Nothing is selected until the option is toggled.
+  let state = moveTab(createInitialState(sampleParams()), 1);
   state = moveOption(state, 1);
-  state = toggleCurrentMultiOption(state);
+  assert.equal(state.view.kind, "navigate");
+
+  // Enter on an unselected choice selects it and stays, like Space.
+  state = confirmCurrentSelection(state);
   assert.deepEqual(
     state.answers.fe.selected.map((selection) => selection.label),
-    ["React", "Vue"],
+    ["Vue"],
   );
+  assert.equal(state.view.kind, "navigate");
 
+  // Enter on that now-selected choice keeps it and moves on.
   state = confirmCurrentSelection(state);
+  assert.deepEqual(
+    state.answers.fe.selected.map((selection) => selection.label),
+    ["Vue"],
+  );
   assert.equal(state.view.kind, "submit");
-  assert.equal(state.activeTabIndex, 2);
   assert.equal(state.completed, false);
 });
 

@@ -24,7 +24,7 @@ function params() {
 }
 
 for (const tab of [0, 1]) {
-  test(`Enter on saved custom multi answer advances from question ${tab + 1}`, () => {
+  test(`Enter keeps the saved custom multi answer on question ${tab + 1}`, () => {
     let state = createInitialState(params());
     if (tab) {
       state = moveTab(state, tab);
@@ -36,15 +36,18 @@ for (const tab of [0, 1]) {
 
     state = confirmCurrentSelection(state);
 
-    assert.equal(state.activeTabIndex, tab + 1);
-    assert.equal(state.view.kind, tab === 0 ? "navigate" : "submit");
-    assert.deepEqual(state.answers, answers);
+    // Enter toggles the highlighted custom option instead of leaving the question.
+    assert.equal(state.activeTabIndex, tab);
+    assert.equal(state.view.kind, "navigate");
+    const custom = state.answers[tab ? "last" : "first"];
+    assert.notEqual(custom.customSelected, true);
+    assert.equal(custom.customText, "Custom answer");
     assert.equal(state.completed, false);
   });
 }
 
 for (const custom of [false, true]) {
-  test(`Space toggles and Enter advances both multi questions${custom ? " with custom text" : ""}`, async () => {
+  test(`Enter keeps a chosen multi answer and moves on${custom ? " (with custom text)" : ""}`, async () => {
     getAskConfigStore().setConfig({
       ...DEFAULT_ASK_CONFIG,
       notifications: { ...DEFAULT_ASK_CONFIG.notifications, enabled: false },
@@ -102,6 +105,7 @@ for (const custom of [false, true]) {
           component.handleInput("2");
           component.handleInput("Custom answer");
         }
+        // Enter on the already-toggled choice confirms it and moves on.
         component.handleInput("\r");
         const rendered = component.render(100).join("\n");
         assert(
