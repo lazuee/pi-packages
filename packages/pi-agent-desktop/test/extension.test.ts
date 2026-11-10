@@ -231,6 +231,30 @@ describe("buildArgs", () => {
 
   // Only three commands take the flag; a ref command rejects it, so passing
   // window_id alongside a ref must not reach argv.
+  it("clicks at coordinates, always headed", () => {
+    expect(buildArgs({ action: "mouse_click", x: 5, y: 9 })).toEqual([
+      "mouse-click",
+      "--xy=5,9",
+      "--headed",
+    ]);
+    // A negative x keeps the `=` form so clap does not read it as a flag.
+    expect(buildArgs({ action: "mouse_click", x: -5, y: 9 })).toContain(
+      "--xy=-5,9",
+    );
+  });
+
+  it("asks for bounds only on snapshot, and only when told to", () => {
+    expect(
+      buildArgs({ action: "snapshot", app: "Notes", include_bounds: true }),
+    ).toContain("--include-bounds");
+    expect(buildArgs({ action: "snapshot", app: "Notes" })).not.toContain(
+      "--include-bounds",
+    );
+    expect(
+      buildArgs({ action: "list_apps", include_bounds: true }),
+    ).not.toContain("--include-bounds");
+  });
+
   it("drops window_id for the commands that reject it", () => {
     const args = buildArgs({
       action: "click",
@@ -249,7 +273,7 @@ describe("buildArgs", () => {
     ).toContain("--window-id");
   });
 
-  // The follow-up snapshot repeats the action window; without it the read is
+  // The follow-up snapshot repeats the action's window; without it the read is
   // the app only, which two windows refuse, and a working action looks broken.
   it("snapshots the same window the action was pinned to", () => {
     expect(

@@ -31,10 +31,10 @@ The extension probes both, so it uses that checkout when it answers (a local pat
 
 One tool, `agent_desktop`, with an action enum:
 
-| Kind | Actions                                                                    |
-| ---- | -------------------------------------------------------------------------- |
-| Read | `snapshot`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`         |
-| Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag` |
+| Kind | Actions                                                                                   |
+| ---- | ----------------------------------------------------------------------------------------- |
+| Read | `snapshot`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`                        |
+| Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click` |
 
 Every result is plain text — the CLI's `data` envelope is unwrapped, never handed over as JSON, on an action's follow-up snapshot as much as on a read.
 `get` reads one `property` of a ref (`text`, `value`, `title`, `bounds`, `role`, `states`) and `is` checks one `state`; both take a `ref`.
@@ -50,7 +50,7 @@ An app with several windows refuses as `AMBIGUOUS_TARGET`; pass `window_id` from
 `window_id` is accepted by `snapshot`, `screenshot` and `press` only — a ref already names its own window, and the other commands reject the flag.
 Pin `window_id` also when an app may be running twice: a second instance leaves `list_windows` unambiguous while an app-only target flips between them.
 The red traffic light only hides a window, so instances accumulate across runs; quit the app rather than closing its windows.
-`x`/`y` are the fallback for elements the tree does not address, and a negative coordinate is sent in the `--xy=-100,50` form.
+A node the platform gave no ref uses its `at` with `mouse_click`, the only click that takes coordinates; `x`/`y` are its arguments, and a negative one is sent in the `--xy=-100,50` form.
 `drag` takes a `to_ref` for its destination.
 `screenshot` returns the window as an image the model sees, with its pixel size in the text beside it.
 The image is device pixels while the coordinates above are accessibility points, so the text names the ratio; divide a pixel by it before passing `x`/`y`.

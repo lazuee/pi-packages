@@ -7,7 +7,7 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 
 ### Features
 
-- One `agent_desktop` tool with an action enum: `snapshot`, `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`.
+- One `agent_desktop` tool with an action enum: `snapshot`, `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`.
 - Every result is plain text: the CLI's `data` envelope is unwrapped and rendered, so no command answers with a JSON object — an acting action's follow-up snapshot included.
 - `get` and `is` read one property or state of a ref, so `get bounds` gives exact points without estimating from a screenshot; `is` says _not applicable_ rather than a false `result`.
 - Both answer as `<property>: <value>`, and a `get` is never clamped, so it really is the way to read whole what a snapshot line abbreviates.
@@ -22,5 +22,7 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - Prefers a source checkout when it answers, and falls through to the `agent-desktop` on `PATH`; re-probes on a call if neither answered at session start.
 - One session id per Pi session on `agent_start`, `agent_settled` and `session_shutdown`, so a subagent or a second window is a distinct session and does not release the apps another is driving.
 - `screenshot` returns the pixels as an image, not base64 the model cannot see; the text names the pixel-to-point ratio, and an unreadable or unsupported shot stays text.
+- `mouse_click` clicks at x/y, the only click that does: `click` is ref-only, so this is how a node the platform never qualified is reached from its `at`.
+- `snapshot` takes `include_bounds` to report `at` for exactly those nodes, and the legend says `at` comes from it.
 - A CLI failure is surfaced as its own message and suggestion instead of the raw JSON envelope.
 - The upstream skill is bundled, so the documented CLI and the invoked one match.

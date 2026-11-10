@@ -58,6 +58,12 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   },
   // A negative coordinate is a left-hand display, and needs the `=` form.
   "hover on negative coordinates": { action: "hover", x: -100, y: 50 },
+  "mouse_click a coordinate": { action: "mouse_click", x: 171, y: 50 },
+  "mouse_click a negative coordinate": {
+    action: "mouse_click",
+    x: -100,
+    y: 50,
+  },
   "drag to negative coordinates": {
     action: "drag",
     from_x: -100,
@@ -67,6 +73,11 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   },
   "hover headed": { action: "hover", ref: "@1:e1", headed: true },
   "snapshot a named window": { action: "snapshot", window_id: "w-1" },
+  "snapshot with bounds": {
+    action: "snapshot",
+    app: "Finder",
+    include_bounds: true,
+  },
   // Only snapshot/screenshot/press take --window-id; a ref command rejects it.
   "press in a named window": {
     action: "press",

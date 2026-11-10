@@ -39,6 +39,7 @@ const ACTIONS = [
   "scroll",
   "hover",
   "drag",
+  "mouse_click",
   "list_apps",
   "list_windows",
   "screenshot",
@@ -60,6 +61,7 @@ const READ_ACTIONS = new Set<string>([
 // plain dash-for-underscore swap, so it needs no entry.
 const COMMANDS: Record<string, string> = {
   list_apps: "list-apps",
+  mouse_click: "mouse-click",
 };
 
 const cli = defineTool({
@@ -75,6 +77,7 @@ const cli = defineTool({
   promptGuidelines: [
     "Use agent_desktop when a task needs an app's UI and no CLI or API does it.",
     "Call snapshot once before acting. After every action the tool returns the new state itself; read that result instead of assuming the action worked.",
+    "Act by ref (@e3) wherever one exists; without one, use its `at` with mouse-click, which is the only click that takes x/y.",
     "Every result is plain text, so read it directly: get reads one property of a ref and is checks one state. get bounds gives exact points, which beats a pixel estimated from a screenshot.",
     "is answering 'not applicable' means the element has no such state; that is not the same as false.",
     "A menu, sheet or repaint renumbers every ref. Act from the most recent snapshot only, never from a ref in an older one.",
@@ -82,6 +85,7 @@ const cli = defineTool({
     "Pass window_id from list_windows to pin one window, for snapshot, screenshot and press only. An app with two windows refuses as AMBIGUOUS_TARGET, and even with one visible window a second instance of the app can make an app-only target resolve to the other one.",
     "Headless is the default and never touches the operator's cursor. Pass headed true when an action needs the real pointer: hover and drag always do, and a click does when the element has no semantic delivery.",
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
+    "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -170,6 +174,12 @@ const cli = defineTool({
           "Target one window by id from list_windows, for an app with several. Only snapshot, screenshot and press take it; a ref already names its own window, so it is rejected with a ref.",
       }),
     ),
+    include_bounds: Type.Optional(
+      Type.Boolean({
+        description:
+          "snapshot only: also report bounds, so a node that got no ref is still reachable by x/y. Adds about half again to the payload, so pass it when a snapshot showed a ref-less element you need.",
+      }),
+    ),
   }),
   executionMode: "sequential",
 
@@ -188,6 +198,10 @@ const cli = defineTool({
     // missing one here rather than let clap answer.
     if (p.action === "scroll" && !p.ref)
       throw new Error("scroll needs a ref from the snapshot, e.g. @e3");
+    if (p.action === "mouse_click" && !coords(p.x, p.y))
+      throw new Error(
+        "mouse_click needs x and y; take them from an `at` line, the center being x+width/2, y+height/2",
+      );
     if ((p.action === "get" || p.action === "is") && !p.ref)
       throw new Error(`${p.action} needs a ref from the snapshot, e.g. @e3`);
     if (p.action === "type" && p.text === undefined)
@@ -545,6 +559,7 @@ function property(
  */
 const LEGEND =
   "Elements read `ref role name value`; act by the ref, from this result only. " +
+  "`at` is x,y wxh in points (pixel fallback, with include_bounds); `acts` is what it accepts. " +
   "No `acts` on a ref-less node means only RightClick, ScrollTo and SetFocus, which need no ref. " +
   "`+n` means cut by depth — pass the ref as root to read just that region. " +
   "A … value is clamped; `get text` reads it whole.";
@@ -666,6 +681,15 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   // own window through the ref and clap rejects it there. Two windows of one app
   // are indistinguishable by name, so it is what pins the rest.
   if (WINDOW_SCOPED.has(action)) put(args, "--window-id", p.window_id);
+  // The only click that takes coordinates: `click` is ref-only, so this is how a
+  // node the platform gave no ref reaches (`at` from an include_bounds snapshot).
+  // It is always a real pointer event, so it is headed whatever the call says.
+  if (action === "mouse_click") {
+    const xy = coords(p.x, p.y);
+    if (xy) putEq(args, "--xy", xy);
+    args.push("--headed");
+    return args;
+  }
   // A ref spares the pointer a coordinate round trip, and hover takes it as a
   // positional computed before any flag.
   if (action === "hover") {
@@ -713,6 +737,12 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   // The remaining read commands scope by --app.
   if (READ_ACTIONS.has(action)) {
     putEq(args, "--app", p.app);
+    // A leaf the platform will not qualify still needs an address: an `unknown`
+    // toolbar button has no ref but is pressable by pixel, and bounds are the
+    // only way to reach it. It costs about half again the payload, so it is asked
+    // for only when such a node is actually present.
+    if (action === "snapshot" && p.include_bounds)
+      args.push("--include-bounds");
     return args;
   }
 
