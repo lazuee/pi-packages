@@ -67,6 +67,23 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   },
   "hover headed": { action: "hover", ref: "@1:e1", headed: true },
   "snapshot a named window": { action: "snapshot", window_id: "w-1" },
+  // Only snapshot/screenshot/press take --window-id; a ref command rejects it.
+  "press in a named window": {
+    action: "press",
+    app: "Finder",
+    key: "Return",
+    window_id: "w-1",
+  },
+  "screenshot a named window": {
+    action: "screenshot",
+    app: "Finder",
+    window_id: "w-1",
+  },
+  "get with a ref and no window": {
+    action: "get",
+    ref: "@1:e1",
+    property: "text",
+  },
   "drag headed": {
     action: "drag",
     ref: "@1:e1",

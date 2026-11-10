@@ -223,6 +223,26 @@ describe("buildArgs", () => {
     ).toEqual(["snapshot", "--window-id", "w-1", "--app=Notes"]);
   });
 
+  // Only three commands take the flag; a ref command rejects it, so passing
+  // window_id alongside a ref must not reach argv.
+  it("drops window_id for the commands that reject it", () => {
+    const args = buildArgs({
+      action: "click",
+      ref: "@1:e1",
+      window_id: "w-1",
+    });
+    expect(args).not.toContain("--window-id");
+    expect(args).toContain("@1:e1");
+    expect(
+      buildArgs({
+        action: "press",
+        app: "Notes",
+        key: "Return",
+        window_id: "w-1",
+      }),
+    ).toContain("--window-id");
+  });
+
   it("omits empty strings so clap does not see a blank value", () => {
     const args = buildArgs({ action: "click", app: "Notes", ref: "" });
     expect(args).toEqual(["click"]);

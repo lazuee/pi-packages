@@ -13,6 +13,8 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - Both answer as `<property>: <value>`, and a `get` is never clamped, so it really is the way to read whole what a snapshot line abbreviates.
 - A ref-less node drops an `acts` line that only offers `RightClick`, `ScrollTo` and `SetFocus` — the actions that do not earn a ref — because no ref could address it.
 - An ambiguous-target failure names the candidate window ids it already knows, rather than only telling the agent to go and list them.
+- `window_id` is sent only to `snapshot`, `screenshot` and `press`, the three commands that take it; the ref commands reject it, so `click`/`type`/`get` alongside a `window_id` used to fail on the flag.
+- `set_value` and `select` name the missing value themselves instead of bouncing off the CLI as `INVALID_ARGS`.
 - The how-to-read legend prints only on a tree big enough to pay for it, so a small drilled region stays shorter than the JSON it came from.
 - Every acting action answers with its own fresh snapshot, so refs from an older snapshot are never reused.
 - Background by default: every action goes through the accessibility tree and leaves the cursor alone. `hover` and `drag` are the only pointer movements and are opt-in per call with `headed`.

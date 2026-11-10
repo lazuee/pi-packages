@@ -78,7 +78,7 @@ const cli = defineTool({
     "is answering 'not applicable' means the element has no such state; that is not the same as false.",
     "A menu, sheet or repaint renumbers every ref. Act from the most recent snapshot only, never from a ref in an older one.",
     "Check available_actions before choosing an action: click only what advertises Click. A bare text field advertises TypeText, not Click, so clicking it wastes a call in either mode - type into it, or set_value.",
-    "Pass window_id from list_windows to pin one window. An app with two windows refuses as AMBIGUOUS_TARGET, and even with one visible window a second instance of the app can make an app-only target resolve to the other one.",
+    "Pass window_id from list_windows to pin one window, for snapshot, screenshot and press only. An app with two windows refuses as AMBIGUOUS_TARGET, and even with one visible window a second instance of the app can make an app-only target resolve to the other one.",
     "Headless is the default and never touches the operator's cursor. Pass headed true when an action needs the real pointer: hover and drag always do, and a click does when the element has no semantic delivery.",
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
   ],
@@ -166,7 +166,7 @@ const cli = defineTool({
     window_id: Type.Optional(
       Type.String({
         description:
-          "Target one window by id from list_windows. Needed when an app name matches several windows, which the CLI otherwise refuses as AMBIGUOUS_TARGET.",
+          "Target one window by id from list_windows, for an app with several. Only snapshot, screenshot and press take it; a ref already names its own window, so it is rejected with a ref.",
       }),
     ),
   }),
@@ -192,6 +192,17 @@ const cli = defineTool({
     if (p.action === "type" && p.text === undefined)
       throw new Error(
         "type needs text; pass an empty string to insert nothing",
+      );
+    // Both take VALUE as a required positional, so an omission would otherwise
+    // reach clap and come back as an INVALID_ARGS envelope.
+    if (
+      (p.action === "set_value" || p.action === "select") &&
+      p.value === undefined
+    )
+      throw new Error(
+        p.action === "select"
+          ? "select needs the option value to pick"
+          : "set_value needs a value; pass an empty string to clear it",
       );
     const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
     const out = `${r.stdout}${r.stderr}`.trim();
@@ -601,6 +612,9 @@ function clamp(s: string, max = 120): string {
   return short.length > max ? `${short.slice(0, max)}…` : short;
 }
 
+// The commands whose --help carries --window-id; a ref command rejects it.
+const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
+
 /** The CLI spells commands with dashes; the tool spells them with underscores. */
 export function buildArgs(p: Record<string, unknown>): string[] {
   const action = String(p.action);
@@ -635,9 +649,10 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   // advertises TypeText but not Click) and refuses instead of trying. Which
   // elements those are cannot be known before the call, so the caller decides.
   if (p.headed) args.push("--headed");
-  // Also global. Two windows of one app are indistinguishable by name, and the
-  // CLI refuses that as AMBIGUOUS_TARGET rather than guessing.
-  put(args, "--window-id", p.window_id);
+  // Only snapshot, screenshot and press take this flag; the ref commands name their
+  // own window through the ref and clap rejects it there. Two windows of one app
+  // are indistinguishable by name, so it is what pins the rest.
+  if (WINDOW_SCOPED.has(action)) put(args, "--window-id", p.window_id);
   // A ref spares the pointer a coordinate round trip, and hover takes it as a
   // positional computed before any flag.
   if (action === "hover") {

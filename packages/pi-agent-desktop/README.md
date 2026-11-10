@@ -47,6 +47,7 @@ Every action answers with a fresh snapshot, so the refs it returns are the curre
 
 Prefer `ref` (`@e3`), and check `available_actions` first: click only what advertises `Click`, since a bare text field advertises `TypeText` and a click on it fails in either mode.
 An app with several windows refuses as `AMBIGUOUS_TARGET`; pass `window_id` from `list_windows` to choose one.
+`window_id` is accepted by `snapshot`, `screenshot` and `press` only — a ref already names its own window, and the other commands reject the flag.
 Pin `window_id` also when an app may be running twice: a second instance leaves `list_windows` unambiguous while an app-only target flips between them.
 The red traffic light only hides a window, so instances accumulate across runs; quit the app rather than closing its windows.
 `x`/`y` are the fallback for elements the tree does not address, and a negative coordinate is sent in the `--xy=-100,50` form.
