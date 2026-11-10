@@ -14,7 +14,8 @@ It mirrors `pi-macos-harness`: one tool, one action enum, and a fresh read after
 
 - `src/extension.ts` — the whole extension.
   `buildArgs` turns tool parameters into the CLI's argv; the tool calls it, and the tests call it directly.
-  `ACTIONS` is the enum, `READ_ACTIONS` names the ones that are their own answer (the `--app`-scoped reads), and `COMMANDS` holds the one rename, `list_apps` to `list-apps`.
+  `ACTIONS` is the enum, `READ_ACTIONS` names the ones that are their own answer (the reads; `get`/`is` are ref-scoped and the rest are `--app`-scoped), and `COMMANDS` holds the one rename, `list_apps` to `list-apps`.
+  Responses go through `render`, `shotContent` or `cliError` so no call answers with a JSON envelope.
 - `skills/agent-desktop/` — the upstream skill, copied from the checkout so it documents the CLI actually invoked, plus one local section at the end.
   It is both the agent's long-form manual and the upgrade surface: refresh it whenever `upstream/` moves.
 - `upstream/` — git submodule of `vercel-labs/agent-desktop`.
@@ -103,7 +104,7 @@ The checkout answers only once the native binary exists beside it; until then ru
 
 The copy is upstream's plus a local "How this package relates to the CLI" section at the end.
 Save that section, replace the directory wholesale, and append it again; it is cut from its heading rather than by a line count, which drifts as it grows.
-A bare `cp -R` into the existing directory copies *into* it and leaves a renamed file behind:
+A bare `cp -R` into the existing directory copies _into_ it and leaves a renamed file behind:
 
 ```bash
 sed -n '/^## How this package relates to the CLI/,$p' \

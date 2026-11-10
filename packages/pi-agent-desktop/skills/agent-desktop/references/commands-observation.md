@@ -5,7 +5,8 @@ Run `agent-desktop <command> --help` for flags.
 
 ## snapshot
 
-Captures the accessibility tree as JSON.
+Captures the accessibility tree.
+It arrives as JSON and the extension renders it as text.
 Interactive elements get qualified refs (`@s8f3k2p9:e1`) that embed the snapshot id.
 A bare `@eN` fails with `INVALID_ARGS`.
 
@@ -20,11 +21,29 @@ agent-desktop snapshot --app "App" --window-id w-1234 -i
 Output shape:
 
 ```json
-{ "ok": true, "command": "snapshot",
-  "data": { "app": "System Settings", "window": { "id": "w-4521", "title": "General" },
-    "ref_count": 14, "snapshot_id": "s8f3k2p9", "complete": true,
-    "tree": { "role": "window", "name": "General", "children": [
-      { "ref_id": "@s8f3k2p9:e1", "role": "button", "name": "About", "states": ["focused"] } ] } } }
+{
+  "ok": true,
+  "command": "snapshot",
+  "data": {
+    "app": "System Settings",
+    "window": { "id": "w-4521", "title": "General" },
+    "ref_count": 14,
+    "snapshot_id": "s8f3k2p9",
+    "complete": true,
+    "tree": {
+      "role": "window",
+      "name": "General",
+      "children": [
+        {
+          "ref_id": "@s8f3k2p9:e1",
+          "role": "button",
+          "name": "About",
+          "states": ["focused"]
+        }
+      ]
+    }
+  }
+}
 ```
 
 Each ref names the snapshot that owns it, so a ref keeps resolving against its own snapshot when you interleave several apps or windows.
@@ -111,8 +130,19 @@ agent-desktop find --app "App" --role button --count
 Every non-count response returns the `snapshot_id` that owns its refs:
 
 ```json
-{ "data": { "snapshot_id": "s8f3k2p9",
-  "matches": [ { "ref_id": "@s8f3k2p9:e5", "role": "button", "name": "OK", "states": ["enabled"] } ] } }
+{
+  "data": {
+    "snapshot_id": "s8f3k2p9",
+    "matches": [
+      {
+        "ref_id": "@s8f3k2p9:e5",
+        "role": "button",
+        "name": "OK",
+        "states": ["enabled"]
+      }
+    ]
+  }
+}
 ```
 
 A match without `ref_id` is a context match: readable text with no action target.
@@ -140,9 +170,17 @@ Reads one property of a ref: `text` (default), `value`, `title`, `bounds`, `role
 ## is
 
 Checks one boolean: `visible` (default), `enabled`, `checked`, `focused`, `expanded`, `selected`.
-Output: `{ "ref", "property", "result" }`.
-For `enabled`, an unknown native value returns `result: false` with `applicable: false`.
+The answer is written as `<property>: true|false`, so a bare word never has to be guessed at.
+For `enabled`, an unknown native value returns `result: false` with `applicable: false`, and that is written as _not applicable to this element_.
 That means unknown, not disabled.
+
+## How a `get` or `is` answer is written
+
+The extension renders it as one line, `<property>: <value>` — the property name stays, so the line says which question it answers.
+
+- A `get` is never clamped, so it is the way to read whole what a snapshot line abbreviates.
+- A `null` value is written `(none)`: it is the answer here, not an absent field.
+- `bounds` written when `live` is `false` carries `(from the snapshot, not live — re-read before a click)`.
 
 ## screenshot
 
@@ -151,7 +189,9 @@ agent-desktop screenshot --app "Finder" out.png
 agent-desktop screenshot --screen 0 display.png
 ```
 
-With no path, the PNG returns as base64 in `data`.
+With no path, the PNG returns as base64 in `data`, and the extension hands it to you as an image rather than as text.
+The text beside it names the pixel size and, on a scaled display, the pixel-to-point ratio — divide a pixel by that to get a point for `click`/`hover`.
+An unsupported format, or a shot that will not parse, stays text instead of being lost.
 `--screen` takes a display index from `list-displays`; `0` is the primary display.
 A screenshot is evidence for you, not proof that an action worked.
 Permission denial returns `PERM_DENIED` (see the platform skill).

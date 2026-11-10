@@ -53,6 +53,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
+    "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@types/node": "catalog:",
     "typebox": "catalog:",

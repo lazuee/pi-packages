@@ -1,25 +1,16 @@
 ---
+
 name: agent-desktop
 tags: computer-use, desktop-automation, accessibility, ai-agent, gui-automation, cli
-requirements:
-  - agent-desktop
-description: >
-  Operate desktop applications on macOS, Windows and Linux through native accessibility trees,
-  using the agent-desktop CLI. Use when an AI agent must see or act on a desktop GUI:
-  click buttons, fill forms, read UI state, navigate menus, toggle checkboxes, scroll,
-  drag, type text, press shortcuts, take screenshots, manage windows, use the clipboard,
-  launch or close apps, read notifications.
-  Triggers on: "click button", "fill form", "open app", "read UI", "computer use",
-  "operate desktop", "accessibility tree", "snapshot app", "type into field", "navigate menu",
-  "toggle checkbox", "take screenshot", "desktop automation", "agent-desktop",
-  or any desktop GUI task on macOS, Windows or Linux.
+description: "Operate desktop applications on macOS, Windows and Linux through native accessibility trees, using the agent-desktop CLI. Use when an AI agent must see or act on a desktop GUI: click buttons, fill forms, read UI state, navigate menus, toggle checkboxes, scroll, drag, type text, press shortcuts, take screenshots, manage windows, use the clipboard, launch or close apps, read notifications. Triggers on: \"click button\", \"fill form\", \"open app\", \"read UI\", \"computer use\", \"operate desktop\", \"accessibility tree\", \"snapshot app\", \"type into field\", \"navigate menu\", \"toggle checkbox\", \"take screenshot\", \"desktop automation\", \"agent-desktop\", or any desktop GUI task on macOS, Windows or Linux."
 ---
 
 # agent-desktop
 
 agent-desktop is a CLI that lets an AI agent observe and operate desktop apps through the OS accessibility tree.
 It is a tool, not an agent.
-Every command prints one JSON envelope (`ok`, `data` or `error`).
+Every command prints one JSON envelope (`ok`, `data` or `error`), which the `agent_desktop` tool renders as text before you see it.
+The JSON shapes below are what that text is built from.
 The observe, act and verify loop runs in you.
 
 ## Shell syntax
@@ -126,5 +117,5 @@ Check these first:
 - `click` only what advertises `Click` in `available_actions`.
   A bare text field advertises `TypeText`, not `Click`, and clicking it fails in both modes.
 - An app with several windows refuses as `AMBIGUOUS_TARGET`; pass `--window-id` from `list-windows`.
-  A second *instance* of an app is worse than a second window: `list-windows` shows no ambiguity, yet an app-only target can resolve to the other one, so pin `--window-id` whenever an app may be running twice.
+  A second _instance_ of an app is worse than a second window: `list-windows` shows no ambiguity, yet an app-only target can resolve to the other one, so pin `--window-id` whenever an app may be running twice.
 - Flags differ per command: only the reads (`snapshot`, `screenshot`, `list-windows`, `list-apps`) and `press` take `--app`, and `hover`/`drag` need `--headed` (this tool makes it opt-in per call with `headed: true`, which also rescues a `click` the CLI refuses for `supported_action`).

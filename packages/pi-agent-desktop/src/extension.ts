@@ -20,6 +20,7 @@
 // the run still needs.
 
 import { fileURLToPath } from "node:url";
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import {
   defineTool,
   type ExtensionAPI,
@@ -41,6 +42,8 @@ const ACTIONS = [
   "list_apps",
   "list_windows",
   "screenshot",
+  "get",
+  "is",
 ] as const;
 
 // Actions that only read; the rest act and are followed by a fresh snapshot.
@@ -49,6 +52,8 @@ const READ_ACTIONS = new Set<string>([
   "list_apps",
   "list_windows",
   "screenshot",
+  "get",
+  "is",
 ]);
 
 // Tool action -> CLI command, for the two that differ. Everything else is a
@@ -69,6 +74,8 @@ const cli = defineTool({
     "Use agent_desktop when a task needs an app's UI and no CLI or API does it.",
     "Call snapshot once before acting. After every action the tool returns the new state itself; read that result instead of assuming the action worked.",
     "Act by ref (@e3, from the snapshot) wherever one exists; fall back to x/y only when no ref addresses the element.",
+    "Every result is plain text, so read it directly: get reads one property of a ref and is checks one state. get bounds gives exact points, which beats a pixel estimated from a screenshot.",
+    "is answering 'not applicable' means the element has no such state; that is not the same as false.",
     "A menu, sheet or repaint renumbers every ref. Act from the most recent snapshot only, never from a ref in an older one.",
     "Check available_actions before choosing an action: click only what advertises Click. A bare text field advertises TypeText, not Click, so clicking it wastes a call in either mode - type into it, or set_value.",
     "Pass window_id from list_windows to pin one window. An app with two windows refuses as AMBIGUOUS_TARGET, and even with one visible window a second instance of the app can make an app-only target resolve to the other one.",
@@ -104,6 +111,12 @@ const cli = defineTool({
       }),
     ),
     y: Type.Optional(Type.Number({ description: "Pixel y, same as x." })),
+    property: Type.Optional(
+      Type.String({
+        description:
+          "get: text (what a person reads), value, title, bounds, role, states. is: visible, enabled, checked, focused, expanded, selected. bounds is exact points, so it beats a pixel read off a screenshot.",
+      }),
+    ),
     text: Type.Optional(Type.String({ description: "Text for type." })),
     value: Type.Optional(
       Type.String({ description: "Whole new field text for set_value." }),
@@ -174,22 +187,23 @@ const cli = defineTool({
     // missing one here rather than let clap answer.
     if (p.action === "scroll" && !p.ref)
       throw new Error("scroll needs a ref from the snapshot, e.g. @e3");
+    if ((p.action === "get" || p.action === "is") && !p.ref)
+      throw new Error(`${p.action} needs a ref from the snapshot, e.g. @e3`);
     if (p.action === "type" && p.text === undefined)
       throw new Error(
         "type needs text; pass an empty string to insert nothing",
       );
     const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
     const out = `${r.stdout}${r.stderr}`.trim();
-    // The CLI points at a re-snapshot for a ref that went stale; pass that on.
-    if (r.code !== 0)
-      throw new Error(
-        out || `agent-desktop ${p.action} failed with exit ${r.code}`,
-      );
+    if (r.code !== 0) throw new Error(cliError(out, p.action, r.code));
 
     // A read is the answer by itself.
     if (READ_ACTIONS.has(String(p.action)))
       return {
-        content: [{ type: "text" as const, text: out || "Nothing on screen." }],
+        content:
+          p.action === "screenshot"
+            ? shotContent(out)
+            : [{ type: "text" as const, text: render(out) }],
         details: { action: p.action },
       };
 
@@ -209,8 +223,7 @@ const cli = defineTool({
           { type: "text" as const, text: `Ran ${p.action}. New state:` },
           {
             type: "text" as const,
-            text:
-              `${after.stdout}${after.stderr}`.trim() || "Nothing on screen.",
+            text: render(`${after.stdout}${after.stderr}`.trim()),
           },
         ],
         details: { action: p.action, app: p.app },
@@ -220,7 +233,7 @@ const cli = defineTool({
       content: [
         {
           type: "text" as const,
-          text: `${out || "Done."}\n\nThe snapshot after it failed; call snapshot before the next action.`,
+          text: `${render(out)}\n\nThe snapshot after it failed; call snapshot before the next action.`,
         },
       ],
       details: { action: p.action, app: p.app },
@@ -259,6 +272,333 @@ function withSession(bin: string, args: string[]): [string, string[]] {
       ...args,
     ],
   ];
+}
+
+/**
+ * The screenshot payload, nested under the CLI's `data` envelope field.
+ *
+ * The CLI wraps every result as `{ command, data, ok, version }`, so the payload
+ * is one level down; reading the top level silently finds nothing.
+ */
+type Envelope = { data?: Shot };
+type Shot = {
+  data?: unknown;
+  format?: unknown;
+  width?: unknown;
+  height?: unknown;
+  scale_factor?: unknown;
+};
+
+/**
+ * A screenshot arrives as base64 JSON, and the model sees pixels only if that
+ * becomes ImageContent. The JSON is also kept as text: width and height are what
+ * a pixel click needs, and the image alone does not report them.
+ *
+ * An unparseable shot, or one of a format the model does not take, falls back to
+ * the raw text instead of losing the answer.
+ */
+export function shotContent(out: string): [TextContent, ...ImageContent[]] {
+  let shot: Shot | undefined;
+  try {
+    shot = (JSON.parse(out) as Envelope).data;
+  } catch {
+    return [{ type: "text", text: out || "Nothing on screen." }];
+  }
+  const mimeType = MIME[String(shot?.format)];
+  if (!mimeType || typeof shot?.data !== "string" || !shot.data)
+    return [{ type: "text", text: out }];
+
+  // These are device pixels while click/hover x/y are accessibility points, so
+  // say the ratio: without it a pixel read off the image lands short on Retina.
+  const size =
+    typeof shot.width === "number" && typeof shot.height === "number"
+      ? ` ${shot.width}x${shot.height} px${scaleNote(shot.scale_factor)}.`
+      : "";
+  return [
+    { type: "text", text: `Screenshot${size}` },
+    { type: "image", mimeType, data: shot.data },
+  ];
+}
+
+// Only the case that needs arithmetic is worth naming; at 1x they are the same.
+function scaleNote(scale: unknown): string {
+  const n = Number(scale);
+  return scale !== undefined && n !== 1 && Number.isFinite(n) && n > 0
+    ? ` at ${n}x: divide a pixel by ${n} for a point`
+    : "";
+}
+
+/**
+ * The CLI answers a failure with its code, message and, usually, a suggestion.
+ * Thrown whole as JSON it is unreadable, so the parts are lifted out and the
+ * field that says what to do next is kept.
+ *
+ * An ambiguous target puts the very ids that disambiguate it in `details`, so
+ * those are named too rather than left behind. Anything unparseable, or the
+ * CLI's own ref-goes-stale advice which the raw text already carries, is passed
+ * through unchanged.
+ */
+export function cliError(out: string, action: unknown, code: number): string {
+  const fallback =
+    out || `agent-desktop ${String(action)} failed with exit ${code}`;
+  let e: { message?: unknown; suggestion?: unknown; details?: unknown };
+  try {
+    e = (JSON.parse(out) as { error?: typeof e }).error ?? {};
+  } catch {
+    return fallback;
+  }
+  if (typeof e.message !== "string") return fallback;
+  const candidates = e.details as
+    | { candidates?: { id?: unknown; pid?: unknown }[] }
+    | undefined;
+  const ids = (candidates?.candidates ?? [])
+    .map((c) => scalar(c.id ?? c.pid ?? "?"))
+    .filter((id) => id !== "?");
+  return [
+    e.message,
+    typeof e.suggestion === "string" ? e.suggestion : "",
+    ids.length ? `Candidates: ${ids.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Only what pi-ai's ImageContent accepts; anything else stays text.
+const MIME: Record<string, string> = {
+  png: "image/png",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+/**
+ * The CLI answers every success with `{ command, ok, data }`, and one level of
+ * braces is what the agent then has to parse. `data` is written as text the agent
+ * can act on instead, so it is shaped for the two things it must decide: which
+ * element to aim at, and what the answer means.
+ *
+ * A tree node leads with its ref, so everything needed is on one line; `value`
+ * on a document-sized field is clamped, and `get` reads it in full. A null
+ * property is absent rather than the word "null", and `is` says *not applicable*
+ * rather than a false `result` -- a text field is not unchecked.
+ *
+ * Anything that is not one of those envelopes, stdout and stderr both included,
+ * is passed through untouched.
+ */
+export function render(out: string): string {
+  let data: unknown;
+  try {
+    data = (JSON.parse(out) as { data?: unknown }).data;
+  } catch {
+    return out || "Nothing on screen.";
+  }
+  const lines = describe(data);
+  if (!lines.length) return "Nothing on screen.";
+  // The legend is ~360 fixed characters, so it only pays for itself on a big
+  // tree; a small one -- which is what a drill returns -- reads shorter without
+  // it, and `at`/`acts` still say what they are.
+  // `hasTree` scopes it to snapshot-shaped payloads, but it is only a top-level
+  // key check while the legend describes node fields, so the line count is what
+  // actually decides. A drill also carries `data.tree`, so this gate, not
+  // `hasTree`, is the one that suppresses it there.
+  const hasTree = typeof data === "object" && data !== null && "tree" in data;
+  return (
+    hasTree && lines.length >= LEGEND_BREAKEVEN ? [LEGEND, ...lines] : lines
+  ).join("\n");
+}
+
+// The measured crossover is 18 lines (at 18 the two are equal, above it the
+// render wins); 20 keeps the legend on the side it pays for. It is a line count
+// rather than a node count because the nodes are already counted once here.
+const LEGEND_BREAKEVEN = 20;
+
+// `label` is the list marker, and it goes on the entry's first line only: the
+// indentation already carries ancestry, so repeating it on every line printed
+// `#1   #1   #1` down a deep tree and made the text longer than the JSON it
+// replaced. The entry's own fields are indented under that first line, so they
+// stay visibly inside the item.
+// One space per level, and no level spent on the marker: a deep tree indents
+// itself to nothing at two spaces, and indentation is the bulk of the bytes.
+const STEP = " ";
+
+function describe(data: unknown, indent = "", label = ""): string[] {
+  if (!label) return describeBody(data, indent);
+  const inner = `${indent}${STEP}`;
+  const lines = describeBody(data, inner);
+  if (!lines.length) return lines;
+  return [
+    `${indent}${label}${lines[0].slice(inner.length)}`,
+    ...lines.slice(1),
+  ];
+}
+
+function describeBody(data: unknown, indent: string): string[] {
+  if (Array.isArray(data))
+    return data.flatMap((v, i) => describe(v, indent, `#${i + 1} `));
+  // A null is an absent property (`title` on an unnamed button), never "null".
+  if (data === null || data === undefined) return [];
+  // A string, number, boolean or bigint: the whole non-object range.
+  if (typeof data !== "object") return [`${indent}${scalar(data)}`];
+
+  const o = data as Record<string, unknown>;
+  // Both are a labelled property answer; they differ only in what a non-answer
+  // means, so one flag picks the wording.
+  if (typeof o.property === "string" && ("result" in o || "value" in o))
+    return property(o, "result" in o, indent);
+
+  if (isNode(o)) return node(o, indent);
+  // Generic object: its own keys, one per line.
+  return Object.entries(o).flatMap(([k, v]) =>
+    typeof v === "object" && v !== null
+      ? [`${indent}${k}:`, ...describeBody(v, `${indent}${STEP}`)]
+      : v === null || v === undefined
+        ? []
+        : [`${indent}${k}: ${scalar(v)}`],
+  );
+}
+
+// A get/is answer is intercepted before this, so `role` here is a node's role.
+// A ref-less leaf still carries keys of its own -- the live CLI omits `children`
+// on leaves, so `children` alone would send it to the generic path, where its
+// `available_actions` prints as a numbered list instead of one `acts:` line.
+// A get/is answer is intercepted before this, so a `role` here is a node's role
+// and `role` alone means a node. A leaf carries almost nothing else: the live CLI
+// gives it no ref, omits `children`, and an inert one has no actions or bounds,
+// so keying on those sent a bare `{ role }` to the generic path, where it printed
+// as `role: group` among refs.
+const isNode = (o: Record<string, unknown>) => typeof o.role === "string";
+
+/**
+ * The actions that do not earn a ref on their own -- the docs' words. Web
+ * runtimes advertise them on nearly every node, so on a ref-less node they are
+ * the majority of `acts:` lines while offering no address to act by.
+ */
+const SITUATIONAL = new Set(["RightClick", "ScrollTo", "SetFocus"]);
+
+/**
+ * A `get` or `is` answer: the property name, then the value, so a bare word
+ * still says which question it answers.
+ *
+ * A `get` is never clamped -- it is the documented way to read whole what a
+ * snapshot line abbreviates -- so its value is flattened but kept whole. A null
+ * value says so, since it is the answer here rather than an absent key. Only
+ * `bounds` reports liveness, and a snapshot copy of it may be stale.
+ */
+function property(
+  o: Record<string, unknown>,
+  isCheck: boolean,
+  indent: string,
+): string[] {
+  const name = `${indent}${o.property as string}: `;
+  if (isCheck)
+    return [
+      o.applicable === false
+        ? `${name}not applicable to this element`
+        : `${name}${scalar(o.result)}`,
+    ];
+  const at = rect(o.value);
+  const shown =
+    at ??
+    (o.value == null
+      ? "(none)"
+      : Array.isArray(o.value)
+        ? o.value.map(scalar).join(", ") || "(none)"
+        : scalar(o.value).replace(/\s+/g, " "));
+  return o.live === false
+    ? [
+        `${name}${shown}`,
+        `${indent}(from the snapshot, not live — re-read before a click)`,
+      ]
+    : [`${name}${shown}`];
+}
+
+/**
+ * One line saying how to read what follows. It is a contract, not decoration:
+ * it names the ref to act on, forbids reusing an old one, and says a pixel is a
+ * last resort because the tree address is exact.
+ */
+const LEGEND =
+  "Elements read `ref role name value`; act by the ref, from this result only. " +
+  "`at` is x,y wxh in points (pixel fallback); `acts` is what it accepts. " +
+  "No `acts` on a ref-less node means only RightClick, ScrollTo and SetFocus, which need no ref. " +
+  "`+n` means cut by depth — pass the ref as root to read just that region. " +
+  "A … value is clamped; `get text` reads it whole.";
+
+/** An unknown as text, for a place a value is only ever displayed. */
+function scalar(v: unknown): string {
+  if (typeof v === "number")
+    // A scrollbar's name is a raw float position; the tail is noise.
+    return Number.isInteger(v) ? `${v}` : `${Number(v.toFixed(4))}`;
+  return typeof v === "string" ||
+    typeof v === "boolean" ||
+    typeof v === "bigint"
+    ? `${v}`
+    : JSON.stringify(v);
+}
+
+function rect(v: unknown): string | undefined {
+  if (typeof v !== "object" || v === null) return undefined;
+  const { x, y, width, height } = v as Record<string, number | undefined>;
+  if (
+    x === undefined ||
+    y === undefined ||
+    width === undefined ||
+    height === undefined
+  )
+    return undefined;
+  return `${x},${y} ${width}x${height}`;
+}
+
+/**
+ * One accessibility node on its first line: ref, role, name and value, then the
+ * states and what it advertises. Children follow indented, so the shape of the
+ * line is the shape of the screen.
+ *
+ * The docs are explicit that an unnamed element carries its content in `value`,
+ * so `value` is its identity there and is kept; on a named text field it is the
+ * whole document and is clamped, with `get text` for the rest.
+ */ function node(n: Record<string, unknown>, indent: string): string[] {
+  // A scrollbar names itself with a float position, so a name is not only text.
+  const named = n.name !== undefined && n.name !== null && n.name !== "";
+  const actionless = !n.ref_id;
+  const parts = [n.ref_id, n.role].filter(
+    (v): v is string => typeof v === "string" && v !== "",
+  );
+  if (named) parts.push(clamp(scalar(n.name)));
+  if (typeof n.value === "string" && n.value !== "")
+    parts.push(named ? clamp(n.value) : clamp(n.value, 240));
+  const lines = [`${indent}${parts.join(" ")}`];
+
+  // A skeleton marks what it cut; that count is the drill target.
+  if (typeof n.children_count === "number")
+    lines.push(`${indent}${STEP}+${n.children_count}`);
+  const at = rect(n.bounds);
+  if (at) lines.push(`${indent}${STEP}at ${at}`);
+  if (Array.isArray(n.states) && n.states.length)
+    lines.push(`${indent}${STEP}states: ${n.states.join(", ")}`);
+  const acts = (n.available_actions as unknown[] | undefined) ?? [];
+  if (
+    acts.length &&
+    !(actionless && acts.every((a) => SITUATIONAL.has(String(a))))
+  )
+    lines.push(`${indent}${STEP}acts: ${acts.join(", ")}`);
+  const children = n.children;
+  if (Array.isArray(children))
+    for (const [i, c] of children.entries())
+      lines.push(...describe(c, `${indent}${STEP}`, `#${i + 1} `));
+  return lines;
+}
+
+// One long value is one long token bill; the head is what identifies it.
+function clamp(s: string, max = 120): string {
+  const flat = s.replace(/\s+/g, " ").trim();
+  // A scrollbar's value is a float position and arrives as a string; the tail is
+  // noise on every read and it is long enough to crowd out the name.
+  const short = /^-?0?\.\d{6,}$/.test(flat)
+    ? `${Number(Number(flat).toFixed(4))}`
+    : flat;
+  return short.length > max ? `${short.slice(0, max)}…` : short;
 }
 
 /** The CLI spells commands with dashes; the tool spells them with underscores. */
@@ -331,6 +671,14 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     putEq(args, "--app", p.app);
     // Flags go before `--`, which ends flag parsing: a combo can be a bare "--5".
     if (key) args.push("--", key);
+    return args;
+  }
+
+  // get and is are ref reads: the ref is positional and both take the same
+  // --property flag, which has its own default. Their answer is the value.
+  if (action === "get" || action === "is") {
+    if (ref) args.push(ref);
+    putEq(args, "--property", p.property);
     return args;
   }
 

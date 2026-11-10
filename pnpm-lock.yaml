@@ -92,14 +92,13 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@26.6.6)(@vitest/coverage-istanbul@4.1.11)(vite@8.0.13(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/pi-agent-desktop:
-    dependencies:
-      '@earendil-works/pi-ai':
-        specifier: 'catalog:'
-        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.12.3)(zod@4.6.7)
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.6.6
+      '@earendil-works/pi-ai':
+        specifier: 'catalog:'
+        version: 1.5.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(undici@8.12.3)(zod@4.6.7)
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 1.5.0(@aws-sdk/credential-provider-node@3.972.84)(@smithy/signature-v4@5.7.4)(supports-color@7.2.0)(zod@4.6.7)

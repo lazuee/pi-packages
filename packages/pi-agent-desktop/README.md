@@ -33,8 +33,14 @@ One tool, `agent_desktop`, with an action enum:
 
 | Kind | Actions                                                                    |
 | ---- | -------------------------------------------------------------------------- |
-| Read | `snapshot`, `list_apps`, `list_windows`, `screenshot`                      |
+| Read | `snapshot`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`         |
 | Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag` |
+
+Every result is plain text — the CLI's `data` envelope is unwrapped, never handed over as JSON, on an action's follow-up snapshot as much as on a read.
+`get` reads one `property` of a ref (`text`, `value`, `title`, `bounds`, `role`, `states`) and `is` checks one `state`; both take a `ref`.
+Both answer as `<property>: <value>`, and a `get` is never clamped — it is how you read whole what a snapshot line abbreviates.
+`get bounds` returns exact points, so it is the precise way to locate an element — better than a pixel estimated from a screenshot.
+`is` answering _not applicable_ means the element has no such state, which is not the same as false.
 
 `snapshot` before acting.
 Every action answers with a fresh snapshot, so the refs it returns are the current ones — the CLI's refs are snapshot-scoped, and an old ref is stale by construction.
@@ -45,6 +51,9 @@ Pin `window_id` also when an app may be running twice: a second instance leaves 
 The red traffic light only hides a window, so instances accumulate across runs; quit the app rather than closing its windows.
 `x`/`y` are the fallback for elements the tree does not address, and a negative coordinate is sent in the `--xy=-100,50` form.
 `drag` takes a `to_ref` for its destination.
+`screenshot` returns the window as an image the model sees, with its pixel size in the text beside it.
+The image is device pixels while the coordinates above are accessibility points, so the text names the ratio; divide a pixel by it before passing `x`/`y`.
+The shot is also padded by the window shadow, which is why `x`/`y` is the fallback rather than the default — a ref needs no arithmetic.
 `press` is the exception: its only positional is the combo, so it goes to the focused window unless an `app` names one.
 
 ## Background by default
@@ -52,7 +61,7 @@ The red traffic light only hides a window, so instances accumulate across runs; 
 The extension runs alongside your own work: it does not steal focus and does not move your cursor unless asked.
 
 Every action goes through the accessibility tree.
-Only `hover` and `drag` *are* pointer movements in the CLI, and it refuses those headless with `POLICY_DENIED`.
+Only `hover` and `drag` _are_ pointer movements in the CLI, and it refuses those headless with `POLICY_DENIED`.
 Both are opt-in per call with `headed: true`.
 
 ```text

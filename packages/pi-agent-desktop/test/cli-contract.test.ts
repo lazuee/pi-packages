@@ -33,6 +33,8 @@ const CALLS: Record<string, Record<string, unknown>> = {
   scroll: { ref: "@1:e1", direction: "down", amount: 3 },
   hover: { x: 5, y: 9 },
   drag: { from_x: 1, from_y: 2, to_x: 3, to_y: 4 },
+  get: { ref: "@1:e1", property: "bounds" },
+  is: { ref: "@1:e1", property: "visible" },
 };
 
 // Extra cases: the ref forms the builder prefers, an explicit timeout, and
