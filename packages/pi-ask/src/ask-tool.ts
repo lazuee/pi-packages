@@ -132,7 +132,8 @@ export async function executeAskTool(
 ) {
   const config = await getAskConfigStore().getConfig();
   const backgroundOnly = isBackgroundOnly();
-  // Re-run the SDK's two steps here: a late-registered tool skips both of them.
+  // The SDK prepares and validates arguments before execute(); the retry path in the
+  // extension enters here directly, so both steps run here as well.
   const call = definition(backgroundOnly);
   const input_ = validateToolCall([call], {
     type: "toolCall",

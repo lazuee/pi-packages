@@ -237,6 +237,33 @@ test("ask tool stores valid payloads as soon as they are called", async () => {
   });
 });
 
+test("ask tool accepts a question without options", async () => {
+  const { entries, tool } = registerMockTool();
+  const params = {
+    questions: [
+      {
+        id: "choice",
+        prompt: "Pick one",
+        options: [{ value: "yes", label: "Yes" }],
+      },
+      { id: "notes", prompt: "Anything else?" },
+    ],
+  };
+
+  const result = await tool.execute(
+    "call-free-form",
+    params,
+    undefined,
+    noop,
+    makeCtx(false),
+  );
+
+  // Only an explicit empty list is rejected; an omitted one means free-form only.
+  assert.equal(result.details.error, undefined);
+  assert.equal(result.details.questions.length, 2);
+  assert.deepEqual(result.details.questions[1].options ?? [], []);
+});
+
 test("ask tool returns pending questions in non-interactive mode", async () => {
   const { tool } = registerMockTool();
 

@@ -49,30 +49,27 @@ export function prepareAskParams(input: unknown): unknown {
       if (!isRecord(question)) {
         return question;
       }
+      // An absent list stays absent: validateParams only rejects an explicit empty one.
       const options = Array.isArray(question.options)
         ? question.options.map(prepareOption)
-        : question.options;
-      return migrateLegacyPreview(
-        Array.isArray(options)
-          ? { ...question, options }
-          : { ...question, options: [] },
-      );
+        : undefined;
+      return migrateLegacyPreview({ ...question, options });
     }),
   };
 }
 
 /** Older forms showed per-option previews; their text becomes the question context. */
 function migrateLegacyPreview(
-  question: Record<string, unknown> & { options: unknown[] },
+  question: Record<string, unknown> & { options?: unknown[] },
 ): Record<string, unknown> {
-  const previews = question.options.flatMap((option) => {
+  const previews = (question.options ?? []).flatMap((option) => {
     if (!isRecord(option)) {
       return [];
     }
     const text = legacyPreviewText(option);
     return text ? [{ label: option.label, text }] : [];
   });
-  const options = question.options.map((option) => {
+  const options = question.options?.map((option) => {
     if (!isRecord(option)) {
       return option;
     }
@@ -87,7 +84,7 @@ function migrateLegacyPreview(
     ...question,
     ...(question.type === "preview" ? { type: "single" } : {}),
     ...(context ? { context } : {}),
-    options,
+    ...(options ? { options } : {}),
   };
 }
 
@@ -319,8 +316,9 @@ function assertOptionsPresent(
   path: string,
   message: string,
 ) {
-  // A caller reaching this without the schema has to say "no options" by sending
-  // `[]`; an absent field is the schema's own required-field error, not ours.
+  // `options` is optional in the schema, so an absent list is a free-form-only
+  // question, not a missing one. Only an explicit empty list is rejected, and
+  // prepareAskParams must keep it absent instead of defaulting it to `[]`.
   if (options?.length === 0) {
     collector.add(path, message);
   }

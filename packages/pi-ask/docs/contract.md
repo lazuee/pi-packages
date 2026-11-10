@@ -451,9 +451,9 @@ Dirty dismiss:
 The run mode is only known at `session_start`, so the question tools register there instead of when the extension loads.
 The form UI has no degraded fallback, so `wait_for_answers`, the `/ask-mode`, `/ask-settings`, and `/ask-queue` commands, and the background question queue are registered in TUI mode only; `ask_user` also registers in the other modes, where it can reach an external UI.
 
-A turn's tool snapshot is taken before `session_start` runs, so the first call of a session can be rejected with `Tool ask_user not found`.
-A `tool_call` handler notices a call whose tool is registered but absent from the snapshot, executes it in-process, blocks the SDK's own copy, and delivers the result to the agent as a follow-up turn.
-Every later call runs normally.
+A turn's tool snapshot is taken before `session_start` runs, so a call made before the registration can be rejected with `Tool ask_user not found` (a retried turn keeps the snapshot it was sent with).
+A `tool_call` handler detects exactly that gap — the tool is registered and the call is not nested — and answers the call in place, so its result keeps the call's own ID and role instead of arriving as an error plus a synthetic user turn.
+Nested calls resolve against the parent's tool list and are left to the SDK; every later call runs normally.
 
 Because `ask_user` registers once, its `background` parameter follows the mode in force at `session_start`; a later mode switch keeps that schema and only changes how a call is executed.
 

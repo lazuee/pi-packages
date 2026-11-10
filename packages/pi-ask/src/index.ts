@@ -1,4 +1,8 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  AgentToolResult,
+  ExtensionAPI,
+} from "@earendil-works/pi-coding-agent";
+import type { Static } from "typebox";
 import { registerAskHistoryTools } from "./ask-history-tools";
 import { AskModeController } from "./ask-mode";
 import { registerAskModeCommand } from "./ask-mode-command";
@@ -10,11 +14,13 @@ import {
   createBackgroundAskRuntime,
   registerBackgroundAskEvents,
 } from "./background-ask";
+import type { AskQueuedSchema } from "./background-ask-state";
 import { getAskConfigStore, resetAskConfigStore } from "./config/store";
 import { registerQuestionStatus } from "./program-status";
 import { createRemoteAskRuntime } from "./remote-ask";
+import { toAskOutput } from "./result-schema";
 import { registerPendingAskResume } from "./resume-pending-ask";
-import type { AskParams } from "./types";
+import type { AskParams, AskResult } from "./types";
 import { registerWaitForAnswersTool } from "./wait-for-answers-tool";
 
 // The form and the queue are TUI-only, and the run mode exists only on the event
@@ -66,58 +72,45 @@ export default function askExtension(pi: ExtensionAPI) {
       registerAskHistoryTools(pi);
     }
   });
-  // The turn's tool snapshot is taken before they register, so a retry of the rejected
-  // call finds nothing. This handler executes that retry in-process; the second run's
-  // own snapshot differs, so it never runs the same call twice.
-  pi.on("tool_call", (event, ctx) => {
-    if (event.toolName !== "ask_user") {
+  // Nothing in the turn the call belongs to carries this tool: the start snapshot was
+  // taken before session_start registered it, or a retry was sent without the tool.
+  // Answering here keeps the call's own ID and role instead of a retry turn's error.
+  pi.on("tool_call", async (event, ctx) => {
+    // Nested calls get `<parent>/<n>` ids and resolve against the parent's tool list.
+    if (
+      event.toolName !== "ask_user" ||
+      event.parentToolCallId ||
+      pi.getAllTools().some((tool) => tool.name === "ask_user")
+    ) {
       return undefined;
     }
-    // Registered by session_start, so this is the retry of a "not found" rejection.
-    if (pi.getAllTools().some((tool) => tool.name === "ask_user")) {
-      return undefined;
-    }
-    if (!backgroundAsk) {
-      return undefined;
-    }
-    // The handler owns the call; its result reaches the agent as the next turn.
-    void executeAskTool(
-      pi,
-      event.toolCallId,
-      event.input as unknown as AskParams,
-      undefined,
-      undefined,
-      ctx,
-      remoteAsk,
-      backgroundAsk,
-      () => mode.backgroundOnly,
-    ).then(
-      (result) =>
-        pi.sendMessage(
+    // A thrown call keeps a readable text result; it is not an answer either.
+    let execution: AgentToolResult<AskResult | Static<typeof AskQueuedSchema>>;
+    try {
+      execution = await executeAskTool(
+        pi,
+        event.toolCallId,
+        event.input as unknown as AskParams,
+        ctx.signal,
+        undefined,
+        ctx,
+        remoteAsk,
+        backgroundAsk,
+        () => mode.backgroundOnly,
+      );
+    } catch (error) {
+      execution = {
+        content: [
           {
-            customType: "ask-tool-result",
-            content: result.content,
-            display: false,
-            details: result.details,
+            type: "text" as const,
+            text: `ask_user failed: ${error instanceof Error ? error.message : String(error)}`,
           },
-          { triggerTurn: true },
-        ),
-      (error: unknown) =>
-        pi.sendMessage(
-          {
-            customType: "ask-tool-result",
-            content: [
-              {
-                type: "text" as const,
-                text: `ask_user failed: ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
-            display: false,
-          },
-          { triggerTurn: true },
-        ),
-    );
-    return { block: true };
+        ],
+        details: { cancelled: true, answers: {}, questions: [] },
+        isError: true,
+      };
+    }
+    return execution;
   });
   pi.on("context", () => mode.markModelRequest());
   pi.on("session_shutdown", () => mode.endSession());
