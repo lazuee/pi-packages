@@ -23,6 +23,7 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - One session id per Pi session on `agent_start`, `agent_settled` and `session_shutdown`, so a subagent or a second window is a distinct session and does not release the apps another is driving.
 - `screenshot` returns the pixels as an image, not base64 the model cannot see; the text names the pixel-to-point ratio, and an unreadable or unsupported shot stays text.
 - `mouse_click` clicks at x/y, the only click that does: `click` is ref-only, so this is how a node the platform never qualified is reached from its `at`.
+- `snapshot` takes `skeleton`, `compact`, `interactive_only` and `root`, the documented map-then-drill loop; and `interactive_only` is the lever that always shrinks a tree.
 - `snapshot` takes `include_bounds` to report `at` for exactly those nodes, and the legend says `at` comes from it.
 - A CLI failure is surfaced as its own message and suggestion instead of the raw JSON envelope.
 - The upstream skill is bundled, so the documented CLI and the invoked one match.

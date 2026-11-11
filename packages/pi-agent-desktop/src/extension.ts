@@ -70,6 +70,7 @@ const cli = defineTool({
   description: [
     "Read and operate desktop apps on macOS, Windows and Linux by their native accessibility trees.",
     "snapshot prints the window's element tree with refs, so you see what you are aiming at rather than guessing.",
+    "Map before you act: snapshot with skeleton (and compact, interactive_only) is about a tenth the size and still lists the interactive refs; drill a region with root rather than re-reading the whole window.",
     "Every action is followed by a fresh snapshot on its own: the result you get back is already the new state, with valid refs. Do not guess what changed.",
     "It runs in the background by default: nothing moves the operator's pointer unless headed is set.",
   ].join(" "),
@@ -178,6 +179,30 @@ const cli = defineTool({
       Type.Boolean({
         description:
           "snapshot only: also report bounds, so a node that got no ref is still reachable by x/y. Adds about half again to the payload, so pass it when a snapshot showed a ref-less element you need.",
+      }),
+    ),
+    skeleton: Type.Optional(
+      Type.Boolean({
+        description:
+          "snapshot only: a shallow overview, with `+n` on the containers it cut. Only cuts a page deeper than the depth limit, so pair it with interactive_only.",
+      }),
+    ),
+    compact: Type.Optional(
+      Type.Boolean({
+        description:
+          "snapshot only: collapse single-child unnamed wrappers, which is most of a web tree's depth.",
+      }),
+    ),
+    interactive_only: Type.Optional(
+      Type.Boolean({
+        description:
+          "snapshot only: interactive elements only, dropping static text. The lever that always shrinks a tree; leave it off to tell which row a repeated button belongs to.",
+      }),
+    ),
+    root: Type.Optional(
+      Type.String({
+        description:
+          "snapshot only: start at this ref instead of the window root, to read one region. Refs outside it stay valid.",
       }),
     ),
   }),
@@ -743,6 +768,14 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     // for only when such a node is actually present.
     if (action === "snapshot" && p.include_bounds)
       args.push("--include-bounds");
+    // The shaping flags the docs make the normal loop: map shallow, drill one
+    // region. Without them every snapshot is the whole tree.
+    if (action === "snapshot") {
+      if (p.skeleton) args.push("--skeleton");
+      if (p.compact) args.push("--compact");
+      if (p.interactive_only) args.push("--interactive-only");
+      put(args, "--root", p.root);
+    }
     return args;
   }
 

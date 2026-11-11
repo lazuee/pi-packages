@@ -73,6 +73,14 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   },
   "hover headed": { action: "hover", ref: "@1:e1", headed: true },
   "snapshot a named window": { action: "snapshot", window_id: "w-1" },
+  "snapshot shaped for a map": {
+    action: "snapshot",
+    app: "Finder",
+    skeleton: true,
+    compact: true,
+    interactive_only: true,
+  },
+  "snapshot drilled into a region": { action: "snapshot", root: "@1:e1" },
   "snapshot with bounds": {
     action: "snapshot",
     app: "Finder",

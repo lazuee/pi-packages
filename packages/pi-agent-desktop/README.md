@@ -42,7 +42,8 @@ Both answer as `<property>: <value>`, and a `get` is never clamped — it is how
 `get bounds` returns exact points, so it is the precise way to locate an element — better than a pixel estimated from a screenshot.
 `is` answering _not applicable_ means the element has no such state, which is not the same as false.
 
-`snapshot` before acting.
+`snapshot` before acting, and map cheaply: `interactive_only` drops static text, `skeleton` and `compact` shrink the shape further, and `root` drills one region instead of re-reading the window.
+`skeleton` only cuts a page deeper than the depth limit, so pair it with `interactive_only` rather than relying on it.
 Every action answers with a fresh snapshot, so the refs it returns are the current ones — the CLI's refs are snapshot-scoped, and an old ref is stale by construction.
 
 Prefer `ref` (`@e3`), and check `available_actions` first: click only what advertises `Click`, since a bare text field advertises `TypeText` and a click on it fails in either mode.

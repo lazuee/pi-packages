@@ -243,6 +243,31 @@ describe("buildArgs", () => {
     );
   });
 
+  it("forwards the snapshot shaping flags, and only on snapshot", () => {
+    expect(
+      buildArgs({
+        action: "snapshot",
+        app: "Notes",
+        skeleton: true,
+        compact: true,
+        interactive_only: true,
+        root: "@1:e1",
+      }),
+    ).toEqual([
+      "snapshot",
+      "--app=Notes",
+      "--skeleton",
+      "--compact",
+      "--interactive-only",
+      "--root",
+      "@1:e1",
+    ]);
+    expect(buildArgs({ action: "snapshot", app: "Notes" })).toEqual([
+      "snapshot",
+      "--app=Notes",
+    ]);
+  });
+
   it("asks for bounds only on snapshot, and only when told to", () => {
     expect(
       buildArgs({ action: "snapshot", app: "Notes", include_bounds: true }),
