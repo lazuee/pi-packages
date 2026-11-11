@@ -26,7 +26,9 @@ agent-desktop skills get platform
 
 A source checkout under `upstream/` is a launcher, not a binary: it works only once npm's postinstall has put the native binary beside it.
 The extension probes both, so it uses that checkout when it answers (a local patch is then live at once) and otherwise falls through to the `agent-desktop` on your `PATH`.
-`open_system_surface` is not implemented on macOS (the trait method is a `not_supported` default no macOS adapter overrides), so it refuses as `PLATFORM_NOT_SUPPORTED` there whatever build answers — on macOS the same surfaces are reached by `snapshot --surface menubar` or `--surface menu-bar-extras`.
+`open_system_surface` is not implemented on macOS (the trait method is a `not_supported` default no macOS adapter overrides), so it refuses as `PLATFORM_NOT_SUPPORTED` there whatever build answers.
+The vendored 1.0.2 build also lacks the `dock` and `menu-bar-extras` snapshot surfaces it would cover, so on that build the Dock and the status items are not reachable by surface — `list-surfaces --app Dock` comes back empty even though the Dock runs.
+An installed 2.6 CLI does support both `snapshot --surface dock` and `--surface menu-bar-extras`; the bundled checkout wins discovery, so update the submodule to get them.
 
 ## What it exposes
 
@@ -97,6 +99,9 @@ A batch is not atomic and does not fail as a whole — each result carries its o
 Notifications are an OS queue, not a window: the index is positional and guarded.
 `dismiss_notification` and `notification_action` take an `index` from `list_notifications` plus `expected_title` (and `app` when known), because the queue shifts between listings.
 Mutations are always ones that open and focus the notification surface, so they are always headed.
+
+On macOS 26 the notification commands are known to come back empty: `list_notifications` answers `count: 0` while macOS holds the records, `list-windows` shows no Notification Center window, and `snapshot --app "Notification Center"` reports the app has no matching window — all while System Events counts its windows normally.
+Both the bundled 1.0.2 and an installed 2.6 CLI fail identically, headless and headed, so the wiring below is in place but unproven against a non-empty queue there.
 
 Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is macOS-only and you want screenshots attached to every read.
 
