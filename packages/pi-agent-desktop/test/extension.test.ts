@@ -872,9 +872,9 @@ describe("the answers that have no tree to show", () => {
     ).toBe("agent-desktop 1.2.0 on macos (aarch64)");
   });
 
-  it("says an empty notification queue is empty", () => {
+  it("says an empty notification queue is empty, and explains one", () => {
     expect(render(JSON.stringify({ data: { notifications: [] } }))).toBe(
-      "No notifications.",
+      "No notifications.\n If one is expected, the center's rows are not in the accessibility tree; see the macOS note in the README.",
     );
   });
 

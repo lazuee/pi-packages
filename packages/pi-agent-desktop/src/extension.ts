@@ -1003,7 +1003,14 @@ const isNode = (o: Record<string, unknown>) => typeof o.role === "string";
  */
 function inbox(o: Record<string, unknown>, indent: string): string[] {
   const list = o.notifications as Record<string, unknown>[];
-  if (!list.length) return [`${indent}No notifications.`];
+  // An empty queue is also what a platform whose center never exposes its rows
+  // looks like, so the two are worth telling apart here rather than at the
+  // dismiss, which would only call it "expired".
+  if (!list.length)
+    return [
+      `${indent}No notifications.`,
+      `${indent}${STEP}If one is expected, the center's rows are not in the accessibility tree; see the macOS note in the README.`,
+    ];
   return list.flatMap((n, i) => {
     const acts = n.actions as unknown[] | undefined;
     return [
