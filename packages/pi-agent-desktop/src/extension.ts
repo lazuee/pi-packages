@@ -52,6 +52,10 @@ const ACTIONS = [
   "focus",
   "scroll_to",
   "wait",
+  "launch",
+  "close_app",
+  "focus_window",
+  "triple_click",
   "list_apps",
   "list_windows",
   "screenshot",
@@ -78,6 +82,9 @@ const COMMANDS: Record<string, string> = {
   right_click: "right-click",
   scroll_to: "scroll-to",
   double_click: "double-click",
+  close_app: "close-app",
+  focus_window: "focus-window",
+  triple_click: "triple-click",
 };
 
 const cli = defineTool({
@@ -104,7 +111,7 @@ const cli = defineTool({
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
-    "toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click and double_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first.",
+    "launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -269,6 +276,12 @@ const cli = defineTool({
       throw new Error("double_click needs a ref from the snapshot, e.g. @e3");
     if (p.action === "find" && !p.query && !p.role)
       throw new Error("find needs a query (text) or a role to match");
+    if (p.action === "triple_click" && !p.ref)
+      throw new Error("triple_click needs a ref from the snapshot, e.g. @e3");
+    if ((p.action === "launch" || p.action === "close_app") && !p.app)
+      throw new Error(`${p.action} needs an app name`);
+    if (p.action === "focus_window" && !p.window_id && !p.app)
+      throw new Error("focus_window needs a window_id or an app");
     if (p.action === "wait" && !p.wait_text && typeof p.wait_ms !== "number")
       throw new Error("wait needs wait_text, or wait_ms as a fixed pause");
     if (p.action === "mouse_click" && !coords(p.x, p.y))
@@ -742,6 +755,7 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   const text = p.text as string | undefined;
   const key = p.key as string | undefined;
   const value = p.value as string | undefined;
+  const app = p.app as string | undefined;
 
   // Scroll is a ref command: a direction and an amount, not a wheel event. Only
   // `mouse-wheel` is coordinate-based, and scroll does not use it.
@@ -778,9 +792,25 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     return args;
   }
   // A physical gesture, so it always needs the real pointer.
-  if (action === "double_click") {
+  if (action === "double_click" || action === "triple_click") {
     if (ref) args.push(ref);
     args.push("--headed");
+    return args;
+  }
+  // App lifecycle: the app is positional, and launching waits for a window so
+  // the next snapshot has something to read.
+  if (action === "launch") {
+    args.push("--activate");
+    if (app) args.push("--", app);
+    return args;
+  }
+  if (action === "close_app") {
+    if (app) args.push("--", app);
+    return args;
+  }
+  if (action === "focus_window") {
+    put(args, "--window-id", p.window_id);
+    putEq(args, "--app", p.app);
     return args;
   }
   // A ref spares the pointer a coordinate round trip, and hover takes it as a

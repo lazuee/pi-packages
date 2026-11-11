@@ -272,6 +272,31 @@ describe("buildArgs", () => {
     ]);
   });
 
+  it("builds the app lifecycle, and waits for a window on launch", () => {
+    // --activate so the next snapshot has a window to read.
+    expect(buildArgs({ action: "launch", app: "Notes" })).toEqual([
+      "launch",
+      "--activate",
+      "--",
+      "Notes",
+    ]);
+    expect(buildArgs({ action: "close_app", app: "Notes" })).toEqual([
+      "close-app",
+      "--",
+      "Notes",
+    ]);
+    expect(buildArgs({ action: "focus_window", window_id: "w-1" })).toEqual([
+      "focus-window",
+      "--window-id",
+      "w-1",
+    ]);
+    expect(buildArgs({ action: "triple_click", ref: "@1:e1" })).toEqual([
+      "triple-click",
+      "@1:e1",
+      "--headed",
+    ]);
+  });
+
   it("builds find and wait, and bounds the wait", () => {
     expect(buildArgs({ action: "find", app: "Notes", query: "OK" })).toEqual([
       "find",

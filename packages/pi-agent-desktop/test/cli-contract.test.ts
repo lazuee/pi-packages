@@ -99,6 +99,11 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   collapse: { action: "collapse", ref: "@1:e1" },
   clear: { action: "clear", ref: "@1:e1" },
   focus: { action: "focus", ref: "@1:e1" },
+  triple_click: { action: "triple_click", ref: "@1:e1" },
+  launch: { action: "launch", app: "Finder" },
+  close_app: { action: "close_app", app: "Finder" },
+  focus_window: { action: "focus_window", app: "Finder" },
+  focus_window_by_id: { action: "focus_window", window_id: "w-1" },
   scroll_to: { action: "scroll_to", ref: "@1:e1" },
   "snapshot with bounds": {
     action: "snapshot",
