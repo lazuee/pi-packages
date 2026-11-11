@@ -136,7 +136,7 @@ const cli = defineTool({
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
-    "When a session cannot act at all, permissions reports which OS grant is missing and status reports the platform and supported surfaces. launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_set/get/clear move text in and out of the system clipboard; on a Homebrew install they can refuse with ACTION_NOT_SUPPORTED because the helper sits under /opt/homebrew/lib, which Homebrew makes group-writable; chmod g-w /opt/homebrew/lib once fixes it. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
+    "When a session cannot act at all, permissions reports which OS grant is missing and status reports the platform and supported surfaces. launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_set/get/clear move text in and out of the system clipboard; on a Homebrew install they can refuse with ACTION_NOT_SUPPORTED because the helper sits under /opt/homebrew/lib, which Homebrew makes group-writable; chmod g-w /opt/homebrew/lib once fixes it. The vendored checkout also refuses while its helper is a symlink: replace upstream/npm/bin/agent-desktop-macos-helper with a copy of the real file. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -388,6 +388,14 @@ const cli = defineTool({
           p.action === "screenshot"
             ? shotContent(out)
             : [{ type: "text" as const, text: render(out) }],
+        details: { action: p.action },
+      };
+
+    // The clipboard is window-independent, so a snapshot would only repeat what
+    // the last one said. Answer with the action's own verdict instead.
+    if (CLIPBOARD_ACTIONS.has(String(p.action)))
+      return {
+        content: [{ type: "text" as const, text: render(out) }],
         details: { action: p.action },
       };
 
@@ -863,6 +871,9 @@ const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
 // The two that move a window in or out of the Dock; their verification read
 // times out while the window is away.
 const WINDOW_VISIBILITY = new Set(["maximize", "minimize", "restore"]);
+
+// The actions that touch no window, and so need no follow-up snapshot.
+const CLIPBOARD_ACTIONS = new Set(["clipboard_set", "clipboard_clear"]);
 
 // Window geometry commands: each scopes by window_id or app.
 const WINDOW_GEOMETRY = new Set([
