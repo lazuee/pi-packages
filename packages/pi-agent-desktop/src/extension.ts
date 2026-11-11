@@ -1734,13 +1734,13 @@ export default function (pi: ExtensionAPI) {
     session = `${process.pid}-${Date.now().toString(36)}`;
     cmd = undefined;
     const found = await discover();
-    if (
-      found &&
-      ctx.hasUI &&
-      ctx.mode === "tui" &&
-      event.reason === "startup"
-    ) {
-      ctx.ui.setStatus("agent-desktop", "🖥 ready");
+    if (ctx.hasUI && ctx.mode === "tui" && event.reason === "startup") {
+      // A missing CLI is otherwise invisible until the first call fails, and
+      // the pill would claim ready either way.
+      ctx.ui.setStatus(
+        "agent-desktop",
+        found ? "🖥 ready" : "🖥 no agent-desktop on PATH",
+      );
     }
   });
 
@@ -1770,6 +1770,7 @@ export default function (pi: ExtensionAPI) {
     await tell(ctx, "session", "gc", "--older-than", "86400");
     inRun = false;
     session = undefined;
+    if (ctx.hasUI) ctx.ui.setStatus("agent-desktop", undefined);
   });
 
   pi.registerTool(cli);

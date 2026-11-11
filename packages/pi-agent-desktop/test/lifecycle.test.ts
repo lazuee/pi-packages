@@ -121,3 +121,31 @@ it("prunes old sessions on shutdown", async () => {
   const gc = calls.find((c) => c.includes("gc"));
   expect(gc?.slice(-4)).toEqual(["session", "gc", "--older-than", "86400"]);
 });
+
+// A missing CLI was invisible until the first call failed, while the pill said
+// ready regardless.
+it("says so in the status line when no CLI answers", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const status: (string | undefined)[] = [];
+  const pi: any = {
+    registerTool: () => {},
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async () => {
+      throw new Error("ENOENT");
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: true,
+    mode: "tui",
+    ui: {
+      setStatus: (_k: string, v?: string) => status.push(v),
+      notify: () => {},
+    },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  expect(status.at(-1)).toBe("🖥 no agent-desktop on PATH");
+});
