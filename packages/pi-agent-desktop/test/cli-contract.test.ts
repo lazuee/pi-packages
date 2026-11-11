@@ -115,6 +115,8 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   },
   list_displays: { action: "list_displays" },
   list_surfaces: { action: "list_surfaces", app: "Finder" },
+  status: { action: "status" },
+  permissions: { action: "permissions" },
   clipboard_get: { action: "clipboard_get" },
   clipboard_clear: { action: "clipboard_clear" },
   clipboard_set: { action: "clipboard_set", text: "hello" },

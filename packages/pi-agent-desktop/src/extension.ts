@@ -68,6 +68,8 @@ const ACTIONS = [
   "clipboard_get",
   "clipboard_set",
   "clipboard_clear",
+  "status",
+  "permissions",
   "screenshot",
   "get",
   "is",
@@ -80,6 +82,9 @@ const READ_ACTIONS = new Set<string>([
   "list_surfaces",
   "clipboard_get",
   "list_displays",
+  "status",
+  "permissions",
+
   "list_apps",
   "list_windows",
   "screenshot",
@@ -131,7 +136,7 @@ const cli = defineTool({
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
-    "launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_set/get/clear move text in and out of the system clipboard; on a Homebrew install they refuse with ACTION_NOT_SUPPORTED because the helper sits under a group-writable /opt/homebrew/lib; chmod g-w /opt/homebrew/lib once fixes it, and a copy of the package on a clean path works meanwhile. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
+    "When a session cannot act at all, permissions reports which OS grant is missing and status reports the platform and supported surfaces. launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_set/get/clear move text in and out of the system clipboard; on a Homebrew install they refuse with ACTION_NOT_SUPPORTED because the helper sits under a group-writable /opt/homebrew/lib; chmod g-w /opt/homebrew/lib once fixes it, and a copy of the package on a clean path works meanwhile. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
   ],
   parameters: Type.Object({
     action: Type.Union(
