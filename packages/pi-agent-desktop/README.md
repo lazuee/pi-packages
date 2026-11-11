@@ -31,10 +31,10 @@ The extension probes both, so it uses that checkout when it answers (a local pat
 
 One tool, `agent_desktop`, with an action enum:
 
-| Kind | Actions                                                                                                                                                                                                                                                                                                                                                                   |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Read | `snapshot`, `find`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`, `wait`                                                                                                                                                                                                                                                                                        |
-| Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `right_click`, `double_click`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `clear`, `focus`, `scroll_to`, `triple_click`, `launch`, `close_app`, `focus_window`, `maximize`, `minimize`, `restore`, `move_window`, `resize_window`, `clipboard_set`, `clipboard_clear` |
+| Kind | Actions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read | `snapshot`, `find`, `list_apps`, `list_windows`, `list_displays`, `list_surfaces`, `list_notifications`, `screenshot`, `get`, `is`, `wait`, `version`, `skills`, `session`, `trace`, `status`, `permissions`                                                                                                                                                                                                                                                                                                                                            |
+| Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `mouse_wheel`, `right_click`, `double_click`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `clear`, `focus`, `scroll_to`, `triple_click`, `launch`, `close_app`, `focus_window`, `maximize`, `minimize`, `restore`, `move_window`, `resize_window`, `clipboard_get`, `clipboard_set`, `clipboard_clear`, `open_system_surface`, `dismiss_notification`, `dismiss_all_notifications`, `notification_action`, `cursor_overlay`, `trace_export`, `batch` |
 
 Every result is plain text — the CLI's `data` envelope is unwrapped, never handed over as JSON, on an action's follow-up snapshot as much as on a read.
 `get` reads one `property` of a ref (`text`, `value`, `title`, `bounds`, `role`, `states`) and `is` checks one `state`; both take a `ref`.
@@ -79,9 +79,23 @@ The overlay is presentation only and never replaces the OS pointer; a platform w
 
 ## Scope
 
-This wraps the common loop.
-The CLI is wider still — `batch`, clipboard, window geometry, notifications, tracing, display and session control — and the bundled `agent-desktop` skill documents it.
+This wraps the whole CLI command surface, and every action is contract-tested against the real binary.
+The bundled `agent-desktop` skill is still the reference for what a command means and when to reach for it.
 Run `agent-desktop <command> --help` for flags; the skill does not repeat them.
+
+The few commands left out are the raw pointer primitives whose stateless form adds nothing over a composite one — `key_down`, `key_up`, `mouse_down`, `mouse_up`, `mouse_move` (use `hover`), `cursor_overlay`'s style options, `trace` export flags beyond `--out` and `--limit`, and `help`/`mcp`.
+
+Nested CLI groups are one action plus `sub`: `skills` (`list`, `get`, `path`), `session` (`start`, `end`, `list`, `gc`), `trace` (`show`, `export` via `trace_export`) and `cursor_overlay` (`enable`, `disable`).
+`session start` mints a new session id and the extension adopts it, so the refs it seeds are the ones later calls use.
+
+`batch` runs CLI commands back to back with no round trip.
+Steps are `{ command, args }` with `args` keyed by the CLI's long option names (`{ ref: "@e3", headed: true }`).
+There is no snapshot between steps, so a ref goes stale after the first act; end the batch with a `snapshot` step when you need to see the result.
+A batch is not atomic and does not fail as a whole — each result carries its own verdict.
+
+Notifications are an OS queue, not a window: the index is positional and guarded.
+`dismiss_notification` and `notification_action` take an `index` from `list_notifications` plus `expected_title` (and `app` when known), because the queue shifts between listings.
+Mutations are always ones that open and focus the notification surface, so they are always headed.
 
 Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is macOS-only and you want screenshots attached to every read.
 

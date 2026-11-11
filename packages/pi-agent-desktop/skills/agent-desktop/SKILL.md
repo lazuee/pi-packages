@@ -104,7 +104,7 @@ Load one only when you need it: `agent-desktop skills get desktop <reference>`.
 ## How this package relates to the CLI
 
 This skill documents the `agent-desktop` CLI from [`vercel-labs/agent-desktop`](https://github.com/vercel-labs/agent-desktop) (Apache-2.0), copied here from `upstream/`.
-The `agent_desktop` tool wraps the common subset with an action enum; the rest of the surface is reached by running `agent-desktop` directly in a shell.
+The `agent_desktop` tool covers the whole CLI command surface with an action enum; anything not in it is reached by running `agent-desktop` directly in a shell.
 When the two disagree, the CLI is authoritative — run `<command> --help`.
 
 Writing an argument and it is rejected as an `unexpected argument`?

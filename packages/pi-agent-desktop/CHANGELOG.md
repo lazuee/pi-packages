@@ -30,3 +30,9 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - `snapshot` takes `include_bounds` to report `at` for exactly those nodes, and the legend says `at` comes from it.
 - A CLI failure is surfaced as its own message and suggestion instead of the raw JSON envelope.
 - The upstream skill is bundled, so the documented CLI and the invoked one match.
+- The remaining CLI commands are covered: `version`, `skills`, `session`, `trace`, `trace_export`, `cursor_overlay`, `list_notifications`, `dismiss_notification`, `dismiss_all_notifications`, `notification_action`, `open_system_surface`, `batch` and `mouse_wheel`. Every one is contract-tested against the real binary.
+- Nested groups are one action plus `sub`; `session start` mints a new id and the extension adopts it, so the refs it seeds are the ones later calls use.
+- `batch` takes `steps` of `{ command, args }`; results render one line each with their own verdict, since a batch is not atomic.
+- Notification mutations always carry `--headed` (the OS surface is not accessibility-backed) and take `index` plus `expected_title`, because the queue shifts between listings.
+- Notification mutations send flags before the `--` terminator: `--headed` after it was rejected as an unexpected argument.
+- `mouse_wheel` takes `--x`/`--y` separately; the `--xy` spelling is unique to `hover` and `mouse_click`.
