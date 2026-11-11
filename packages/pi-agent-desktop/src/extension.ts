@@ -40,6 +40,18 @@ const ACTIONS = [
   "hover",
   "drag",
   "mouse_click",
+  "find",
+  "right_click",
+  "double_click",
+  "toggle",
+  "check",
+  "uncheck",
+  "expand",
+  "collapse",
+  "clear",
+  "focus",
+  "scroll_to",
+  "wait",
   "list_apps",
   "list_windows",
   "screenshot",
@@ -50,6 +62,7 @@ const ACTIONS = [
 // Actions that only read; the rest act and are followed by a fresh snapshot.
 const READ_ACTIONS = new Set<string>([
   "snapshot",
+  "find",
   "list_apps",
   "list_windows",
   "screenshot",
@@ -62,6 +75,9 @@ const READ_ACTIONS = new Set<string>([
 const COMMANDS: Record<string, string> = {
   list_apps: "list-apps",
   mouse_click: "mouse-click",
+  right_click: "right-click",
+  scroll_to: "scroll-to",
+  double_click: "double-click",
 };
 
 const cli = defineTool({
@@ -87,6 +103,8 @@ const cli = defineTool({
     "Headless is the default and never touches the operator's cursor. Pass headed true when an action needs the real pointer: hover and drag always do, and a click does when the element has no semantic delivery.",
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
+    "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
+    "toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click and double_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -205,6 +223,27 @@ const cli = defineTool({
           "snapshot only: start at this ref instead of the window root, to read one region. Refs outside it stay valid.",
       }),
     ),
+    query: Type.Optional(
+      Type.String({
+        description:
+          "find only: match by text across name, value, title and description. find is the cheap way to locate an element when you know its words, without dumping a tree.",
+      }),
+    ),
+    role: Type.Optional(
+      Type.String({ description: "find only: match by accessibility role." }),
+    ),
+    wait_ms: Type.Optional(
+      Type.Number({
+        description:
+          "wait only: pause this many milliseconds. A fixed sleep is a race; prefer wait_text, which returns as soon as the text appears.",
+      }),
+    ),
+    wait_text: Type.Optional(
+      Type.String({
+        description:
+          "wait only: block until this text appears in the app's tree, then return. The reliable form after an async step.",
+      }),
+    ),
   }),
   executionMode: "sequential",
 
@@ -223,6 +262,15 @@ const cli = defineTool({
     // missing one here rather than let clap answer.
     if (p.action === "scroll" && !p.ref)
       throw new Error("scroll needs a ref from the snapshot, e.g. @e3");
+    // The single-ref actions would otherwise reach clap with no positional.
+    if (ONE_REF.has(String(p.action)) && !p.ref)
+      throw new Error(`${p.action} needs a ref from the snapshot, e.g. @e3`);
+    if (p.action === "double_click" && !p.ref)
+      throw new Error("double_click needs a ref from the snapshot, e.g. @e3");
+    if (p.action === "find" && !p.query && !p.role)
+      throw new Error("find needs a query (text) or a role to match");
+    if (p.action === "wait" && !p.wait_text && typeof p.wait_ms !== "number")
+      throw new Error("wait needs wait_text, or wait_ms as a fixed pause");
     if (p.action === "mouse_click" && !coords(p.x, p.y))
       throw new Error(
         "mouse_click needs x and y; take them from an `at` line, the center being x+width/2, y+height/2",
@@ -668,6 +716,20 @@ function clamp(s: string, max = 120): string {
 // The commands whose --help carries --window-id; a ref command rejects it.
 const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
 
+// Actions that take one positional ref and nothing else. These are tool
+// spellings, so the two dashed CLI names appear with underscores.
+const ONE_REF = new Set([
+  "clear",
+  "collapse",
+  "expand",
+  "focus",
+  "right_click",
+  "scroll_to",
+  "toggle",
+  "check",
+  "uncheck",
+]);
+
 /** The CLI spells commands with dashes; the tool spells them with underscores. */
 export function buildArgs(p: Record<string, unknown>): string[] {
   const action = String(p.action);
@@ -715,6 +777,12 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     args.push("--headed");
     return args;
   }
+  // A physical gesture, so it always needs the real pointer.
+  if (action === "double_click") {
+    if (ref) args.push(ref);
+    args.push("--headed");
+    return args;
+  }
   // A ref spares the pointer a coordinate round trip, and hover takes it as a
   // positional computed before any flag.
   if (action === "hover") {
@@ -756,6 +824,33 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   if (action === "get" || action === "is") {
     if (ref) args.push(ref);
     putEq(args, "--property", p.property);
+    return args;
+  }
+
+  // A search answers with matches, so it is a read and takes no ref.
+  if (action === "find") {
+    putEq(args, "--app", p.app);
+    put(args, "--window-id", p.window_id);
+    putEq(args, "--text", p.query);
+    putEq(args, "--role", p.role);
+    return args;
+  }
+
+  // A wait blocks until the condition holds, then answers. Text is the useful
+  // form; a bare duration is the fallback the docs warn is a race.
+  if (action === "wait") {
+    putEq(args, "--app", p.app);
+    put(args, "--window-id", p.window_id);
+    putEq(args, "--text", p.wait_text);
+    // Without a bound a text wait spends 30s before saying it did not match.
+    put(args, "--timeout", p.timeout_ms);
+    if (typeof p.wait_ms === "number") args.push(String(p.wait_ms));
+    return args;
+  }
+
+  // One positional ref, nothing else: the semantic single-state actions.
+  if (ONE_REF.has(action)) {
+    if (ref) args.push(ref);
     return args;
   }
 

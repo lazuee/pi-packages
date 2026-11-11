@@ -243,6 +243,61 @@ describe("buildArgs", () => {
     );
   });
 
+  // These take one positional ref and nothing else; the two dashed CLI names
+  // have to come out dashed.
+  it("builds the single-ref actions", () => {
+    for (const action of [
+      "clear",
+      "collapse",
+      "expand",
+      "focus",
+      "toggle",
+      "check",
+      "uncheck",
+    ])
+      expect(buildArgs({ action, ref: "@1:e1" })).toEqual([action, "@1:e1"]);
+    expect(buildArgs({ action: "right_click", ref: "@1:e1" })).toEqual([
+      "right-click",
+      "@1:e1",
+    ]);
+    expect(buildArgs({ action: "scroll_to", ref: "@1:e1" })).toEqual([
+      "scroll-to",
+      "@1:e1",
+    ]);
+    // A double click is physical, so it is always headed.
+    expect(buildArgs({ action: "double_click", ref: "@1:e1" })).toEqual([
+      "double-click",
+      "@1:e1",
+      "--headed",
+    ]);
+  });
+
+  it("builds find and wait, and bounds the wait", () => {
+    expect(buildArgs({ action: "find", app: "Notes", query: "OK" })).toEqual([
+      "find",
+      "--app=Notes",
+      "--text=OK",
+    ]);
+    expect(buildArgs({ action: "find", app: "Notes", role: "button" })).toEqual(
+      ["find", "--app=Notes", "--role=button"],
+    );
+    expect(
+      buildArgs({ action: "wait", app: "Notes", wait_text: "Saved" }),
+    ).toEqual(["wait", "--app=Notes", "--text=Saved"]);
+    expect(buildArgs({ action: "wait", wait_ms: 250 })).toEqual([
+      "wait",
+      "250",
+    ]);
+    expect(
+      buildArgs({
+        action: "wait",
+        app: "Notes",
+        wait_text: "x",
+        timeout_ms: 900,
+      }),
+    ).toContain("--timeout");
+  });
+
   it("forwards the snapshot shaping flags, and only on snapshot", () => {
     expect(
       buildArgs({

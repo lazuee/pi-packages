@@ -81,6 +81,25 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
     interactive_only: true,
   },
   "snapshot drilled into a region": { action: "snapshot", root: "@1:e1" },
+  find: { action: "find", app: "Finder", query: "OK" },
+  find_by_role: { action: "find", app: "Finder", role: "button" },
+  wait_text: {
+    action: "wait",
+    app: "Finder",
+    wait_text: "OK",
+    timeout_ms: 300,
+  },
+  wait_ms: { action: "wait", wait_ms: 50 },
+  right_click: { action: "right_click", ref: "@1:e1" },
+  double_click: { action: "double_click", ref: "@1:e1" },
+  toggle: { action: "toggle", ref: "@1:e1" },
+  check: { action: "check", ref: "@1:e1" },
+  uncheck: { action: "uncheck", ref: "@1:e1" },
+  expand: { action: "expand", ref: "@1:e1" },
+  collapse: { action: "collapse", ref: "@1:e1" },
+  clear: { action: "clear", ref: "@1:e1" },
+  focus: { action: "focus", ref: "@1:e1" },
+  scroll_to: { action: "scroll_to", ref: "@1:e1" },
   "snapshot with bounds": {
     action: "snapshot",
     app: "Finder",
@@ -134,6 +153,9 @@ describe.skipIf(!built)("buildArgs against the real CLI", () => {
     it(`${label} parses`, () => {
       const { status, stderr } = spawnSync(BIN, buildArgs(params), {
         encoding: "utf8",
+        // A screenshot answers a megabyte of base64; the 1MB default buffer would
+        // kill the child (null status) instead of testing it.
+        maxBuffer: 8 * 1024 * 1024,
       });
       // Assert a real outcome, not just "not 2": a null status (a failed spawn)
       // also satisfies `not.toBe(2)`, so the test would pass vacuously through
