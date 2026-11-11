@@ -12,7 +12,7 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - `get` and `is` read one property or state of a ref, so `get bounds` gives exact points without estimating from a screenshot; `is` says _not applicable_ rather than a false `result`.
 - Both answer as `<property>: <value>`, and a `get` is never clamped, so it really is the way to read whole what a snapshot line abbreviates.
 - A ref-less node drops an `acts` line that only offers `RightClick`, `ScrollTo` and `SetFocus` — the actions that do not earn a ref — because no ref could address it.
-- minimize and restore verify through a read that times out while the window is away, so a failed verification is confirmed with list_windows instead of reported as a failure.
+- maximize, minimize and restore end in a verification read that times out while the window settles, so a failed verification is checked against the window itself before being reported as a failure.
 - close_app no longer claims the follow-up snapshot failed; the app is gone.
 - find searches by text or role without dumping a tree, and wait blocks on text instead of a fixed sleep.
 - An ambiguous-target failure names the candidate window ids it already knows, rather than only telling the agent to go and list them.

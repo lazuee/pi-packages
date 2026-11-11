@@ -350,20 +350,29 @@ const cli = defineTool({
           ? "select needs the option value to pick"
           : "set_value needs a value; pass an empty string to clear it",
       );
+    // maximize/minimize/restore each end in an AX read that times out while the
+    // window settles, so they report failure for an action that landed. Note the
+    // window first, then confirm the change instead of believing the error.
+    const before = WINDOW_VISIBILITY.has(String(p.action))
+      ? await windowState(bin, p.window_id, signal)
+      : undefined;
     const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
     const out = `${r.stdout}${r.stderr}`.trim();
-    // minimize and restore verify through an AX read that times out when the
-    // window goes away, so they report failure for an action that landed. Confirm
-    // with list-windows before believing the error.
-    if (r.code !== 0 && WINDOW_VISIBILITY.has(String(p.action))) {
-      const landed = await windowMinimized(bin, p.window_id, signal);
-      if (landed === (p.action === "minimize"))
+    if (r.code !== 0 && before) {
+      const landed = windowLanded(
+        p.action,
+        before,
+        await windowState(bin, p.window_id, signal),
+      );
+      if (landed)
         return {
           content: [
             {
               type: "text" as const,
-              text: `Ran ${p.action}. The window is now ${
-                landed ? "minimized" : "restored"
+              text: `Ran ${p.action}. The window ${
+                p.action === "minimize"
+                  ? "is now minimized"
+                  : "moved or resized"
               }; the CLI's own verification read timed out, and this was confirmed with list_windows.\n\nCall snapshot before the next action.`,
             },
           ],
@@ -444,19 +453,18 @@ let session: string | undefined;
  * only, which an app with two windows refuses, so a window-scoped action would
  * report success and then look like it broke.
  */
-/**
- * Whether `list-windows` says the named window is minimized, or undefined when
- * the window is gone or the read fails. Only used to tell an action that landed
- * from one that did not.
- *
- * The listing has no `minimized` field; a minimized window is reported
- * `visible: false` instead.
- */
-async function windowMinimized(
+/** What `list-windows` reports for a window, for spotting a change. */
+export type WindowState = {
+  visible?: boolean;
+  bounds?: Record<string, number>;
+};
+
+/** The named window's state, or undefined when it is gone or the read fails. */
+async function windowState(
   bin: string,
   windowId: unknown,
   signal: AbortSignal | undefined,
-): Promise<boolean | undefined> {
+): Promise<WindowState | undefined> {
   const [listBin, listArgs] = withSession(bin, ["list-windows"]);
   try {
     const r = await api?.exec(listBin, listArgs, { signal, timeout: 10_000 });
@@ -464,14 +472,38 @@ async function windowMinimized(
     const windows =
       (
         JSON.parse(r.stdout) as {
-          data?: { id?: string; visible?: boolean }[];
+          data?: {
+            id?: string;
+            visible?: boolean;
+            bounds?: Record<string, number>;
+          }[];
         }
       ).data ?? [];
-    const visible = windows.find((w) => w.id === windowId)?.visible;
-    return visible === undefined ? undefined : !visible;
+    return windows.find((w) => w.id === windowId);
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Whether the action took effect, judged by the window itself.
+ *
+ * The listing has no `minimized` field; a minimized window is `visible: false`
+ * instead. A maximize shows up only as new bounds, so the two are checked
+ * separately rather than by one boolean.
+ */
+export function windowLanded(
+  action: unknown,
+  before: WindowState,
+  after: WindowState | undefined,
+): boolean {
+  if (action === "minimize") return after?.visible === false;
+  if (action === "restore") return after?.visible === true;
+  if (!after?.bounds || !before.bounds) return false;
+  return (
+    after.bounds.width !== before.bounds.width ||
+    after.bounds.height !== before.bounds.height
+  );
 }
 
 export function afterSnapshot(p: Record<string, unknown>): string[] {
@@ -830,7 +862,7 @@ const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
 
 // The two that move a window in or out of the Dock; their verification read
 // times out while the window is away.
-const WINDOW_VISIBILITY = new Set(["minimize", "restore"]);
+const WINDOW_VISIBILITY = new Set(["maximize", "minimize", "restore"]);
 
 // Window geometry commands: each scopes by window_id or app.
 const WINDOW_GEOMETRY = new Set([

@@ -5,6 +5,7 @@ import {
   cliError,
   render,
   shotContent,
+  windowLanded,
 } from "#src/extension";
 
 // The CLI's own spellings are the contract here, and every case below was
@@ -431,6 +432,25 @@ describe("buildArgs", () => {
 
   // The follow-up snapshot repeats the action's window; without it the read is
   // the app only, which two windows refuse, and a working action looks broken.
+  it("judges a window action by the window itself", () => {
+    const shown = { bounds: { height: 400, width: 500 }, visible: true };
+    const hidden = { bounds: { height: 400, width: 500 }, visible: false };
+    const grown = { bounds: { height: 765, width: 1312 }, visible: true };
+
+    // Visibility is the signal for the Dock pair.
+    expect(windowLanded("minimize", shown, hidden)).toBe(true);
+    expect(windowLanded("minimize", shown, shown)).toBe(false);
+    expect(windowLanded("restore", hidden, shown)).toBe(true);
+    // Restoring an already-visible window is a no-op that still succeeded.
+    expect(windowLanded("restore", shown, shown)).toBe(true);
+    // A maximize shows up only as new bounds.
+    expect(windowLanded("maximize", shown, grown)).toBe(true);
+    expect(windowLanded("maximize", shown, shown)).toBe(false);
+    // A window that went away, or came back unreadable, is not a landing.
+    expect(windowLanded("maximize", shown, undefined)).toBe(false);
+    expect(windowLanded("maximize", {}, grown)).toBe(false);
+  });
+
   it("snapshots the same window the action was pinned to", () => {
     expect(
       afterSnapshot({ action: "click", app: "Notes", window_id: "w-1" }),
