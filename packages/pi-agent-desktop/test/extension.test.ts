@@ -991,3 +991,45 @@ describe("mouse_move", () => {
     ]);
   });
 });
+
+describe("a raw pointer gesture", () => {
+  it("renders as one line, not its step and target framing", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            action: "mouse-move",
+            disposition: { delivery: "delivered_verified", retry: "unsafe" },
+            steps: [
+              {
+                label: "pointer_move",
+                mechanism: "physical_synthetic",
+                outcome: "succeeded",
+                verified: true,
+              },
+            ],
+            target: { kind: "pointer", point: { x: 400, y: 300 } },
+          },
+        }),
+      ),
+    ).toBe("mouse-move at 400,300\n(the OS confirmed the pointer arrived)");
+  });
+});
+
+describe("a wheel gesture", () => {
+  it("names the scroll distance as well as the point", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            action: "mouse-wheel",
+            disposition: { delivery: "delivered_unverified" },
+            dx: 0,
+            dy: -2,
+            target: { kind: "pointer", point: { x: 400, y: 300 } },
+          },
+        }),
+      ),
+    ).toBe("mouse-wheel 0x-2 lines\n400,300");
+  });
+});

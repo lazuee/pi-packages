@@ -982,6 +982,31 @@ function describeBody(data: unknown, indent: string): string[] {
       )})`,
     ];
 
+  // A raw pointer gesture has one fact worth keeping: where it happened and
+  // whether the OS confirmed it. Its steps and target framing say nothing else.
+  const point = (o.target as { point?: unknown } | undefined)?.point;
+  if (
+    typeof o.action === "string" &&
+    (o.target as { kind?: unknown } | undefined)?.kind === "pointer"
+  ) {
+    const d = o.disposition as { delivery?: unknown } | undefined;
+    const at = coord(point);
+    // A wheel is a scroll of some distance; a move is only the place.
+    const wheel = typeof o.dy === "number" || typeof o.dx === "number";
+    const head = wheel
+      ? `${indent}${o.action} ${Number(o.dx ?? 0)}x${Number(o.dy ?? 0)} lines`
+      : at
+        ? `${indent}${o.action} at ${at}`
+        : `${indent}${o.action}`;
+    return [
+      head,
+      ...(wheel && at ? [`${indent}${at}`] : []),
+      ...(d?.delivery === "delivered_verified"
+        ? [`${indent}(the OS confirmed the pointer arrived)`]
+        : []),
+    ];
+  }
+
   if (isNode(o)) return node(o, indent);
   // Generic object: its own keys, one per line.
   return Object.entries(o).flatMap(([k, v]) =>
@@ -1140,6 +1165,15 @@ function scalar(v: unknown): string {
     : JSON.stringify(v);
 }
 
+/** A bare point, as "x,y" — what a pointer gesture reports. */
+function coord(v: unknown): string | undefined {
+  if (typeof v !== "object" || v === null) return undefined;
+  const { x, y } = v as { x?: unknown; y?: unknown };
+  return typeof x === "number" && typeof y === "number"
+    ? `${scalar(x)},${scalar(y)}`
+    : undefined;
+}
+
 function rect(v: unknown): string | undefined {
   if (typeof v !== "object" || v === null) return undefined;
   const { x, y, width, height } = v as Record<string, number | undefined>;
@@ -1224,8 +1258,10 @@ const SELFLESS_ACTIONS = new Set<string>([
   "cursor_overlay",
   "dismiss_all_notifications",
   "batch",
-  // It moves the cursor over a window; nothing in the window changes.
+  // A pointer move and a wheel event land on whatever is under the point; the
+  // window is not re-read for either.
   "mouse_move",
+  "mouse_wheel",
 ]);
 // Sessions and traces name themselves; the reading half is in READ_ACTIONS and
 // answers without a snapshot either.
