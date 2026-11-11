@@ -558,9 +558,10 @@ const cli = defineTool({
                 {
                   type: "text" as const,
                   text:
-                    // A session start does not record into its own id, so a
-                    // trace read straight after one finds nothing and the
-                    // events that do exist live under other id.
+                    // The CLI records into a session's own id only once that
+                    // id has a trace directory, which `session start` makes but
+                    // a placeholder id does not. A read right after a start can
+                    // therefore land on nothing while older events exist.
                     (p.action === "trace" && out.includes("no trace directory")
                       ? await lastTraced(bin, signal, runArgs)
                       : undefined) ?? render(out),
