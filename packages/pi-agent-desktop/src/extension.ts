@@ -73,6 +73,19 @@ const ACTIONS = [
   "screenshot",
   "get",
   "is",
+  "version",
+  "skills",
+  "session",
+  "trace",
+  "trace_export",
+  "cursor_overlay",
+  "list_notifications",
+  "dismiss_notification",
+  "dismiss_all_notifications",
+  "notification_action",
+  "open_system_surface",
+  "batch",
+  "mouse_wheel",
 ] as const;
 
 // Actions that only read; the rest act and are followed by a fresh snapshot.
@@ -90,6 +103,11 @@ const READ_ACTIONS = new Set<string>([
   "screenshot",
   "get",
   "is",
+  "version",
+  "skills",
+  "session",
+  "trace",
+  "list_notifications",
 ]);
 
 // Tool action -> CLI command, for the two that differ. Everything else is a
@@ -110,6 +128,14 @@ const COMMANDS: Record<string, string> = {
   clipboard_get: "clipboard-get",
   clipboard_set: "clipboard-set",
   clipboard_clear: "clipboard-clear",
+  trace_export: "trace export",
+  cursor_overlay: "cursor-overlay",
+  list_notifications: "list-notifications",
+  dismiss_notification: "dismiss-notification",
+  dismiss_all_notifications: "dismiss-all-notifications",
+  notification_action: "notification-action",
+  open_system_surface: "open-system-surface",
+  mouse_wheel: "mouse-wheel",
 };
 
 const cli = defineTool({
@@ -136,7 +162,8 @@ const cli = defineTool({
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
-    "When a session cannot act at all, permissions reports which OS grant is missing and status reports the platform and supported surfaces. launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_set/get/clear move text in and out of the system clipboard; on a Homebrew install they can refuse with ACTION_NOT_SUPPORTED because the helper sits under /opt/homebrew/lib, which Homebrew makes group-writable; chmod g-w /opt/homebrew/lib once fixes it. The vendored checkout also refuses while its helper is a symlink: replace upstream/npm/bin/agent-desktop-macos-helper with a copy of the real file. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
+    "When a session cannot act at all, permissions reports which OS grant is missing and status reports the platform and supported surfaces. launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_get/set/clear move text in and out of the system clipboard; on a Homebrew install they can refuse with ACTION_NOT_SUPPORTED because the helper sits under /opt/homebrew/lib, which Homebrew makes group-writable; chmod g-w /opt/homebrew/lib once fixes it. The vendored checkout also refuses while its helper is a symlink: replace upstream/npm/bin/agent-desktop-macos-helper with a copy of the real file. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
+    "batch runs CLI commands with no round trip; steps are {command, args} and there is no snapshot between them, so end with a snapshot step. Notifications take an index from list_notifications plus expected_title, since the queue shifts. skills, session, trace and cursor_overlay take sub (the child command) and answer from this machine.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -284,7 +311,100 @@ const cli = defineTool({
       Type.Number({ description: "resize_window only: new width in points." }),
     ),
     height: Type.Optional(
-      Type.Number({ description: "resize_window only: new height in points." }),
+      Type.Number({
+        description:
+          "resize_window only: new height in points; a display's height is on list_displays.",
+      }),
+    ),
+    sub: Type.Optional(
+      Type.String({
+        description:
+          "The subcommand for skills (list, get, path), session (start, end, list, gc), trace (show, export) and cursor_overlay (enable, disable).",
+      }),
+    ),
+    name: Type.Optional(
+      Type.String({
+        description:
+          "skills get: the skill name from skills list. session start: an optional label for the manifest.",
+      }),
+    ),
+    surface: Type.Optional(
+      Type.String({
+        description:
+          "open_system_surface: which shell surface to open, e.g. dock, menubar, menu-bar-extras, notification-center, start-menu, action-center. The system list is quoted in the refusal when one is not recognised.",
+      }),
+    ),
+    index: Type.Optional(
+      Type.Number({
+        description:
+          "dismiss_notification and notification_action: 1-based index from list_notifications.",
+      }),
+    ),
+    option: Type.Optional(
+      Type.String({
+        description:
+          "notification_action: the button to click, e.g. Reply or Open.",
+      }),
+    ),
+    expected_title: Type.Optional(
+      Type.String({
+        description:
+          "dismiss_notification and notification_action: the title the caller expects at index, checked before acting. Pass app too when it is known.",
+      }),
+    ),
+    steps: Type.Optional(
+      Type.Array(
+        Type.Object({
+          command: Type.String({
+            description: 'CLI command, dashed, e.g. "click" or "set-value".',
+          }),
+          args: Type.Optional(
+            Type.Record(Type.String(), Type.Unknown(), {
+              description:
+                'CLI options by their long name, e.g. {ref: "@e3"}. Omit for a command that takes none.',
+            }),
+          ),
+          steps: Type.Optional(
+            Type.Array(Type.Unknown(), {
+              description:
+                'batch only: sub-entries on a subcommand, e.g. sn/ss with command "session".',
+            }),
+          ),
+        }),
+        {
+          description:
+            "batch only: CLI commands to run in order with no round trip between them. There is no snapshot between steps, so a ref goes stale after the first act; follow them with a snapshot as the last step.",
+        },
+      ),
+    ),
+    stop_on_error: Type.Optional(
+      Type.Boolean({
+        description:
+          "batch only: halt at the first failed command instead of running the rest.",
+      }),
+    ),
+    limit: Type.Optional(
+      Type.Number({
+        description:
+          "list_notifications, trace and trace_export: how many to return.",
+      }),
+    ),
+    path: Type.Optional(
+      Type.String({
+        description: "trace_export: the HTML file to write.",
+      }),
+    ),
+    dy: Type.Optional(
+      Type.Number({
+        description:
+          "mouse_wheel: wheel lines; positive scrolls up, negative down (default -3 when dx is absent).",
+      }),
+    ),
+    dx: Type.Optional(
+      Type.Number({
+        description:
+          "mouse_wheel: horizontal wheel lines; positive scrolls right.",
+      }),
     ),
   }),
   executionMode: "sequential",
@@ -299,7 +419,13 @@ const cli = defineTool({
         "agent-desktop is not on PATH. Install it with: npm install -g agent-desktop",
       );
 
-    const [runBin, runArgs] = withSession(bin, buildArgs(p));
+    // A nested start mints a new session id, so it runs under the old one and
+    // replaces it afterwards; every other call, including a start, takes
+    // buildArgs' session-scoped form.
+    const start = p.action === "session" && p.sub === "start";
+    const [runBin, runArgs] = start
+      ? [bin, startArgs(p)]
+      : withSession(bin, buildArgs(p));
     // Two actions have a positional the schema leaves optional, so name the
     // missing one here rather than let clap answer.
     if (p.action === "scroll" && !p.ref)
@@ -339,6 +465,42 @@ const cli = defineTool({
       throw new Error(
         "type needs text; pass an empty string to insert nothing",
       );
+    // The nested groups are one CLI subcommand each; naming it is the whole call.
+    if (NESTED.has(String(p.action)) && !p.sub)
+      throw new Error(`${p.action} needs sub: ${NESTED.get(String(p.action))}`);
+    if (p.action === "skills" && p.sub === "get" && !p.name)
+      throw new Error("skills get needs name, from skills list");
+    if (p.action === "open_system_surface" && !p.surface)
+      throw new Error(
+        "open_system_surface needs surface, e.g. dock or menu-bar-extras",
+      );
+    if (
+      (p.action === "dismiss_notification" ||
+        p.action === "notification_action") &&
+      (typeof p.index !== "number" || !Number.isInteger(p.index))
+    )
+      throw new Error(
+        `${p.action} needs index, a 1-based position from list_notifications`,
+      );
+    // The index alone is a race: the queue shifts under an arriving or expiring
+    // notification, so the CLI will not act on one without a field to check.
+    if (
+      (p.action === "dismiss_notification" ||
+        p.action === "notification_action") &&
+      !p.app &&
+      !p.expected_title
+    )
+      throw new Error(
+        `${p.action} needs app or expected_title to guard the index against a queue that shifted`,
+      );
+    if (p.action === "notification_action" && !p.option)
+      throw new Error("notification_action needs option, the button to click");
+    if (p.action === "mouse_wheel" && !coords(p.x, p.y))
+      throw new Error(
+        "mouse_wheel needs x and y; take them from an `at` line, the center being x+width/2, y+height/2",
+      );
+    if (p.action === "batch" && !Array.isArray(p.steps))
+      throw new Error("batch needs steps, an array of {command, args}");
     // Both take VALUE as a required positional, so an omission would otherwise
     // reach clap and come back as an INVALID_ARGS envelope.
     if (
@@ -358,6 +520,17 @@ const cli = defineTool({
       : undefined;
     const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
     const out = `${r.stdout}${r.stderr}`.trim();
+    // A start has to hand its id on, or the next call is back in the old
+    // namespace and the refs this one seeded are unreachable.
+    if (start && r.code === 0) {
+      try {
+        const id = (JSON.parse(r.stdout) as { data?: { session_id?: unknown } })
+          .data?.session_id;
+        if (typeof id === "string" && id) session = id;
+      } catch {
+        // An unparseable answer leaves the old id; the text still says what ran.
+      }
+    }
     if (r.code !== 0 && before) {
       const landed = windowLanded(
         p.action,
@@ -387,13 +560,25 @@ const cli = defineTool({
         content:
           p.action === "screenshot"
             ? shotContent(out)
-            : [{ type: "text" as const, text: render(out) }],
+            : [
+                {
+                  type: "text" as const,
+                  text:
+                    // A session start does not record into its own id, so a
+                    // trace read straight after one finds nothing and the
+                    // events that do exist live under other id.
+                    (p.action === "trace" && out.includes("no trace directory")
+                      ? await lastTraced(bin, signal, runArgs)
+                      : undefined) ?? render(out),
+                },
+              ],
         details: { action: p.action },
       };
 
-    // The clipboard is window-independent, so a snapshot would only repeat what
-    // the last one said. Answer with the action's own verdict instead.
-    if (CLIPBOARD_ACTIONS.has(String(p.action)))
+    // The clipboard, the version and the whole session/trace/bookkeeping group
+    // answer from this machine alone, so a snapshot after them would only repeat
+    // the last one.
+    if (SELFLESS.has(String(p.action)))
       return {
         content: [{ type: "text" as const, text: render(out) }],
         details: { action: p.action },
@@ -466,6 +651,48 @@ export type WindowState = {
   visible?: boolean;
   bounds?: Record<string, number>;
 };
+
+/** The `data` of a successful CLI answer, or undefined when it was not one. */
+async function json(
+  bin: string,
+  args: string[],
+  signal: AbortSignal | undefined,
+): Promise<unknown> {
+  const [runBin, runArgs] = withSession(bin, args);
+  try {
+    const r = await api?.exec(runBin, runArgs, { signal, timeout: 30_000 });
+    if (r?.code !== 0) return undefined;
+    const e = JSON.parse(r.stdout) as { data?: unknown };
+    return e.data;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The newest ended session that recorded a trace, as the head of its own trace
+ * read. The refs in it point at ids of its own, so it is not a substitute for a
+ * snapshot, only for reading what happened.
+ */
+async function lastTraced(
+  bin: string,
+  signal: AbortSignal | undefined,
+  fallback: string[],
+): Promise<string | undefined> {
+  const data = (await json(bin, ["session", "list"], signal)) as
+    | { sessions?: { session_id?: unknown; ended_at?: unknown }[] }
+    | undefined;
+  const ended = (data?.sessions ?? [])
+    .filter((s) => typeof s.ended_at === "number")
+    .map((s) => s.session_id)
+    .findLast((id): id is string => typeof id === "string" && !!id);
+  if (!ended) return undefined;
+  const events = await json(bin, [...fallback, `--session=${ended}`], signal);
+  if (events === undefined) return undefined;
+  return `No trace under this session, which has not run a traced command yet. The newest session that has ended is ${ended}:\n\n${render(
+    JSON.stringify({ data: events }),
+  )}`;
+}
 
 /** The named window's state, or undefined when it is gone or the read fails. */
 async function windowState(
@@ -711,6 +938,18 @@ function describeBody(data: unknown, indent: string): string[] {
   if (typeof o.property === "string" && ("result" in o || "value" in o))
     return property(o, "result" in o, indent);
 
+  // A sentence, not a key dump: these four have no tree to show.
+  if (Array.isArray(o.notifications)) return inbox(o, indent);
+  if (typeof o.index === "number" && "ok" in o) return perEntry(o, indent);
+  if (Array.isArray(o.sessions)) return manifest(o.sessions, indent);
+  if (Array.isArray(o.results)) return batch(o, indent);
+  if (typeof o.os === "string")
+    return [
+      `${indent}agent-desktop ${scalar(o.version)} on ${o.os} (${scalar(
+        o.target,
+      )})`,
+    ];
+
   if (isNode(o)) return node(o, indent);
   // Generic object: its own keys, one per line.
   return Object.entries(o).flatMap(([k, v]) =>
@@ -732,6 +971,67 @@ function describeBody(data: unknown, indent: string): string[] {
 // so keying on those sent a bare `{ role }` to the generic path, where it printed
 // as `role: group` among refs.
 const isNode = (o: Record<string, unknown>) => typeof o.role === "string";
+
+/**
+ * Notification Center, where the index is told to the caller because it is the
+ * positional the dismiss and action calls take.
+ */
+function inbox(o: Record<string, unknown>, indent: string): string[] {
+  const list = o.notifications as Record<string, unknown>[];
+  if (!list.length) return [`${indent}No notifications.`];
+  return list.flatMap((n, i) => {
+    const acts = n.actions as unknown[] | undefined;
+    return [
+      `${indent}#${Number(n.index ?? i + 1)} ${[n.app_name, n.title]
+        .filter((v) => typeof v === "string" && v !== "")
+        .join(" — ")}`,
+      ...(typeof n.body === "string" && n.body
+        ? [`${indent}${STEP}${clamp(n.body, 160)}`]
+        : []),
+      ...(acts?.length ? [`${indent}${STEP}actions: ${acts.join(", ")}`] : []),
+    ];
+  });
+}
+
+/** One batch result: its index, what it ran, and its own verdict. */
+function perEntry(o: Record<string, unknown>, indent: string): string[] {
+  const body = describeBody(o.data, `${indent}${STEP}`);
+  const err = o.error as { message?: unknown } | undefined;
+  const lines = [
+    `${indent}#${Number(o.index) + 1} ${String(o.command)} ${
+      o.ok
+        ? "ok"
+        : `failed: ${scalar(err?.message ?? o.error ?? "unknown error")}`
+    }`,
+  ];
+  return body.length ? [...lines, ...body] : lines;
+}
+
+/** A session manifest: id, label, and whether it is still open. */
+function manifest(list: unknown[], indent: string): string[] {
+  if (!list.length) return [`${indent}No sessions.`];
+  return list.map((s) => {
+    const o = s as Record<string, unknown>;
+    const open = typeof o.ended_at !== "number";
+    return `${indent}${String(o.session_id)}${open ? " open" : " ended"}${
+      o.name ? ` — ${scalar(o.name)}` : ""
+    }`;
+  });
+}
+
+/** A batch: how much of it ran, then one line each. */
+function batch(o: Record<string, unknown>, indent: string): string[] {
+  const results = o.results as unknown[];
+  const done = Number(o.completed_entries ?? results.length);
+  const total = Number(o.total_entries ?? results.length);
+  const pending = Number(o.not_started_entries ?? 0);
+  return [
+    `${indent}${done} of ${total} ran, ${Number(o.elapsed_ms ?? 0)} ms, sequential and not atomic${
+      pending ? `, ${pending} not started` : ""
+    }`,
+    ...results.flatMap((r) => describe(r, indent)),
+  ];
+}
 
 /**
  * The actions that do not earn a ref on their own -- the docs' words. Web
@@ -873,7 +1173,30 @@ const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
 const WINDOW_VISIBILITY = new Set(["maximize", "minimize", "restore"]);
 
 // The actions that touch no window, and so need no follow-up snapshot.
-const CLIPBOARD_ACTIONS = new Set(["clipboard_set", "clipboard_clear"]);
+const CLIPBOARD_ACTIONS = new Set<string>([
+  "clipboard_set",
+  "clipboard_clear",
+  "version",
+  "skills",
+  "session",
+  "trace",
+  "trace_export",
+  "cursor_overlay",
+  "dismiss_all_notifications",
+  "batch",
+]);
+// Sessions and traces name themselves; the reading half is in READ_ACTIONS and
+// answers without a snapshot either.
+const SELFLESS = new Set([...CLIPBOARD_ACTIONS, ...READ_ACTIONS]);
+
+// The actions that are one CLI subcommand group: sub names the child, and the
+// refusal lists the children rather than sending the caller to --help.
+const NESTED = new Map([
+  ["skills", "list, get, path"],
+  ["session", "start, end, list, gc"],
+  ["trace", "show, export"],
+  ["cursor_overlay", "enable, disable"],
+]);
 
 // Window geometry commands: each scopes by window_id or app.
 const WINDOW_GEOMETRY = new Set([
@@ -899,16 +1222,16 @@ const ONE_REF = new Set([
 /** The CLI spells commands with dashes; the tool spells them with underscores. */
 export function buildArgs(p: Record<string, unknown>): string[] {
   const action = String(p.action);
-  const command =
-    action === "list_apps"
-      ? "list-apps"
-      : (COMMANDS[action] ?? action.replace(/_/g, "-"));
+  const name = action === "trace_export" ? "trace" : action;
+  const command = (COMMANDS[name] ?? name).replace(/_/g, "-");
   const args = [command];
   const ref = p.ref as string | undefined;
   const text = p.text as string | undefined;
   const key = p.key as string | undefined;
   const value = p.value as string | undefined;
   const app = p.app as string | undefined;
+  const sub = p.sub as string | undefined;
+  const option = p.option as string | undefined;
 
   // Scroll is a ref command: a direction and an amount, not a wheel event. Only
   // `mouse-wheel` is coordinate-based, and scroll does not use it.
@@ -1006,6 +1329,17 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     return args;
   }
 
+  // A wheel event at a point, never at a ref: the pointing is the caller's. It
+  // is a real pointer gesture, so it is headed whatever the call says.
+  if (action === "mouse_wheel") {
+    put(args, "--x", p.x);
+    put(args, "--y", p.y);
+    put(args, "--dx", p.dx);
+    put(args, "--dy", p.dy);
+    args.push("--headed");
+    return args;
+  }
+
   // A ref carries its own source window, so the ref commands take no --app and
   // would reject one. Press is the exception: its only positional is COMBO, so
   // it targets the focused window unless --app names one.
@@ -1048,6 +1382,74 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   // The clipboard and the surface list are bare commands; surfaces filter by app.
   if (action === "list_surfaces") {
     putEq(args, "--app", p.app);
+    return args;
+  }
+
+  // A subcommand group: `sub` is the child, and whatever it takes follows.
+  // `trace_export` is the one child promoted to an action of its own.
+  if (NESTED.has(action) || action === "trace_export") {
+    if (action === "trace_export") args.push("export");
+    else if (sub) args.push(sub);
+    if (action === "skills" && sub === "get") put(args, "--", p.name);
+    if (action === "session" && sub === "start") putEq(args, "--name", p.name);
+    // `trace export` is the one child with its own action, so `sub` is optional
+    // there and defaults to it; `show` answers in the result, `export` writes.
+    if (action === "trace" || action === "trace_export") {
+      put(args, "--limit", p.limit);
+      if (action === "trace_export") {
+        putEq(args, "--out", p.path);
+        return args;
+      }
+    }
+    return args;
+  }
+
+  if (action === "version") return args;
+
+  // Notifications are an OS queue, not a window: the index is positional, so a
+  // `--` would only turn it into a flag value.
+  if (action === "list_notifications") {
+    putEq(args, "--app", p.app);
+    put(args, "--limit", p.limit);
+    return args;
+  }
+  if (action === "dismiss_all_notifications") {
+    putEq(args, "--app", p.app);
+    // The OS notification surface is not accessibility-backed, so the CLI
+    // refuses every mutation without the physical path.
+    args.push("--headed");
+    return args;
+  }
+  if (action === "dismiss_notification") {
+    if (typeof p.index === "number") args.push(String(p.index));
+    // --app is a filter here, not the identity guard: a call with it and no
+    // expected field is rejected as an index the caller cannot vouch for.
+    putEq(args, "--expected-app", p.app);
+    putEq(args, "--expected-title", p.expected_title);
+    args.push("--headed");
+    return args;
+  }
+  if (action === "notification_action") {
+    if (typeof p.index === "number") args.push(String(p.index));
+    putEq(args, "--expected-app", p.app);
+    putEq(args, "--expected-title", p.expected_title);
+    // Every flag goes before `--`, which ends flag parsing.
+    args.push("--headed");
+    if (option) args.push("--", option);
+    return args;
+  }
+
+  if (action === "open_system_surface") {
+    putEq(args, "--surface", p.surface);
+    return args;
+  }
+
+  // The batch payload is one JSON positional, and a batch never throws on a
+  // partial failure: the results carry their own ok, so a per-entry verdict is
+  // worth more than an error about the whole call.
+  if (action === "batch") {
+    if (p.stop_on_error) args.push("--stop-on-error");
+    args.push("--", JSON.stringify(batchEntries(p.steps)));
     return args;
   }
   if (action === "clipboard_get" || action === "clipboard_clear") return args;
@@ -1095,11 +1497,37 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   return args;
 }
 
-/** The CLI takes a whole point as one "x,y" argument, not two. */
-function coords(x: unknown, y: unknown): string | undefined {
+/**
+ * `session start` mints its own id and ignores `--session`, so a nested start
+ * runs with the session id cleared. It also seeds refs, and a ref whose
+ * namespace has a manifest is one the CLI will not fall back from.
+ */
+export function startArgs(p: Record<string, unknown>): string[] {
+  const args = ["session", "start"];
+  if (p.sub === "start" && p.name) putEq(args, "--name", p.name);
+  return args;
+}
+
+/** The CLI takes a whole point as one "x,y" argument, not two. */ function coords(
+  x: unknown,
+  y: unknown,
+): string | undefined {
   return typeof x === "number" && typeof y === "number"
     ? `${x},${y}`
     : undefined;
+}
+
+/**
+ * A batch entry, in the shape the CLI validates: options go under `args` by
+ * their long name, without the dashes, and a command that takes none omits the
+ * key rather than sending an empty array (which is rejected as a wrong type).
+ */
+function batchEntries(steps: unknown): { command: unknown; args?: unknown }[] {
+  if (!Array.isArray(steps)) return [];
+  return steps.map((s: { command?: unknown; args?: unknown }) => ({
+    command: s.command,
+    ...(s.args ? { args: s.args } : {}),
+  }));
 }
 
 // Every param is a string or a number, so a plain String() is the whole job.

@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
-import { buildArgs } from "#src/extension";
+import { afterAll, describe, expect, it } from "vitest";
+import { buildArgs, startArgs } from "#src/extension";
 
 // The unit tests assert buildArgs against itself, so they cannot catch a shape
 // change -- three defects shipped that way. This runs the real binary over every
@@ -157,6 +157,40 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
     to_x: 3,
     to_y: 4,
   },
+  version: { action: "version" },
+  skills_list: { action: "skills", sub: "list" },
+  skills_get: { action: "skills", sub: "get", name: "desktop" },
+  session_list: { action: "session", sub: "list" },
+  session_start: { action: "session", sub: "start", name: "probe" },
+  trace_show: { action: "trace", sub: "show", limit: 5 },
+  // trace reads need a live session; the runner makes one for the whole suite.
+  trace_export: {
+    action: "trace_export",
+    sub: "export",
+    path: "/tmp/t.html",
+  },
+  cursor_overlay_enable: { action: "cursor_overlay", sub: "enable" },
+  list_notifications: { action: "list_notifications", limit: 3 },
+  dismiss_notification: {
+    action: "dismiss_notification",
+    index: 1,
+    app: "Finder",
+    expected_title: "hi",
+  },
+  dismiss_all_notifications: { action: "dismiss_all_notifications" },
+  notification_action: {
+    action: "notification_action",
+    index: 2,
+    app: "Mail",
+    option: "Reply",
+  },
+  open_system_surface: { action: "open_system_surface", surface: "dock" },
+  // The batch payload is a JSON positional behind `--`.
+  batch: {
+    action: "batch",
+    steps: [{ command: "version" }, { command: "list-apps" }],
+  },
+  mouse_wheel: { action: "mouse_wheel", x: 400, y: 300, dy: -2 },
 };
 
 const built = existsSync(BIN);
@@ -166,6 +200,16 @@ describe.skipIf(!built)(
   "buildArgs against the real CLI",
   { timeout: 15_000 },
   () => {
+    // The trace cases resolve a session themselves, so one is started for the
+    // suite rather than each case inventing an id.
+    const started = spawnSync(BIN, ["session", "start"], {
+      encoding: "utf8",
+    });
+    const sessionId: string = JSON.parse(started.stdout).data.session_id;
+    afterAll(() => {
+      spawnSync(BIN, ["session", "end", `--session=${sessionId}`]);
+    });
+
     const cases = {
       ...Object.fromEntries(
         Object.entries(CALLS).map(([action, params]) => [
@@ -178,7 +222,10 @@ describe.skipIf(!built)(
 
     for (const [label, params] of Object.entries(cases)) {
       it(`${label} parses`, () => {
-        const { status, stderr } = spawnSync(BIN, buildArgs(params), {
+        const args = buildArgs(params);
+        // The extension prefixes this itself; only the trace cases need it here.
+        if (label.startsWith("trace")) args.push(`--session=${sessionId}`);
+        const { status, stderr } = spawnSync(BIN, args, {
           encoding: "utf8",
           // A screenshot answers a megabyte of base64; the 1MB default buffer would
           // kill the child (null status) instead of testing it.
@@ -194,3 +241,23 @@ describe.skipIf(!built)(
     }
   },
 );
+
+// `session start` mints its own id and ignores --session, so the extension runs
+// it unprefixed and adopts the id it answers with. That id has to be the
+// namespace the next call lands in, or the refs a start seeds are unreachable.
+describe.skipIf(!built)("a nested session start", { timeout: 15_000 }, () => {
+  it("hands back an id the next call really runs in", () => {
+    const started = spawnSync(BIN, startArgs({ sub: "start", name: "adopt" }), {
+      encoding: "utf8",
+    });
+    expect(started.status).toBe(0);
+    const id: string = JSON.parse(started.stdout).data.session_id;
+    expect(id).toMatch(/^run-/);
+    const snap = spawnSync(BIN, ["snapshot", "--app", "Finder"], {
+      encoding: "utf8",
+      env: { ...process.env, AGENT_DESKTOP_SESSION: id },
+    });
+    expect(JSON.parse(snap.stdout).data.snapshot_id).toBeTruthy();
+    spawnSync(BIN, ["session", "end", `--session=${id}`]);
+  });
+});

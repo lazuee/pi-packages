@@ -795,3 +795,141 @@ describe("render", () => {
     expect(render(JSON.stringify({ data: null }))).toBe("Nothing on screen.");
   });
 });
+
+// The nested groups and the batch payload are the calls a wrong spelling makes
+// silently useless: a `--` in the wrong place, or an option under the wrong key.
+describe("the calls that carry an argument shape", () => {
+  it("puts the subcommand before its flags", () => {
+    expect(buildArgs({ action: "session", sub: "start", name: "x" })).toEqual([
+      "session",
+      "start",
+      "--name=x",
+    ]);
+    expect(buildArgs({ action: "trace", sub: "show", limit: 3 })).toEqual([
+      "trace",
+      "show",
+      "--limit",
+      "3",
+    ]);
+    // `trace export` is the one child promoted to an action; sub is implied.
+    expect(buildArgs({ action: "trace_export", path: "/tmp/a.html" })).toEqual([
+      "trace",
+      "export",
+      "--out=/tmp/a.html",
+    ]);
+  });
+
+  it("sends the wheel point as --x/--y, not the --xy the other chats use", () => {
+    expect(
+      buildArgs({ action: "mouse_wheel", x: 400, y: 300, dy: -2 }),
+    ).toEqual([
+      "mouse-wheel",
+      "--x",
+      "400",
+      "--y",
+      "300",
+      "--dy",
+      "-2",
+      "--headed",
+    ]);
+  });
+
+  it("keeps the notification option after every flag", () => {
+    expect(
+      buildArgs({
+        action: "notification_action",
+        index: 2,
+        app: "Mail",
+        option: "Reply",
+      }),
+    ).toEqual([
+      "notification-action",
+      "2",
+      "--expected-app=Mail",
+      "--headed",
+      "--",
+      "Reply",
+    ]);
+  });
+
+  it("drops an absent batch args key rather than send an empty array", () => {
+    expect(
+      JSON.parse(
+        buildArgs({ action: "batch", steps: [{ command: "version" }] })[2],
+      ),
+    ).toEqual([{ command: "version" }]);
+  });
+});
+
+describe("the answers that have no tree to show", () => {
+  it("states the version rather than listing its keys", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: { os: "macos", target: "aarch64", version: "1.2.0" },
+        }),
+      ),
+    ).toBe("agent-desktop 1.2.0 on macos (aarch64)");
+  });
+
+  it("says an empty notification queue is empty", () => {
+    expect(render(JSON.stringify({ data: { notifications: [] } }))).toBe(
+      "No notifications.",
+    );
+  });
+
+  it("numbers a notification with the index the dismiss takes", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            notifications: [
+              { index: 3, app_name: "Mail", title: "Hi", actions: ["Reply"] },
+            ],
+          },
+        }),
+      ),
+    ).toBe("#3 Mail — Hi\n actions: Reply");
+  });
+
+  it("marks an open and an ended session apart", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            sessions: [
+              { session_id: "run-1", name: "probe" },
+              { session_id: "run-0", ended_at: 1 },
+            ],
+          },
+        }),
+      ),
+    ).toBe("run-1 open — probe\nrun-0 ended");
+  });
+
+  it("counts a batch and gives each entry its own verdict", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            completed_entries: 2,
+            elapsed_ms: 5,
+            not_started_entries: 0,
+            total_entries: 2,
+            results: [
+              { command: "version", index: 0, ok: true, data: {} },
+              {
+                command: "click",
+                index: 1,
+                ok: false,
+                error: { message: "stale" },
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe(
+      "2 of 2 ran, 5 ms, sequential and not atomic\n#1 version ok\n#2 click failed: stale",
+    );
+  });
+});
