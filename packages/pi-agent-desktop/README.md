@@ -31,10 +31,10 @@ The extension probes both, so it uses that checkout when it answers (a local pat
 
 One tool, `agent_desktop`, with an action enum:
 
-| Kind | Actions                                                                                                                                                                                                                                                            |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Read | `snapshot`, `find`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`, `wait`                                                                                                                                                                                 |
-| Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `right_click`, `double_click`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `clear`, `focus`, `scroll_to`, `triple_click`, `launch`, `close_app`, `focus_window` |
+| Kind | Actions                                                                                                                                                                                                                                                                                                                               |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read | `snapshot`, `find`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`, `wait`                                                                                                                                                                                                                                                    |
+| Act  | `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `right_click`, `double_click`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `clear`, `focus`, `scroll_to`, `triple_click`, `launch`, `close_app`, `focus_window`, `maximize`, `minimize`, `restore`, `move_window`, `resize_window` |
 
 Every result is plain text — the CLI's `data` envelope is unwrapped, never handed over as JSON, on an action's follow-up snapshot as much as on a read.
 `get` reads one `property` of a ref (`text`, `value`, `title`, `bounds`, `role`, `states`) and `is` checks one `state`; both take a `ref`.

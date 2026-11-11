@@ -297,6 +297,37 @@ describe("buildArgs", () => {
     ]);
   });
 
+  it("scopes window geometry by window, and passes the size", () => {
+    expect(buildArgs({ action: "maximize", window_id: "w-1" })).toEqual([
+      "maximize",
+      "--window-id",
+      "w-1",
+    ]);
+    expect(buildArgs({ action: "restore", app: "Notes" })).toEqual([
+      "restore",
+      "--app=Notes",
+    ]);
+    expect(
+      buildArgs({ action: "move_window", window_id: "w-1", x: 4, y: 9 }),
+    ).toEqual(["move-window", "--window-id", "w-1", "--x", "4", "--y", "9"]);
+    expect(
+      buildArgs({
+        action: "resize_window",
+        window_id: "w-1",
+        width: 400,
+        height: 300,
+      }),
+    ).toEqual([
+      "resize-window",
+      "--window-id",
+      "w-1",
+      "--width",
+      "400",
+      "--height",
+      "300",
+    ]);
+  });
+
   it("builds find and wait, and bounds the wait", () => {
     expect(buildArgs({ action: "find", app: "Notes", query: "OK" })).toEqual([
       "find",

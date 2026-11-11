@@ -103,6 +103,17 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   launch: { action: "launch", app: "Finder" },
   close_app: { action: "close_app", app: "Finder" },
   focus_window: { action: "focus_window", app: "Finder" },
+  maximize: { action: "maximize", app: "Finder" },
+  minimize: { action: "minimize", app: "Finder" },
+  restore: { action: "restore", app: "Finder" },
+  move_window: { action: "move_window", window_id: "w-1", x: 10, y: 10 },
+  resize_window: {
+    action: "resize_window",
+    window_id: "w-1",
+    width: 400,
+    height: 300,
+  },
+  list_displays: { action: "list_displays" },
   focus_window_by_id: { action: "focus_window", window_id: "w-1" },
   scroll_to: { action: "scroll_to", ref: "@1:e1" },
   "snapshot with bounds": {
@@ -143,31 +154,36 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
 
 const built = existsSync(BIN);
 
-describe.skipIf(!built)("buildArgs against the real CLI", () => {
-  const cases = {
-    ...Object.fromEntries(
-      Object.entries(CALLS).map(([action, params]) => [
-        action,
-        { action, ...params },
-      ]),
-    ),
-    ...EXTRA_CALLS,
-  };
+// Window geometry animates, so those cases outrun the default per-test budget.
+describe.skipIf(!built)(
+  "buildArgs against the real CLI",
+  { timeout: 15_000 },
+  () => {
+    const cases = {
+      ...Object.fromEntries(
+        Object.entries(CALLS).map(([action, params]) => [
+          action,
+          { action, ...params },
+        ]),
+      ),
+      ...EXTRA_CALLS,
+    };
 
-  for (const [label, params] of Object.entries(cases)) {
-    it(`${label} parses`, () => {
-      const { status, stderr } = spawnSync(BIN, buildArgs(params), {
-        encoding: "utf8",
-        // A screenshot answers a megabyte of base64; the 1MB default buffer would
-        // kill the child (null status) instead of testing it.
-        maxBuffer: 8 * 1024 * 1024,
+    for (const [label, params] of Object.entries(cases)) {
+      it(`${label} parses`, () => {
+        const { status, stderr } = spawnSync(BIN, buildArgs(params), {
+          encoding: "utf8",
+          // A screenshot answers a megabyte of base64; the 1MB default buffer would
+          // kill the child (null status) instead of testing it.
+          maxBuffer: 8 * 1024 * 1024,
+        });
+        // Assert a real outcome, not just "not 2": a null status (a failed spawn)
+        // also satisfies `not.toBe(2)`, so the test would pass vacuously through
+        // ENOENT.
+        expect(typeof status).toBe("number");
+        expect(stderr).not.toContain("unexpected argument");
+        expect(status).not.toBe(PARSE_FAILURE);
       });
-      // Assert a real outcome, not just "not 2": a null status (a failed spawn)
-      // also satisfies `not.toBe(2)`, so the test would pass vacuously through
-      // ENOENT.
-      expect(typeof status).toBe("number");
-      expect(stderr).not.toContain("unexpected argument");
-      expect(status).not.toBe(PARSE_FAILURE);
-    });
-  }
-});
+    }
+  },
+);

@@ -7,11 +7,13 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 
 ### Features
 
-- One `agent_desktop` tool with an action enum: `snapshot`, `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `find`, `right_click`, `double_click`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `clear`, `focus`, `scroll_to`, `triple_click`, `launch`, `close_app`, `focus_window`, `wait`, `list_apps`, `list_windows`, `screenshot`, `get`, `is`.
+- One `agent_desktop` tool with an action enum: `snapshot`, `click`, `type`, `press`, `set_value`, `select`, `scroll`, `hover`, `drag`, `mouse_click`, `find`, `right_click`, `double_click`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `clear`, `focus`, `scroll_to`, `triple_click`, `launch`, `close_app`, `focus_window`, `maximize`, `minimize`, `restore`, `move_window`, `resize_window`, `wait`, `list_apps`, `list_displays`, `list_windows`, `screenshot`, `get`, `is`.
 - Every result is plain text: the CLI's `data` envelope is unwrapped and rendered, so no command answers with a JSON object — an acting action's follow-up snapshot included.
 - `get` and `is` read one property or state of a ref, so `get bounds` gives exact points without estimating from a screenshot; `is` says _not applicable_ rather than a false `result`.
 - Both answer as `<property>: <value>`, and a `get` is never clamped, so it really is the way to read whole what a snapshot line abbreviates.
 - A ref-less node drops an `acts` line that only offers `RightClick`, `ScrollTo` and `SetFocus` — the actions that do not earn a ref — because no ref could address it.
+- minimize and restore verify through a read that times out while the window is away, so a failed verification is confirmed with list_windows instead of reported as a failure.
+- close_app no longer claims the follow-up snapshot failed; the app is gone.
 - find searches by text or role without dumping a tree, and wait blocks on text instead of a fixed sleep.
 - An ambiguous-target failure names the candidate window ids it already knows, rather than only telling the agent to go and list them.
 - `window_id` is sent only to `snapshot`, `screenshot` and `press`, the three commands that take it; the ref commands reject it, so `click`/`type`/`get` alongside a `window_id` used to fail on the flag.

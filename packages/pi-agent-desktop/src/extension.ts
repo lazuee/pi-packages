@@ -55,9 +55,15 @@ const ACTIONS = [
   "launch",
   "close_app",
   "focus_window",
+  "maximize",
+  "minimize",
+  "restore",
+  "move_window",
+  "resize_window",
   "triple_click",
   "list_apps",
   "list_windows",
+  "list_displays",
   "screenshot",
   "get",
   "is",
@@ -85,6 +91,9 @@ const COMMANDS: Record<string, string> = {
   close_app: "close-app",
   focus_window: "focus-window",
   triple_click: "triple-click",
+  move_window: "move-window",
+  resize_window: "resize-window",
+  list_displays: "list-displays",
 };
 
 const cli = defineTool({
@@ -111,7 +120,7 @@ const cli = defineTool({
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
-    "launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
+    "launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -251,6 +260,12 @@ const cli = defineTool({
           "wait only: block until this text appears in the app's tree, then return. The reliable form after an async step.",
       }),
     ),
+    width: Type.Optional(
+      Type.Number({ description: "resize_window only: new width in points." }),
+    ),
+    height: Type.Optional(
+      Type.Number({ description: "resize_window only: new height in points." }),
+    ),
   }),
   executionMode: "sequential",
 
@@ -280,8 +295,16 @@ const cli = defineTool({
       throw new Error("triple_click needs a ref from the snapshot, e.g. @e3");
     if ((p.action === "launch" || p.action === "close_app") && !p.app)
       throw new Error(`${p.action} needs an app name`);
-    if (p.action === "focus_window" && !p.window_id && !p.app)
-      throw new Error("focus_window needs a window_id or an app");
+    if (
+      (p.action === "focus_window" || WINDOW_GEOMETRY.has(String(p.action))) &&
+      !p.window_id &&
+      !p.app
+    )
+      throw new Error(`${p.action} needs a window_id or an app`);
+    if (p.action === "move_window" && (p.x == null || p.y == null))
+      throw new Error("move_window needs x and y in points");
+    if (p.action === "resize_window" && (p.width == null || p.height == null))
+      throw new Error("resize_window needs width and height in points");
     if (p.action === "wait" && !p.wait_text && typeof p.wait_ms !== "number")
       throw new Error("wait needs wait_text, or wait_ms as a fixed pause");
     if (p.action === "mouse_click" && !coords(p.x, p.y))
@@ -307,6 +330,24 @@ const cli = defineTool({
       );
     const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
     const out = `${r.stdout}${r.stderr}`.trim();
+    // minimize and restore verify through an AX read that times out when the
+    // window goes away, so they report failure for an action that landed. Confirm
+    // with list-windows before believing the error.
+    if (r.code !== 0 && WINDOW_VISIBILITY.has(String(p.action))) {
+      const landed = await windowMinimized(bin, p.window_id, signal);
+      if (landed === (p.action === "minimize"))
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Ran ${p.action}. The window is now ${
+                landed ? "minimized" : "restored"
+              }; the CLI's own verification read timed out, and this was confirmed with list_windows.\n\nCall snapshot before the next action.`,
+            },
+          ],
+          details: { action: p.action, app: p.app },
+        };
+    }
     if (r.code !== 0) throw new Error(cliError(out, p.action, r.code));
 
     // A read is the answer by itself.
@@ -341,7 +382,13 @@ const cli = defineTool({
       content: [
         {
           type: "text" as const,
-          text: `${render(out)}\n\nThe snapshot after it failed; call snapshot before the next action.`,
+          // Closing an app has nothing left to snap, so say what happened rather
+          // than report a failure the caller cannot act on.
+          text: `${render(out)}${
+            p.action === "close_app"
+              ? "\n\nThe app is closed, so there is no snapshot to take."
+              : "\n\nThe snapshot after it failed; call snapshot before the next action."
+          }`,
         },
       ],
       details: { action: p.action, app: p.app },
@@ -375,6 +422,36 @@ let session: string | undefined;
  * only, which an app with two windows refuses, so a window-scoped action would
  * report success and then look like it broke.
  */
+/**
+ * Whether `list-windows` says the named window is minimized, or undefined when
+ * the window is gone or the read fails. Only used to tell an action that landed
+ * from one that did not.
+ *
+ * The listing has no `minimized` field; a minimized window is reported
+ * `visible: false` instead.
+ */
+async function windowMinimized(
+  bin: string,
+  windowId: unknown,
+  signal: AbortSignal | undefined,
+): Promise<boolean | undefined> {
+  const [listBin, listArgs] = withSession(bin, ["list-windows"]);
+  try {
+    const r = await api?.exec(listBin, listArgs, { signal, timeout: 10_000 });
+    if (r?.code !== 0) return undefined;
+    const windows =
+      (
+        JSON.parse(r.stdout) as {
+          data?: { id?: string; visible?: boolean }[];
+        }
+      ).data ?? [];
+    const visible = windows.find((w) => w.id === windowId)?.visible;
+    return visible === undefined ? undefined : !visible;
+  } catch {
+    return undefined;
+  }
+}
+
 export function afterSnapshot(p: Record<string, unknown>): string[] {
   const window = p.window_id;
   return [
@@ -729,7 +806,18 @@ function clamp(s: string, max = 120): string {
 // The commands whose --help carries --window-id; a ref command rejects it.
 const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
 
-// Actions that take one positional ref and nothing else. These are tool
+// The two that move a window in or out of the Dock; their verification read
+// times out while the window is away.
+const WINDOW_VISIBILITY = new Set(["minimize", "restore"]);
+
+// Window geometry commands: each scopes by window_id or app.
+const WINDOW_GEOMETRY = new Set([
+  "maximize",
+  "minimize",
+  "restore",
+  "move_window",
+  "resize_window",
+]);
 // spellings, so the two dashed CLI names appear with underscores.
 const ONE_REF = new Set([
   "clear",
@@ -811,6 +899,20 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   if (action === "focus_window") {
     put(args, "--window-id", p.window_id);
     putEq(args, "--app", p.app);
+    return args;
+  }
+  // Window geometry: all scoped the same way, plus grow or move where they do.
+  if (WINDOW_GEOMETRY.has(action)) {
+    put(args, "--window-id", p.window_id);
+    putEq(args, "--app", p.app);
+    if (action === "move_window") {
+      put(args, "--x", p.x);
+      put(args, "--y", p.y);
+    }
+    if (action === "resize_window") {
+      put(args, "--width", p.width);
+      put(args, "--height", p.height);
+    }
     return args;
   }
   // A ref spares the pointer a coordinate round trip, and hover takes it as a
