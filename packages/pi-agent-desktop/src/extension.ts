@@ -522,15 +522,7 @@ const cli = defineTool({
     const out = `${r.stdout}${r.stderr}`.trim();
     // A start has to hand its id on, or the next call is back in the old
     // namespace and the refs this one seeded are unreachable.
-    if (start && r.code === 0) {
-      try {
-        const id = (JSON.parse(r.stdout) as { data?: { session_id?: unknown } })
-          .data?.session_id;
-        if (typeof id === "string" && id) session = id;
-      } catch {
-        // An unparseable answer leaves the old id; the text still says what ran.
-      }
-    }
+    if (start && r.code === 0) adopt(r.stdout);
     if (r.code !== 0 && before) {
       const landed = windowLanded(
         p.action,
@@ -1544,6 +1536,18 @@ export function startArgs(p: Record<string, unknown>): string[] {
   return args;
 }
 
+/** The id a start answered with, since `session start` mints its own. */
+function adopt(stdout: string): string | undefined {
+  try {
+    const id = (JSON.parse(stdout) as { data?: { session_id?: unknown } }).data
+      ?.session_id;
+    if (typeof id === "string" && id) session = id;
+  } catch {
+    // An unparseable answer leaves the old id; the text still says what ran.
+  }
+  return session;
+}
+
 /** The CLI takes a whole point as one "x,y" argument, not two. */ function coords(
   x: unknown,
   y: unknown,
@@ -1589,9 +1593,13 @@ export default function (pi: ExtensionAPI) {
   // honest signal.
   async function call(...args: string[]): Promise<boolean> {
     if (!cmd) return false;
+    // A start mints a new id; adopt it here so no caller can forget to, and so
+    // `session end` later releases the session the start actually made.
+    const isStart = args[0] === "session" && args[1] === "start";
     const [runBin, runArgs] = withSession(cmd, args);
     try {
       const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
+      if (isStart) adopt(r.stdout);
       return r.code === 0;
     } catch {
       return false;
@@ -1661,6 +1669,13 @@ export default function (pi: ExtensionAPI) {
     // --cursor turns on the visual cursor overlay: it draws where actions land
     // and never replaces the pointer. A platform without a renderer answers
     // rendered:false instead of failing, so it is asked for unconditionally.
+    //
+    // The start mints its own id and ignores `--session`, and the id set at
+    // session_start is a local placeholder with no manifest behind it. Adopting
+    // the minted one is what gives this run a manifest, a trace directory and
+    // the namespace its refs belong to; without it every later call stays on
+    // the placeholder, where `session list` shows no manifest and `trace` no
+    // trace directory.
     inRun = (await tell(ctx, "session", "start", "--cursor")) || inRun;
   });
 
