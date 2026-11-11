@@ -114,6 +114,7 @@ On macOS 26 the notification commands come back empty however the center is open
 Reading the app element directly with `AXUIElementCopyAttributeValues("AXWindows")` — the call the adapter makes — succeeds with three windows, and every one of them reads role, title and children fine.
 Those three are only widget windows (`Featured`, a weather widget, a calendar widget); the notification list is a fourth window macOS 26 does not create, and no notification row is ever among them while macOS holds records for the same period.
 `AXStackingIdentifier`, which the adapter also probes, answers `kAXErrorAttributeUnsupported` (-25205) on all three.
+It is not specific to this adapter: over the same window, with a banner just posted, System Events reports exactly those three names and nothing else, and `UserNotificationCenter` — the process that draws banners — exposes a menu bar but no windows at all.
 Both the bundled 1.0.2 and an installed 2.6 CLI behave identically, headless and headed, so the wiring below is in place but unproven against a non-empty queue there.
 
 Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is macOS-only and you want screenshots attached to every read.
