@@ -1658,8 +1658,12 @@ export default function (pi: ExtensionAPI) {
     if (!cmd) return false;
     // A start mints a new id; adopt it here so no caller can forget to, and so
     // `session end` later releases the session the start actually made.
+    //
+    // It also runs unprefixed: the id it would be given belongs to the run that
+    // just settled, and a sealed session refuses to start under itself — so a
+    // later turn would stay pinned to the dead id for the rest of the process.
     const isStart = args[0] === "session" && args[1] === "start";
-    const [runBin, runArgs] = withSession(cmd, args);
+    const [runBin, runArgs] = isStart ? [cmd, args] : withSession(cmd, args);
     try {
       const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
       if (isStart) adopt(r.stdout);

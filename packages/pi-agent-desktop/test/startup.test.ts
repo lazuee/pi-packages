@@ -62,8 +62,9 @@ async function chosenBin(): Promise<string | undefined> {
     String(c[1]).includes("session,start"),
   );
   const args = sessionStart?.[1] as string[] | undefined;
-  // The sh wrapper names its payload as `$0`, right after the flag.
-  return args ? args[args.indexOf("-c") + 2] : undefined;
+  // A start runs unprefixed, so the binary is the command itself rather than
+  // the `$0` of a sh wrapper, i.e. exec's first argument.
+  return sessionStart?.[0] as string | undefined;
 }
 
 describe("cli discovery", () => {
