@@ -114,6 +114,11 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
     height: 300,
   },
   list_displays: { action: "list_displays" },
+  list_surfaces: { action: "list_surfaces", app: "Finder" },
+  clipboard_get: { action: "clipboard_get" },
+  clipboard_clear: { action: "clipboard_clear" },
+  clipboard_set: { action: "clipboard_set", text: "hello" },
+  clipboard_set_hyphen: { action: "clipboard_set", text: "--5" },
   focus_window_by_id: { action: "focus_window", window_id: "w-1" },
   scroll_to: { action: "scroll_to", ref: "@1:e1" },
   "snapshot with bounds": {

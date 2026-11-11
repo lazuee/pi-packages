@@ -328,6 +328,26 @@ describe("buildArgs", () => {
     ]);
   });
 
+  it("builds the clipboard and the surface list", () => {
+    expect(buildArgs({ action: "clipboard_get" })).toEqual(["clipboard-get"]);
+    expect(buildArgs({ action: "clipboard_clear" })).toEqual([
+      "clipboard-clear",
+    ]);
+    expect(buildArgs({ action: "clipboard_set", text: "hi" })).toEqual([
+      "clipboard-set",
+      "--",
+      "hi",
+    ]);
+    // A pasted value can itself start with a hyphen.
+    expect(buildArgs({ action: "clipboard_set", text: "--5" })).toContain(
+      "--5",
+    );
+    expect(buildArgs({ action: "list_surfaces", app: "Notes" })).toEqual([
+      "list-surfaces",
+      "--app=Notes",
+    ]);
+  });
+
   it("builds find and wait, and bounds the wait", () => {
     expect(buildArgs({ action: "find", app: "Notes", query: "OK" })).toEqual([
       "find",

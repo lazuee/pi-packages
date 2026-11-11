@@ -64,6 +64,10 @@ const ACTIONS = [
   "list_apps",
   "list_windows",
   "list_displays",
+  "list_surfaces",
+  "clipboard_get",
+  "clipboard_set",
+  "clipboard_clear",
   "screenshot",
   "get",
   "is",
@@ -73,6 +77,9 @@ const ACTIONS = [
 const READ_ACTIONS = new Set<string>([
   "snapshot",
   "find",
+  "list_surfaces",
+  "clipboard_get",
+  "list_displays",
   "list_apps",
   "list_windows",
   "screenshot",
@@ -94,6 +101,10 @@ const COMMANDS: Record<string, string> = {
   move_window: "move-window",
   resize_window: "resize-window",
   list_displays: "list-displays",
+  list_surfaces: "list-surfaces",
+  clipboard_get: "clipboard-get",
+  clipboard_set: "clipboard-set",
+  clipboard_clear: "clipboard-clear",
 };
 
 const cli = defineTool({
@@ -120,7 +131,7 @@ const cli = defineTool({
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
-    "launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
+    "launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_set/get/clear move text in and out of the system clipboard; on a Homebrew install they can refuse with ACTION_NOT_SUPPORTED, because the helper sits under a group-writable /opt/homebrew/lib. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -157,7 +168,11 @@ const cli = defineTool({
           "get: text (what a person reads), value, title, bounds, role, states. is: visible, enabled, checked, focused, expanded, selected. bounds is exact points, so it beats a pixel read off a screenshot.",
       }),
     ),
-    text: Type.Optional(Type.String({ description: "Text for type." })),
+    text: Type.Optional(
+      Type.String({
+        description: "Text for type, or the text clipboard_set writes.",
+      }),
+    ),
     value: Type.Optional(
       Type.String({ description: "Whole new field text for set_value." }),
     ),
@@ -307,6 +322,8 @@ const cli = defineTool({
       throw new Error("resize_window needs width and height in points");
     if (p.action === "wait" && !p.wait_text && typeof p.wait_ms !== "number")
       throw new Error("wait needs wait_text, or wait_ms as a fixed pause");
+    if (p.action === "clipboard_set" && p.text === undefined)
+      throw new Error("clipboard_set needs text to put on the clipboard");
     if (p.action === "mouse_click" && !coords(p.x, p.y))
       throw new Error(
         "mouse_click needs x and y; take them from an `at` line, the center being x+width/2, y+height/2",
@@ -977,6 +994,18 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     // Without a bound a text wait spends 30s before saying it did not match.
     put(args, "--timeout", p.timeout_ms);
     if (typeof p.wait_ms === "number") args.push(String(p.wait_ms));
+    return args;
+  }
+
+  // The clipboard and the surface list are bare commands; surfaces filter by app.
+  if (action === "list_surfaces") {
+    putEq(args, "--app", p.app);
+    return args;
+  }
+  if (action === "clipboard_get" || action === "clipboard_clear") return args;
+  // Text is positional and may begin with a hyphen, so `--` ends flag parsing.
+  if (action === "clipboard_set") {
+    if (text !== undefined) args.push("--", text);
     return args;
   }
 
