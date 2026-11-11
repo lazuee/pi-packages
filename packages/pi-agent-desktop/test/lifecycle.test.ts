@@ -90,3 +90,34 @@ it("starts a second run after the first one settled", async () => {
   expect(starts).toHaveLength(2);
   for (const bin of starts) expect(bin).not.toBe("/bin/sh");
 });
+
+// One session is started and ended per run, so a Pi session leaves a directory
+// per turn and nothing collects them. Shutdown prunes the ones old enough that
+// their trace is unlikely to be wanted.
+it("prunes old sessions on shutdown", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const calls: string[][] = [];
+  const pi: any = {
+    registerTool: () => {},
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (_bin: string, args: string[]) => {
+      calls.push(args);
+      return { code: 0, stdout: '{"data":{}}', stderr: "" };
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: false,
+    mode: "tui",
+    ui: { setStatus: () => {}, notify: () => {} },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  await h.agent_start[0]({}, ctx);
+  await h.session_shutdown[0]({}, ctx);
+  // A prefixed call carries its argv after the sh wrapper, so search the args.
+  const gc = calls.find((c) => c.includes("gc"));
+  expect(gc?.slice(-4)).toEqual(["session", "gc", "--older-than", "86400"]);
+});

@@ -61,7 +61,6 @@ async function chosenBin(): Promise<string | undefined> {
   const sessionStart = exec.mock.calls.find((c) =>
     String(c[1]).includes("session,start"),
   );
-  const args = sessionStart?.[1] as string[] | undefined;
   // A start runs unprefixed, so the binary is the command itself rather than
   // the `$0` of a sh wrapper, i.e. exec's first argument.
   return sessionStart?.[0] as string | undefined;

@@ -1654,8 +1654,10 @@ export default function (pi: ExtensionAPI) {
   let inRun = false; // a session start we have not answered with an end
   // pi.exec does not throw on a non-zero exit, so the exit code is the only
   // honest signal.
-  async function call(...args: string[]): Promise<boolean> {
-    if (!cmd) return false;
+  async function call(
+    ...args: string[]
+  ): Promise<{ ok: boolean; why?: string }> {
+    if (!cmd) return { ok: false };
     // A start mints a new id; adopt it here so no caller can forget to, and so
     // `session end` later releases the session the start actually made.
     //
@@ -1667,17 +1669,27 @@ export default function (pi: ExtensionAPI) {
     try {
       const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
       if (isStart) adopt(r.stdout);
-      return r.code === 0;
-    } catch {
-      return false;
+      const ok = r.code === 0;
+      // Only a failure needs saying; the success path stays a boolean.
+      return ok
+        ? { ok }
+        : { ok, why: `${r.stdout}${r.stderr}`.trim().slice(0, 200) };
+    } catch (e) {
+      return {
+        ok: false,
+        why: (e instanceof Error ? e.message : String(e)).slice(0, 200),
+      };
     }
   }
 
   async function tell(ctx: ExtensionContext, ...args: string[]) {
     if (!ready || !cmd) return false;
-    const ok = await call(...args);
+    const { ok, why } = await call(...args);
     if (!ok && ctx.hasUI)
-      ctx.ui.notify(`agent-desktop ${args[0]} ${args[1]} failed`, "warning");
+      ctx.ui.notify(
+        `agent-desktop ${args[0]} ${args[1]} failed${why ? `: ${why}` : ""}`,
+        "warning",
+      );
     return ok;
   }
 
@@ -1752,6 +1764,10 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_shutdown", async (_e, ctx) => {
     await tell(ctx, "session", "end");
+    // A run starts and ends a session, so one Pi session leaves one directory per
+    // turn and they are never collected on their own. A day is old enough that a
+    // trace is unlikely to be wanted and young enough to keep the store bounded.
+    await tell(ctx, "session", "gc", "--older-than", "86400");
     inRun = false;
     session = undefined;
   });
