@@ -163,7 +163,7 @@ const cli = defineTool({
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches name, value and title without a tree; after an async step use wait with wait_text rather than a fixed pause.",
     "When a session cannot act at all, permissions reports which OS grant is missing and status reports the platform and supported surfaces. launch opens an app and waits for a window, so a cold session can start; close_app quits one, focus_window brings a window forward, and maximize/minimize/restore/move_window/resize_window place one (they take window_id, not a ref). clipboard_get/set/clear move text in and out of the system clipboard; on a Homebrew install they can refuse with ACTION_NOT_SUPPORTED because the helper sits under /opt/homebrew/lib, which Homebrew makes group-writable; chmod g-w /opt/homebrew/lib once fixes it. The vendored checkout also refuses while its helper is a symlink: replace upstream/npm/bin/agent-desktop-macos-helper with a copy of the real file. toggle, check, uncheck, expand, collapse, clear, focus, scroll_to, right_click, double_click and triple_click are all covered; prefer them over a click on the same element. double_click needs the window frontmost and takes no window_id, so focus-window or a click first. scroll_to refuses a node inside a sheet (visibility cannot be verified), so click it instead.",
-    "batch runs CLI commands with no round trip; steps are {command, args} and there is no snapshot between them, so end with a snapshot step. Notifications take an index from list_notifications plus expected_title, since the queue shifts. skills, session, trace and cursor_overlay take sub (the child command) and answer from this machine.",
+    "batch runs CLI commands with no round trip; steps are {command, args} and there is no snapshot between them, so end with a snapshot step. Notifications take an index from list_notifications plus expected_title, since the queue shifts. skills, session, trace and cursor_overlay take sub (the child command) and answer from this machine. open_system_surface is not implemented on macOS, so reach the Dock and the status items with snapshot --surface dock or --surface menu-bar-extras instead.",
   ],
   parameters: Type.Object({
     action: Type.Union(
@@ -552,8 +552,10 @@ const cli = defineTool({
           details: { action: p.action, app: p.app },
         };
     }
-    if (r.code !== 0) throw new Error(cliError(out, p.action, r.code));
-
+    // A command this build cannot do at all is an answer, not a failure: it
+    // changed nothing, so it neither throws nor takes a snapshot.
+    if (r.code !== 0 && !RENDER_FAILURE.some((s) => out.includes(s)))
+      throw new Error(cliError(out, p.action, r.code));
     // A read is the answer by itself.
     if (READ_ACTIONS.has(String(p.action)))
       return {
@@ -575,9 +577,22 @@ const cli = defineTool({
         details: { action: p.action },
       };
 
+    // An error envelope has no `data`, so `render` would say "Nothing on
+    // screen." over the one sentence that explains the refusal.
+    if (RENDER_FAILURE.some((s) => out.includes(s)))
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: cliError(out, p.action, r.code, true),
+          },
+        ],
+        details: { action: p.action },
+      };
+
     // The clipboard, the version and the whole session/trace/bookkeeping group
     // answer from this machine alone, so a snapshot after them would only repeat
-    // the last one.
+    // the last one. A command it cannot do is the same: it did nothing.
     if (SELFLESS.has(String(p.action)))
       return {
         content: [{ type: "text" as const, text: render(out) }],
@@ -829,7 +844,12 @@ function scaleNote(scale: unknown): string {
  * CLI's own ref-goes-stale advice which the raw text already carries, is passed
  * through unchanged.
  */
-export function cliError(out: string, action: unknown, code: number): string {
+export function cliError(
+  out: string,
+  action: unknown,
+  code: number,
+  keep = false,
+): string {
   const fallback =
     out || `agent-desktop ${String(action)} failed with exit ${code}`;
   let e: { message?: unknown; suggestion?: unknown; details?: unknown };
@@ -845,11 +865,23 @@ export function cliError(out: string, action: unknown, code: number): string {
   const ids = (candidates?.candidates ?? [])
     .map((c) => scalar(c.id ?? c.pid ?? "?"))
     .filter((id) => id !== "?");
-  return [
+  const lines = [
     e.message,
     typeof e.suggestion === "string" ? e.suggestion : "",
     ids.length ? `Candidates: ${ids.join(", ")}` : "",
-  ]
+  ];
+  // `keep` is for a refusal the caller is told about rather than thrown: the
+  // text it returns is the whole result, and a failure with no message of its
+  // own would render as "Nothing on screen."
+  return (
+    keep
+      ? [
+          ...lines,
+          `(${String(action)} failed with exit ${code}.)`,
+          out === fallback ? "" : out,
+        ]
+      : lines
+  )
     .filter(Boolean)
     .join("\n");
 }
@@ -1197,6 +1229,10 @@ const NESTED = new Map([
   ["trace", "show, export"],
   ["cursor_overlay", "enable, disable"],
 ]);
+
+// The refusals that are an answer rather than a failure: the command does not
+// exist on this platform or build, and nothing was attempted.
+const RENDER_FAILURE = ["PLATFORM_NOT_SUPPORTED"];
 
 // Window geometry commands: each scopes by window_id or app.
 const WINDOW_GEOMETRY = new Set([

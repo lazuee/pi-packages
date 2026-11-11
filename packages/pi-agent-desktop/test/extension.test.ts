@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import start, {
   afterSnapshot,
   buildArgs,
   cliError,
@@ -931,5 +931,53 @@ describe("the answers that have no tree to show", () => {
     ).toBe(
       "2 of 2 ran, 5 ms, sequential and not atomic\n#1 version ok\n#2 click failed: stale",
     );
+  });
+});
+
+// A command the platform/build cannot do refuses with PLATFORM_NOT_SUPPORTED.
+// Treating that as a throw hides the suggestion, and treating it as an action
+// takes a snapshot that can only repeat the last one.
+describe("execute on an unsupported command", () => {
+  it("answers the refusal, with no throw and no follow-up snapshot", async () => {
+    let tool: { execute: (...a: unknown[]) => Promise<{ content: unknown }> };
+    const execs: string[][] = [];
+    const refused = {
+      ok: false,
+      command: "open-system-surface",
+      error: {
+        code: "PLATFORM_NOT_SUPPORTED",
+        message: "open_system_surface is not supported on this platform",
+        suggestion: "Use a platform/build that advertises this capability",
+      },
+    };
+    start({
+      registerTool: (t: typeof tool) => {
+        tool = t;
+      },
+      on: () => {},
+      exec: async (_bin: string, args: string[]) => {
+        execs.push(args);
+        if (args[0] === "list-apps")
+          return { code: 0, stdout: "{}", stderr: "" };
+        return {
+          code: args[0] === "open-system-surface" ? 1 : 0,
+          stdout:
+            args[0] === "open-system-surface"
+              ? JSON.stringify(refused)
+              : '{"data":{}}',
+          stderr: "",
+        };
+      },
+    } as never);
+    await new Promise((r) => setTimeout(r, 50));
+    const out = await tool!.execute(
+      "1",
+      { action: "open_system_surface", surface: "dock" },
+      undefined,
+      () => {},
+      {},
+    );
+    expect(JSON.stringify(out.content)).toContain("not supported on this");
+    expect(execs.map((a) => a[0])).not.toContain("snapshot");
   });
 });

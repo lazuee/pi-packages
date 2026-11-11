@@ -26,6 +26,7 @@ agent-desktop skills get platform
 
 A source checkout under `upstream/` is a launcher, not a binary: it works only once npm's postinstall has put the native binary beside it.
 The extension probes both, so it uses that checkout when it answers (a local patch is then live at once) and otherwise falls through to the `agent-desktop` on your `PATH`.
+`open_system_surface` is not implemented on macOS (the trait method is a `not_supported` default no macOS adapter overrides), so it refuses as `PLATFORM_NOT_SUPPORTED` there whatever build answers — on macOS the same surfaces are reached by `snapshot --surface menubar` or `--surface menu-bar-extras`.
 
 ## What it exposes
 
