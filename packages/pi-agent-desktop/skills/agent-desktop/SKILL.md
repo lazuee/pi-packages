@@ -2,7 +2,7 @@
 
 name: agent-desktop
 tags: computer-use, desktop-automation, accessibility, ai-agent, gui-automation, cli
-description: "Operate desktop applications on macOS, Windows and Linux through native accessibility trees, using the agent-desktop CLI. Use when an AI agent must see or act on a desktop GUI: click buttons, fill forms, read UI state, navigate menus, toggle checkboxes, scroll, drag, type text, press shortcuts, take screenshots, manage windows, use the clipboard, launch or close apps, read notifications. Triggers on: \"click button\", \"fill form\", \"open app\", \"read UI\", \"computer use\", \"operate desktop\", \"accessibility tree\", \"snapshot app\", \"type into field\", \"navigate menu\", \"toggle checkbox\", \"take screenshot\", \"desktop automation\", \"agent-desktop\", or any desktop GUI task on macOS, Windows or Linux."
+description: "Operate desktop applications on macOS, Windows and Linux through native accessibility trees, using the agent-desktop CLI. Use when an AI agent must see or act on a desktop GUI: click buttons, fill forms, read UI state, navigate menus, toggle checkboxes, scroll, drag, type text, press shortcuts, take screenshots, manage windows, use the clipboard, launch or close apps, read notifications, batch several steps, follow a session trace, or move and wheel the pointer. Triggers on: \"click button\", \"fill form\", \"open app\", \"read UI\", \"computer use\", \"operate desktop\", \"accessibility tree\", \"snapshot app\", \"type into field\", \"navigate menu\", \"toggle checkbox\", \"take screenshot\", \"desktop automation\", \"agent-desktop\", \"batch clicks\", \"read notifications\", \"session trace\", \"move the mouse\", \"scroll at a point\", or any desktop GUI task on macOS, Windows or Linux."
 ---
 
 # agent-desktop
@@ -79,6 +79,34 @@ Observation commands such as `snapshot` have none on success; their errors, and 
   Message and suggestion text can change.
 - `details.retryable: false` means waiting cannot change the outcome.
   Try a different approach.
+
+## Beyond one action
+
+The tool covers the CLI's whole command surface, including the run bookkeeping around it.
+These are grouped rather than one action each, so name the child in `sub`:
+
+- `skills list|get|path` — the compiled-in guides. `get desktop` before a long session; `get <platform>` for what differs on this OS.
+- `session start|end|list|gc` — the run's session.
+  A start mints its own id; pass its `name` to label it.
+- `trace show|export` via `trace` and `trace_export` — what the run actually attempted. `show` answers a timeline, `export` writes an HTML viewer for a person.
+- `cursor_overlay enable|disable` — draw the agent cursor so a human can follow along.
+  Presentation only; it never replaces the OS pointer.
+
+`batch` takes `steps` of `{ command, args }` and runs them without a round trip.
+A ref goes stale after the first act because nothing re-snapshots between steps, so finish the batch with a `snapshot` step when you need to see the result.
+It is not atomic: each result carries its own `ok`, and `stop_on_error` halts at the first failure.
+
+`mouse_move` parks the pointer at a point, and `mouse_wheel` scrolls at one; both take `x`/`y` and are always headed.
+`mouse_click` is the only coordinate click, and `hover` the element-shaped move.
+
+`open_system_surface --surface <name>` opens a shell panel such as the Dock or the status items.
+It is not implemented on macOS, so reach those panels with `snapshot --surface dock` / `--surface menu-bar-extras` there, and expect the vendored checkout to lack both until its submodule is updated.
+
+Notifications are an OS queue, not a window: `list_notifications` numbers them, and a single `dismiss_notification` or `notification_action` takes that `index` plus `expected_title` (and `app` when known) because the queue shifts between listings.
+Mutations are always headed.
+`dismiss_all_notifications` needs no listing, so it still works where the queue cannot be read — as on macOS 26, whose center exposes no notification rows to the accessibility tree.
+
+`key_down`, `key_up`, `mouse_down` and `mouse_up` fail in stateless mode; use `press`, `mouse_click` and `drag` instead.
 
 ## Headless and headed
 

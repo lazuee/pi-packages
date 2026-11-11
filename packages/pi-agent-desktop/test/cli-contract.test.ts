@@ -191,6 +191,7 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
     steps: [{ command: "version" }, { command: "list-apps" }],
   },
   mouse_wheel: { action: "mouse_wheel", x: 400, y: 300, dy: -2 },
+  mouse_move: { action: "mouse_move", x: 400, y: 300 },
 };
 
 const built = existsSync(BIN);

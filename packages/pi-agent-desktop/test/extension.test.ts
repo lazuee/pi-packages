@@ -981,3 +981,13 @@ describe("execute on an unsupported command", () => {
     expect(execs.map((a) => a[0])).not.toContain("snapshot");
   });
 });
+
+describe("mouse_move", () => {
+  it("sends the point as --xy, always headed", () => {
+    expect(buildArgs({ action: "mouse_move", x: -100, y: 50 })).toEqual([
+      "mouse-move",
+      "--xy=-100,50",
+      "--headed",
+    ]);
+  });
+});

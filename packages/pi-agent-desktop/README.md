@@ -86,7 +86,10 @@ This wraps the whole CLI command surface, and every action is contract-tested ag
 The bundled `agent-desktop` skill is still the reference for what a command means and when to reach for it.
 Run `agent-desktop <command> --help` for flags; the skill does not repeat them.
 
-The few commands left out are the raw pointer primitives whose stateless form adds nothing over a composite one — `key_down`, `key_up`, `mouse_down`, `mouse_up`, `mouse_move` (use `hover`), `cursor_overlay`'s style options, `trace` export flags beyond `--out` and `--limit`, and `help`/`mcp`.
+Six CLI commands have no action: `key-down`, `key-up`, `mouse-down`, `mouse-up`, `help` and `mcp`.
+The first four fail with `ACTION_NOT_SUPPORTED: ... unavailable in stateless mode`, `--headed` included, because they exist for the stateful FFI API; `press`, `mouse_click` and `drag` are the composite forms that work, so nothing is lost by leaving them out.
+`help` repeats what `skills` prints, and `mcp` serves the CLI over stdio rather than being one call.
+What is left out of the `trace` and `cursor_overlay` flags is depth, not capability: `trace` exposes `show` and `export` with `--limit`/`--out`, and the overlay its `enable`/`disable`, so a style unchanged by the defaults needs the CLI directly.
 
 Nested CLI groups are one action plus `sub`: `skills` (`list`, `get`, `path`), `session` (`start`, `end`, `list`, `gc`), `trace` (`show`, `export` via `trace_export`) and `cursor_overlay` (`enable`, `disable`).
 `session start` mints a new session id and the extension adopts it, so the refs it seeds are the ones later calls use.
@@ -95,10 +98,17 @@ Nested CLI groups are one action plus `sub`: `skills` (`list`, `get`, `path`), `
 Steps are `{ command, args }` with `args` keyed by the CLI's long option names (`{ ref: "@e3", headed: true }`).
 There is no snapshot between steps, so a ref goes stale after the first act; end the batch with a `snapshot` step when you need to see the result.
 A batch is not atomic and does not fail as a whole — each result carries its own verdict.
+Reach for it when several acts belong together and you do not want the first one's result to renumber the refs before the next.
+
+`version` answers the CLI's own version, OS and architecture — the first thing to check when a command behaves unlike its help.
+`trace show` reads the run's recorded events (`--limit`ed, `--event`-filtered) to see what was actually attempted; `trace_export` writes the same timeline to a standalone HTML viewer for a person to open.
+`cursor_overlay enable` draws the agent cursor so a human watching can follow where actions land; it is presentation only and never replaces the OS pointer.
+`skills` fetches the compiled-in guides — `get desktop` before a long session, `get <platform>` for the OS's differences — so the reference cannot drift from the installed binary.
 
 Notifications are an OS queue, not a window: the index is positional and guarded.
 `dismiss_notification` and `notification_action` take an `index` from `list_notifications` plus `expected_title` (and `app` when known), because the queue shifts between listings.
 Mutations are always ones that open and focus the notification surface, so they are always headed.
+`dismiss_all_notifications` is the one mutation that needs no listing, so it still works when the queue cannot be read.
 
 On macOS 26 the notification commands come back empty however the center is opened.
 `find --app "Notification Center"` resolves the process and returns 14 elements, but they are only the three widget windows (`Featured`, a weather widget, a calendar widget) — there is no notification-list window in the accessibility tree at all, while macOS holds ten presented records and System Events counts three windows on the same pid.

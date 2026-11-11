@@ -86,6 +86,7 @@ const ACTIONS = [
   "open_system_surface",
   "batch",
   "mouse_wheel",
+  "mouse_move",
 ] as const;
 
 // Actions that only read; the rest act and are followed by a fresh snapshot.
@@ -115,6 +116,7 @@ const READ_ACTIONS = new Set<string>([
 const COMMANDS: Record<string, string> = {
   list_apps: "list-apps",
   mouse_click: "mouse-click",
+  mouse_move: "mouse-move",
   right_click: "right-click",
   scroll_to: "scroll-to",
   double_click: "double-click",
@@ -152,7 +154,7 @@ const cli = defineTool({
   promptGuidelines: [
     "Use agent_desktop when a task needs an app's UI and no CLI or API does it.",
     "Call snapshot once before acting. After every action the tool returns the new state itself; read that result instead of assuming the action worked.",
-    "Act by ref (@e3) wherever one exists; without one, use its `at` with mouse-click, which is the only click that takes x/y.",
+    "Act by ref (@e3) wherever one exists; without one, use its `at` with mouse-click, which is the only click that takes x/y. mouse-move parks the pointer at a point without clicking; mouse_wheel scrolls at one.",
     "Every result is plain text, so read it directly: get reads one property of a ref and is checks one state. get bounds gives exact points, which beats a pixel estimated from a screenshot.",
     "is answering 'not applicable' means the element has no such state; that is not the same as false.",
     "A menu, sheet or repaint renumbers every ref. Act from the most recent snapshot only, never from a ref in an older one.",
@@ -190,7 +192,8 @@ const cli = defineTool({
     ),
     x: Type.Optional(
       Type.Number({
-        description: "Pixel x, only when the element has no usable ref.",
+        description:
+          "Pixel x, only when the element has no usable ref. mouse_move and mouse_wheel take it on its own, with y.",
       }),
     ),
     y: Type.Optional(Type.Number({ description: "Pixel y, same as x." })),
@@ -495,6 +498,10 @@ const cli = defineTool({
       );
     if (p.action === "notification_action" && !p.option)
       throw new Error("notification_action needs option, the button to click");
+    if (p.action === "mouse_move" && !coords(p.x, p.y))
+      throw new Error(
+        "mouse_move needs x and y; take them from an `at` line, the center being x+width/2, y+height/2",
+      );
     if (p.action === "mouse_wheel" && !coords(p.x, p.y))
       throw new Error(
         "mouse_wheel needs x and y; take them from an `at` line, the center being x+width/2, y+height/2",
@@ -1204,8 +1211,9 @@ const WINDOW_SCOPED = new Set(["press", "screenshot", "snapshot"]);
 // times out while the window is away.
 const WINDOW_VISIBILITY = new Set(["maximize", "minimize", "restore"]);
 
-// The actions that touch no window, and so need no follow-up snapshot.
-const CLIPBOARD_ACTIONS = new Set<string>([
+// The pointer moves that leave the window alone, plus the actions that touch no
+// window at all: in both cases a snapshot would only repeat the last one.
+const SELFLESS_ACTIONS = new Set<string>([
   "clipboard_set",
   "clipboard_clear",
   "version",
@@ -1216,10 +1224,12 @@ const CLIPBOARD_ACTIONS = new Set<string>([
   "cursor_overlay",
   "dismiss_all_notifications",
   "batch",
+  // It moves the cursor over a window; nothing in the window changes.
+  "mouse_move",
 ]);
 // Sessions and traces name themselves; the reading half is in READ_ACTIONS and
 // answers without a snapshot either.
-const SELFLESS = new Set([...CLIPBOARD_ACTIONS, ...READ_ACTIONS]);
+const SELFLESS = new Set([...SELFLESS_ACTIONS, ...READ_ACTIONS]);
 
 // The actions that are one CLI subcommand group: sub names the child, and the
 // refusal lists the children rather than sending the caller to --help.
@@ -1362,6 +1372,15 @@ export function buildArgs(p: Record<string, unknown>): string[] {
       if (to) putEq(args, "--to-xy", to);
     }
     put(args, "--timeout-ms", p.timeout_ms);
+    return args;
+  }
+
+  // Moving the pointer lands on no element and presses nothing, so there is
+  // nothing to snapshot; hover is the element-shaped form of the same move.
+  if (action === "mouse_move") {
+    const xy = coords(p.x, p.y);
+    if (xy) putEq(args, "--xy", xy);
+    args.push("--headed");
     return args;
   }
 
