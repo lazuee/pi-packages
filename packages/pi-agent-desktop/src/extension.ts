@@ -1728,6 +1728,9 @@ export default function (pi: ExtensionAPI) {
   // honest signal.
   // A start mints a new id; it is adopted here so no caller can forget to, and
   // so `session end` later releases the session the start actually made.
+  //
+  // `release` is the one name in here that is not a CLI command: it drops the
+  // lock file the start leaves behind.
   async function call(
     args: string[],
     runBin: string,
