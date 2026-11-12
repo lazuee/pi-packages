@@ -122,6 +122,37 @@ it("prunes old sessions on shutdown", async () => {
   expect(gc?.slice(-4)).toEqual(["session", "gc", "--older-than", "86400"]);
 });
 
+// A reload tears the process tree down mid-run, so no settle ends the run's
+// session and shutdown has no manifest to end; the placeholder id it would end
+// is not a session, and the CLI answers "has no manifest". Only an open run is
+// worth an end, and gc still runs.
+it("does not end a session that no start opened", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const calls: string[][] = [];
+  const pi: any = {
+    registerTool: () => {},
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (_bin: string, args: string[]) => {
+      calls.push(args);
+      return { code: 0, stdout: '{"data":{}}', stderr: "" };
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: false,
+    mode: "tui",
+    ui: { setStatus: () => {}, notify: () => {} },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  // An idle reload: a start never ran, so there is nothing to end.
+  await h.session_shutdown[0]({}, ctx);
+  expect(calls.some((c) => c.includes("end"))).toBe(false);
+  expect(calls.some((c) => c.includes("gc"))).toBe(true);
+});
+
 // A missing CLI was invisible until the first call failed, while the pill said
 // ready regardless.
 it("says so in the status line when no CLI answers", async () => {

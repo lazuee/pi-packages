@@ -1763,7 +1763,10 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async (_e, ctx) => {
-    await tell(ctx, "session", "end");
+    // A reload tears the process tree down mid-run, so no settle ever ends the
+    // run's session. The placeholder id is not a session at all, so ending it
+    // only warns "has no manifest".
+    if (inRun) await tell(ctx, "session", "end");
     // A run starts and ends a session, so one Pi session leaves one directory per
     // turn and they are never collected on their own. A day is old enough that a
     // trace is unlikely to be wanted and young enough to keep the store bounded.
