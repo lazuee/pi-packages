@@ -49,7 +49,8 @@ Two things soften that, because a missing full stop is not proof on its own:
 
 A `<code fence>` that never closes, or a table left half-written — a delimiter row with no body row, a ragged row, or a row that stops before its closing pipe — is a stall even if a full stop follows it.
 
-`429`, `5xx`, `overloaded`, `rate limit`, timeouts, connection resets and WebSocket failures are in the already-retried list — pi has spent its retry budget on them, so recovering again only burns tokens on the same failure.
+`429`, `5xx`, `overloaded`, `rate limit`, timeouts, connection resets and WebSocket failures are already retried by pi — it has spent its retry budget on them, so recovering again only burns tokens on the same failure.
+The classifier is pi-ai's own `isRetryableAssistantError`, so this stays correct however a gateway spells the failure, and `alreadyRetriedPatterns` is only an operator override on top.
 A quota, billing or unmatched `4xx` error fails fast on purpose and is worth one attempt.
 
 ## The brakes
@@ -143,21 +144,21 @@ Either file may be absent; the config is re-read each turn, so an edit applies w
 }
 ```
 
-| Field                                       | Default       | Meaning                                                                                   |
-| ------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
-| `enabled`                                   | `true`        | Master switch; `/continue` and arming still work.                                         |
-| `continueSelf`                              | `true`        | Recover in this session.                                                                  |
-| `continueChildren`                          | `true`        | Recover in subagent child sessions.                                                       |
-| `maxConsecutive`                            | `3`           | Back-to-back recoveries before giving up.                                                 |
-| `minIntervalMs`                             | `2000`        | Minimum gap between two recoveries.                                                       |
-| `emptyText` / `truncatedText` / `errorText` | see above     | The nudge per failure class.                                                              |
-| `alreadyRetriedPatterns`                    | retry list    | Case-insensitive error substrings pi already retried.                                     |
-| `judgeMode`                                 | `"off"`       | `off`, `model` (ambiguous row only) or `always`.                                          |
-| `judgeModel`                                | unset         | Unset uses the session model, then any model with working credentials. Set it to pin one. |
-| `judgeTailMessages` / `judgeTimeoutMs`      | `12` / `8000` | The judge's context and per-model deadline.                                               |
-| `suppressAfterAbort`                        | `true`        | Stay quiet after Esc until the operator types.                                            |
-| `notify`                                    | `true`        | Notify on each recovery and each give-up.                                                 |
-| `debug`                                     | `false`       | Log every decision to stderr.                                                             |
+| Field                                       | Default       | Meaning                                                                                                              |
+| ------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                                   | `true`        | Master switch; `/continue` and arming still work.                                                                    |
+| `continueSelf`                              | `true`        | Recover in this session.                                                                                             |
+| `continueChildren`                          | `true`        | Recover in subagent child sessions.                                                                                  |
+| `maxConsecutive`                            | `3`           | Back-to-back recoveries before giving up.                                                                            |
+| `minIntervalMs`                             | `2000`        | Minimum gap between two recoveries.                                                                                  |
+| `emptyText` / `truncatedText` / `errorText` | see above     | The nudge per failure class.                                                                                         |
+| `alreadyRetriedPatterns`                    | retry list    | Extra case-insensitive error substrings to treat as already retried (pi's own retryable classifier already applies). |
+| `judgeMode`                                 | `"off"`       | `off`, `model` (ambiguous row only) or `always`.                                                                     |
+| `judgeModel`                                | unset         | Unset uses the session model, then any model with working credentials. Set it to pin one.                            |
+| `judgeTailMessages` / `judgeTimeoutMs`      | `12` / `8000` | The judge's context and per-model deadline.                                                                          |
+| `suppressAfterAbort`                        | `true`        | Stay quiet after Esc until the operator types.                                                                       |
+| `notify`                                    | `true`        | Notify on each recovery and each give-up.                                                                            |
+| `debug`                                     | `false`       | Log every decision to stderr.                                                                                        |
 
 ### The judge
 

@@ -9,6 +9,7 @@
  * the ambiguous shapes are still decided here and the judge stays an injected
  * collaborator rather than a second decision tree.
  */
+import { isRetryableAssistantError } from "@earendil-works/pi-ai";
 import {
   endsOnTerminal,
   endsPlainly,
@@ -105,6 +106,10 @@ export function silentDetector(evidence: RunEvidence): Detection {
  * a transient status arrives here only once Pi's own retry budget is spent, so
  * recovering again just burns tokens on the same failure. A quota, billing or
  * unmatched 4xx error fails fast on purpose and is worth one more attempt.
+ *
+ * `alreadyRetriedPatterns` is the operator's override; `Pi`'s own classifier
+ * decides the rest, so a transport error is caught however its gateway spells
+ * it.
  */
 export function errorDetector(
   error: string | undefined,
@@ -115,6 +120,16 @@ export function errorDetector(
     error.toLowerCase().includes(pattern.toLowerCase()),
   );
   if (matched) return UNKNOWN(`already retried by pi (${matched})`);
+  if (
+    isRetryableAssistantError({
+      role: "assistant",
+      content: [],
+      stopReason: ERROR,
+      errorMessage: error,
+    } as never)
+  ) {
+    return UNKNOWN("retried by pi (retryable error)");
+  }
   return STALLED("errored", `unretried error: ${error}`);
 }
 

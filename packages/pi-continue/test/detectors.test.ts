@@ -61,6 +61,14 @@ describe("default detection chain", () => {
     expect(result.verdict).toBe("unknown");
   });
 
+  it("leaves a retryable 500 unknown even with an empty pattern list", async () => {
+    const result = await detect(
+      evidence({ stopReason: "error", errorMessage: "Error: 500: boom" }),
+      context({ alreadyRetriedPatterns: [] }),
+    );
+    expect(result.verdict).toBe("unknown");
+  });
+
   it("stalls prose that stops mid-sentence", async () => {
     const result = await detect(
       evidence({ text: "Now let me run the tests and" }),
@@ -178,6 +186,12 @@ describe("errorDetector", () => {
     expect(errorDetector("Rate Limit exceeded", ["rate limit"]).verdict).toBe(
       "unknown",
     );
+  });
+
+  it("skips a retryable transport error Pi already retired", () => {
+    const error = `Error: 500: {"message":"litellm.InternalServerError: InternalServerError: OpenAIException - Connection error.. Received Model
+ Group=auto\\nAvailable Model Group Fallbacks=None","type":null,"param":null,"code":"500"}`;
+    expect(errorDetector(error, []).verdict).toBe("unknown");
   });
 
   it("is unknown without an error message", () => {
