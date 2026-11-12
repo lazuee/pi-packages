@@ -489,8 +489,8 @@ it("leaves a record of this very turn alone", async () => {
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const home = await mkdtemp(join(tmpdir(), "ad-home-"));
-  // This test's own pid is alive, as a live run's would be; the grace is what
-  // has to hold, so the record is made just before the round trip.
+  // The pid belongs to a shell that has exited by the time the settle runs, as a
+  // start's own child does, so only the open manifest and the grace can hold it.
   const before = process.env.HOME;
   process.env.HOME = home;
   const pi: any = {
@@ -517,17 +517,18 @@ it("leaves a record of this very turn alone", async () => {
     await h.session_start[0]({ reason: "startup" }, ctx);
     // Created after discovery, and ended nowhere: the settle is what would drop
     // it if the grace did not hold. `run-<now>-<pid>-0`, the CLI's own shape.
-    mine = `run-${Date.now()}-${process.ppid}-0`;
+    const { spawnSync } = await import("node:child_process");
+    const gone = spawnSync("sh", ["-c", "echo $$"]).stdout.toString().trim();
+    mine = `run-${Date.now()}-${gone}-0`;
     await mkdir(join(home, ".agent-desktop", "sessions", mine), {
       recursive: true,
     });
     await writeFile(
       join(home, ".agent-desktop", "sessions", mine, "session.json"),
-      "{}",
+      `{"id":"${mine}"}`, // open: no ended_at
     );
     await h.agent_start[0]({}, ctx);
     await h.agent_settled[0]({}, ctx);
-    process.stdout.write("");
     expect(existsSync(join(home, ".agent-desktop", "sessions", mine))).toBe(
       true,
     );

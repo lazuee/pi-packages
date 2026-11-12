@@ -19,7 +19,7 @@
 // compaction or queued work starts another run, and ending there kills an action
 // the run still needs.
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -1676,14 +1676,33 @@ function pidOf(dir: string): number | undefined {
   return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
 }
 
-/** Whether a pid still exists; `0` only probes, it sends nothing. */
-/** Whether a session directory still has a manifest: `session list` shows only those. */
+/** The manifest path of a session id. */
+const manifestOf = (dir: string) =>
+  join(homedir(), ".agent-desktop", "sessions", dir, "session.json");
+
+/** Whether a session id still has a manifest: `session list` shows only those. */
 function hasManifest(dir: string): boolean {
-  return existsSync(
-    join(homedir(), ".agent-desktop", "sessions", dir, "session.json"),
-  );
+  return existsSync(manifestOf(dir));
 }
 
+/** When a `run-<µs>-<pid>-<n>` record was made, per its own name. */
+function born(dir: string): number {
+  return Number(/^run-(\d+)-/.exec(dir)?.[1]) || 0;
+}
+
+/** Whether the session has ended, per its manifest. */
+function ended(dir: string): boolean {
+  try {
+    const manifest = JSON.parse(readFileSync(manifestOf(dir), "utf8")) as {
+      ended_at?: unknown;
+    };
+    return manifest.ended_at !== undefined;
+  } catch {
+    return false; // no manifest yet, or unreadable
+  }
+}
+
+/** Whether a pid still exists; `0` only probes, it sends nothing. */
 function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -1695,8 +1714,12 @@ function alive(pid: number): boolean {
 
 const ORPHAN = /^run-\d+-\d+-\d+$/;
 
-/** How long this turn's own record is left alone after it was created. */
-const MINE_GRACE_MS = 60_000;
+/**
+ * How long a dead-but-new record is spared. Long enough that a session still
+ * settling is kept, short enough that the record a turn leaves is collected by
+ * the next one.
+ */
+const GRACE = { ms: 30_000 };
 
 export default function (pi: ExtensionAPI) {
   api = pi;
@@ -1838,20 +1861,20 @@ export default function (pi: ExtensionAPI) {
   // while Pi was still on it.
   async function pruneOrphans(ctx: ExtensionContext) {
     if (!cmd) return;
-    const mine = session;
     const store = join(homedir(), ".agent-desktop", "sessions");
     const dirs = await readdir(store).catch(() => [] as string[]);
-    const orphans = dirs.filter((dir) => {
+    const now = Date.now();
+    const orphans: string[] = [];
+    for (const dir of dirs) {
       const pid = pidOf(dir);
-      if (pid === undefined || !ORPHAN.test(dir) || alive(pid)) return false;
-      // A record of this turn is only safe to drop once its own end has landed:
-      // tool calls run after the settle, and they would be pointed at a fresh
-      // empty directory. shortcut: a long tool call can outlive the grace below,
-      // so narrow it if callers start racing their own trace.
-      if (dir !== mine && session === mine) return true;
-      const born = Number(/^run-(\d+)-/.exec(dir)?.[1]);
-      return !(Number.isFinite(born) && Date.now() - born < MINE_GRACE_MS);
-    });
+      if (pid === undefined || !ORPHAN.test(dir) || alive(pid)) continue;
+      // Neither age nor an empty directory may condemn a session: a start's
+      // child is gone by the time the start has returned, and the directory is
+      // empty until its first snapshot. An old one is dead whatever its
+      // manifest says; a new one is dead only once it says it ended, and the
+      // grace is time for that to land.
+      if (now - born(dir) >= GRACE.ms || ended(dir)) orphans.push(dir);
+    }
     let pruned = 0;
     for (const dir of orphans) pruned += await prune(dir);
     if (pruned && ctx.hasUI)
