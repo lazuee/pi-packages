@@ -529,7 +529,11 @@ const cli = defineTool({
     const before = WINDOW_VISIBILITY.has(String(p.action))
       ? await windowState(bin, p.window_id, signal)
       : undefined;
-    const r = await api.exec(runBin, runArgs, { signal, timeout: 120_000 });
+    const r = await api.exec(runBin, runArgs, {
+      signal,
+      timeout: 120_000,
+      ...sessionEnv(),
+    });
     const out = `${r.stdout}${r.stderr}`.trim();
     // A start has to hand its id on, or the next call is back in the old
     // namespace and the refs this one seeded are unreachable.
@@ -610,7 +614,7 @@ const cli = defineTool({
     // Snapshot again rather than trust it, and let a failed read not hide success.
     const [afterBin, afterArgs] = withSession(bin, afterSnapshot(p));
     const after = await api
-      .exec(afterBin, afterArgs, { timeout: 60_000 })
+      .exec(afterBin, afterArgs, { timeout: 60_000, ...sessionEnv() })
       .catch(() => null);
     if (after?.code === 0) {
       return {
@@ -654,6 +658,13 @@ const SOURCE_BIN = fileURLToPath(
 
 // Filled on session_start so a missing binary never breaks factory load.
 let cmd: string | undefined;
+/**
+ * Whether this call can reach the CLI natively. Windows has no `sh` to wrap an
+ * env into, so there the env rides on `pi.exec` instead of the command line.
+ */
+let NATIVE = false;
+/** Whether any candidate resolved. A checkout on its own is not the CLI. */
+let RESOLVED = false;
 
 // One id per pi session, so two sessions (a subagent, a second window) do not
 // count as one agent: without it the CLI falls back to the parent process, and
@@ -664,6 +675,20 @@ let session: string | undefined;
 let inRun = false;
 
 /** pi.exec carries no env, so the id is prefixed onto the command instead. */
+/** The env that gives a call this run's session, where `sh` cannot. */
+function sessionEnv(): { env: Record<string, string> } | undefined {
+  return NATIVE && session
+    ? { env: { AGENT_DESKTOP_SESSION: session } }
+    : undefined;
+}
+
+/** Whether the CLI's state lives elsewhere than `~/.agent-desktop`. */
+const stateEnv = () => process.env.AGENT_DESKTOP_HOME?.trim() || undefined;
+
+/** The sessions store, honouring a relocated state directory. */
+const storeDir = () =>
+  join(stateEnv() ?? homedir(), ".agent-desktop", "sessions");
+
 /**
  * The snapshot taken after an action, to show what the action did.
  *
@@ -685,7 +710,11 @@ async function json(
 ): Promise<unknown> {
   const [runBin, runArgs] = withSession(bin, args);
   try {
-    const r = await api?.exec(runBin, runArgs, { signal, timeout: 30_000 });
+    const r = await api?.exec(runBin, runArgs, {
+      signal,
+      timeout: 30_000,
+      ...sessionEnv(),
+    });
     if (r?.code !== 0) return undefined;
     const e = JSON.parse(r.stdout) as { data?: unknown };
     return e.data;
@@ -727,7 +756,11 @@ async function windowState(
 ): Promise<WindowState | undefined> {
   const [listBin, listArgs] = withSession(bin, ["list-windows"]);
   try {
-    const r = await api?.exec(listBin, listArgs, { signal, timeout: 10_000 });
+    const r = await api?.exec(listBin, listArgs, {
+      signal,
+      timeout: 10_000,
+      ...sessionEnv(),
+    });
     if (r?.code !== 0) return undefined;
     const windows =
       (
@@ -777,7 +810,8 @@ export function afterSnapshot(p: Record<string, unknown>): string[] {
 }
 
 function withSession(bin: string, args: string[]): [string, string[]] {
-  if (!session) return [bin, args];
+  // Windows has no `sh`, so there the id rides on `pi.exec` instead (sessionEnv).
+  if (!session || NATIVE) return [bin, args];
   // export, because sh would otherwise not pass it to the binary it starts.
   return [
     "/bin/sh",
@@ -1677,8 +1711,7 @@ function pidOf(dir: string): number | undefined {
 }
 
 /** The manifest path of a session id. */
-const manifestOf = (dir: string) =>
-  join(homedir(), ".agent-desktop", "sessions", dir, "session.json");
+const manifestOf = (dir: string) => join(storeDir(), dir, "session.json");
 
 /** Whether a session id still has a manifest: `session list` shows only those. */
 function hasManifest(dir: string): boolean {
@@ -1700,6 +1733,60 @@ function ended(dir: string): boolean {
   } catch {
     return false; // no manifest yet, or unreadable
   }
+}
+
+/** Agent-desktop covers Windows too, where the POSIX helpers below differ. */
+const WINDOWS = process.platform === "win32";
+
+/**
+ * The command that fails when `file` is locked elsewhere. Windows has no
+ * `lockf`, macOS ships no command for one, so the two reach it differently.
+ */
+function lockProbe(file: string): [string, string[]] {
+  if (WINDOWS)
+    return [
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        "$f=[IO.File]::Open('" +
+          file.replaceAll("'", "''") +
+          "','Open','ReadWrite','None'); $f.close()",
+      ],
+    ];
+  const probe = [
+    "-c",
+    "import fcntl,sys",
+    'f=open(sys.argv[1],"a+")',
+    "fcntl.lockf(f,fcntl.LOCK_EX|fcntl.LOCK_NB)",
+  ].join("\n");
+  return ["python3", [probe, file]];
+}
+
+/**
+ * Global installs of the CLI, from whichever package manager put it there.
+ * `which` is a POSIX tool; Windows has `where.exe`. Both are tried so a
+ * shim-managed shell that fakes one still finds the other.
+ */
+async function onPath(exec: ExtensionAPI["exec"]): Promise<string[]> {
+  const [lookup, ...rest] = WINDOWS
+    ? (["where.exe", "where"] as const)
+    : (["which"] as const);
+  const bins = [lookup, ...rest];
+  for (const bin of bins) {
+    const r = await exec(bin, ["agent-desktop"], {
+      timeout: 3000,
+      ...sessionEnv(),
+    }).catch(() => undefined);
+    if (r?.code !== 0) continue;
+    // `where` can answer several; the .cmd shim npm and bun write comes first.
+    const found = r.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (found.length) return found;
+  }
+  return [];
 }
 
 /** Whether a pid still exists; `0` only probes, it sends nothing. */
@@ -1742,7 +1829,10 @@ export default function (pi: ExtensionAPI) {
       return { ok: true };
     }
     try {
-      const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
+      const r = await pi.exec(runBin, runArgs, {
+        timeout: 5000,
+        ...sessionEnv(),
+      });
       if (isStart) adopt(r.stdout);
       const ok = r.code === 0;
       markSessionArgs(args, ok);
@@ -1781,10 +1871,16 @@ export default function (pi: ExtensionAPI) {
   // launcher that is always executable and dies on the native binary missing
   // beside it, so accepting it on mode alone never reaches the PATH fallback.
   async function probe(bin: string): Promise<boolean> {
-    // The tool list is the real question, not just that the binary loads.
-    const [runBin, runArgs] = withSession(bin, ["list-apps"]);
+    // The tool list is the real question, not just that the binary loads. Bare:
+    // on Windows there would be no `sh` to prefix it with.
+    const [runBin, runArgs] = NATIVE
+      ? [bin, ["list-apps"]]
+      : withSession(bin, ["list-apps"]);
     try {
-      const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
+      const r = await pi.exec(runBin, runArgs, {
+        timeout: 5000,
+        ...sessionEnv(),
+      });
       return r.code === 0;
     } catch {
       return false;
@@ -1796,12 +1892,9 @@ export default function (pi: ExtensionAPI) {
   // cheap in the broken case and free once `cmd` is set.
   async function discover(): Promise<boolean> {
     if (cmd) return true;
-    const found = await pi
-      .exec("which", ["agent-desktop"], { timeout: 3000 })
-      .catch(() => undefined);
-    const onPath =
-      found?.code === 0 ? found.stdout.trim() || undefined : undefined;
-    for (const candidate of [SOURCE_BIN, onPath]) {
+    const installed = await onPath((b, a, o) => pi.exec(b, a, o));
+    for (const candidate of [SOURCE_BIN, ...installed]) {
+      // `which` answers with an empty line, so only a real path counts.
       if (!candidate) continue;
       if (await probe(candidate)) {
         cmd = candidate;
@@ -1817,6 +1910,8 @@ export default function (pi: ExtensionAPI) {
     // Before the first call, so even the probe runs under this session's id.
     session = `${process.pid}-${Date.now().toString(36)}`;
     cmd = undefined;
+    NATIVE = WINDOWS;
+    RESOLVED = false;
     const found = await discover();
     // A reload is exactly what strands these, so the next startup is the right
     // moment; `cmd` is also how pruneOrphans knows the layout it is reading.
@@ -1856,7 +1951,8 @@ export default function (pi: ExtensionAPI) {
     // answers "has no manifest" if that id is handed back to it. A start can
     // land that way, and a placeholder always is, so only the two together make
     // an end worth sending.
-    const endable = inRun && session !== undefined && hasManifest(session);
+    // An errored start may still have opened a session, so the disk decides.
+    const endable = session !== undefined && hasManifest(session);
     if (endable) inRun = !(await tell(ctx, "session", "end"));
     else inRun = false;
     // A killed reload ends nothing, so the pile grows turn by turn. Pruning runs
@@ -1875,7 +1971,7 @@ export default function (pi: ExtensionAPI) {
   // while Pi was still on it.
   async function pruneOrphans(ctx: ExtensionContext) {
     if (!cmd) return;
-    const store = join(homedir(), ".agent-desktop", "sessions");
+    const store = storeDir();
     const dirs = await readdir(store).catch(() => [] as string[]);
     const now = Date.now();
     const orphans: string[] = [];
@@ -1905,31 +2001,22 @@ export default function (pi: ExtensionAPI) {
    */
   async function release(): Promise<void> {
     if (!cmd || !session?.startsWith("run-")) return;
-    const file = join(
-      homedir(),
-      ".agent-desktop",
-      "sessions",
-      session,
-      "refstore.lock",
-    );
+    const file = join(storeDir(), session, "refstore.lock");
     if (!existsSync(file)) return;
-    // The CLI takes a `lockf` write lock, which macOS ships no command for, so
-    // `python3` asks. A lock someone still holds is left for its owner, and a
-    // machine without python3 just keeps the file.
-    const probe = [
-      "-c",
-      "import fcntl,sys",
-      'f=open(sys.argv[1],"a+")',
-      "fcntl.lockf(f,fcntl.LOCK_EX|fcntl.LOCK_NB)",
-    ].join("\n");
+    // An exclusive probe either takes the lock or fails: a fail is left for
+    // whoever still holds it. Windows also locks the file against deletion while
+    // open, so there the probe itself lifts the lock.
+    const [bin, args] = lockProbe(file);
     const free = await pi
-      .exec("python3", [probe, file], { timeout: 2000 })
+      .exec(bin, args, { timeout: 2000, ...sessionEnv() })
       .catch(() => undefined);
-    if (free?.code === 0) await rm(file, { force: true });
+    if (free?.code !== 0) return;
+    if (WINDOWS) await rm(file, { force: true }).catch(() => {});
+    else await rm(file, { force: true });
   }
 
   async function prune(dir: string): Promise<number> {
-    const store = join(homedir(), ".agent-desktop", "sessions");
+    const store = storeDir();
     const manifest = await readFile(join(store, dir, "session.json"), "utf8")
       .then((raw) => JSON.parse(raw) as { ended_at?: unknown })
       .catch(() => undefined);

@@ -35,7 +35,8 @@ const fakePi = {
  */
 function execAnswers(working: string | undefined) {
   exec.mockImplementation(async (bin: string, args: string[]) => {
-    if (bin === "which") return { code: 0, stdout: `${ON_PATH}\n` };
+    if (bin === "which")
+      return { code: 0, stdout: `${args.includes("agent-desktop") ? ON_PATH : ""}\n` };
     // The session wrapper is always /bin/sh and names its payload as `$0`, so the
     // real binary is the first argument after the flag, never the command.
     const payload = args[args.indexOf("-c") + 2] ?? bin;
@@ -59,7 +60,7 @@ async function start() {
 async function chosenBin(): Promise<string | undefined> {
   await handlers.get("agent_start")?.({}, ctx);
   const sessionStart = exec.mock.calls.find((c) =>
-    String(c[1]).includes("session,start"),
+    String(c[1]).startsWith("session,start"),
   );
   // A start runs unprefixed, so the binary is the command itself rather than
   // the `$0` of a sh wrapper, i.e. exec's first argument.
@@ -123,5 +124,40 @@ describe("cli discovery", () => {
     await expect(
       tool_?.execute("id", { action: "list_apps" }, undefined, undefined, ctx),
     ).rejects.toThrow(/not on PATH/);
+  });
+});
+
+// Windows has no `sh`, so the session id has to ride on the process env instead
+// of the command line, and the PATH lookup is `where.exe`. Before this, every
+// call there would have gone through /bin/sh and died.
+describe("windows", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    handlers.clear();
+    exec.mockReset();
+    tool_ = undefined;
+    ctx.ui.setStatus.mockReset();
+    vi.stubGlobal("process", { ...process, platform: "win32" });
+  });
+
+  it("finds the CLI with where.exe and passes the id as env", async () => {
+    exec.mockImplementation(async (bin: string) => {
+      if (bin === "where.exe")
+        return { code: 0, stdout: "C:\\shims\\agent-desktop.cmd\r\n" };
+      return { code: 0, stdout: "{}", stderr: "" };
+    });
+    const { default: piAgentDesktop } = await import("#src/extension");
+    piAgentDesktop(fakePi as unknown as ExtensionAPI);
+    await handlers.get("session_start")?.({ reason: "startup" }, ctx);
+    await handlers.get("agent_start")?.({}, ctx);
+
+    const start = exec.mock.calls.find((c) =>
+      String(c[1]).startsWith("session,start"),
+    );
+    // Native, not wrapped: the command is the CLI itself.
+    expect(start?.[0]).toContain("agent-desktop");
+    expect(start?.[0]).not.toBe("/bin/sh");
+    const options = start?.[2] as { env?: Record<string, string> };
+    expect(options.env?.AGENT_DESKTOP_SESSION).toBeTruthy();
   });
 });
