@@ -19,6 +19,7 @@
 // compaction or queued work starts another run, and ending there kills an action
 // the run still needs.
 
+import { existsSync } from "node:fs";
 import { readdir, readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -1676,6 +1677,13 @@ function pidOf(dir: string): number | undefined {
 }
 
 /** Whether a pid still exists; `0` only probes, it sends nothing. */
+/** Whether a session directory still has a manifest: `session list` shows only those. */
+function hasManifest(dir: string): boolean {
+  return existsSync(
+    join(homedir(), ".agent-desktop", "sessions", dir, "session.json"),
+  );
+}
+
 function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -1801,8 +1809,13 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("agent_settled", async (_e, ctx) => {
-    const ended = !inRun || (await tell(ctx, "session", "end"));
-    if (ended) inRun = false;
+    // The CLI keeps a directory without a manifest out of its own list, and
+    // answers "has no manifest" if that id is handed back to it. A start can
+    // land that way, and a placeholder always is, so only the two together make
+    // an end worth sending.
+    const endable = inRun && session !== undefined && hasManifest(session);
+    if (endable) inRun = !(await tell(ctx, "session", "end"));
+    else inRun = false;
     // A killed reload ends nothing, so the pile grows turn by turn. Pruning runs
     // here, after the end above, so this run's own session is not still alive
     // when the check counts it.
@@ -1846,9 +1859,10 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_shutdown", async (_e, ctx) => {
     // A reload tears the process tree down mid-run, so no settle ever ends the
-    // run's session. The placeholder id is not a session at all, so ending it
-    // only warns "has no manifest".
-    if (inRun) await tell(ctx, "session", "end");
+    // run's session. Only an id the CLI can find may be ended: the placeholder
+    // is not a session at all.
+    if (inRun && session && hasManifest(session))
+      await tell(ctx, "session", "end");
     // A run starts and ends a session, so one Pi session leaves one directory per
     // turn and they are never collected on their own. A day is old enough that a
     // trace is unlikely to be wanted and young enough to keep the store bounded.

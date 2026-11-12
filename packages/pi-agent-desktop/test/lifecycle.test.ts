@@ -232,6 +232,20 @@ it("ends the session a tool start opened on shutdown", async () => {
   const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
   let tool: { execute: (...a: unknown[]) => Promise<unknown> } | undefined;
   const calls: string[][] = [];
+  const { mkdir, mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const home = await mkdtemp(join(tmpdir(), "ad-home-"));
+  // The start answers with an id the CLI really minted, so it has a manifest.
+  await mkdir(join(home, ".agent-desktop", "sessions", "run-a-0"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(home, ".agent-desktop", "sessions", "run-a-0", "session.json"),
+    "{}",
+  );
+  const before = process.env.HOME;
+  process.env.HOME = home;
   const pi: any = {
     registerTool: (t: typeof tool) => {
       tool = t;
@@ -265,6 +279,7 @@ it("ends the session a tool start opened on shutdown", async () => {
   );
   calls.length = 0;
   await h.session_shutdown[0]({}, ctx);
+  process.env.HOME = before;
   expect(calls.some((c) => c.includes("end"))).toBe(true);
 });
 
@@ -318,6 +333,20 @@ it("ends the session a tool start opened on shutdown", async () => {
   const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
   let tool: { execute: (...a: unknown[]) => Promise<unknown> } | undefined;
   const calls: string[][] = [];
+  const { mkdir, mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const home = await mkdtemp(join(tmpdir(), "ad-home-"));
+  // The start answers with an id the CLI really minted, so it has a manifest.
+  await mkdir(join(home, ".agent-desktop", "sessions", "run-a-0"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(home, ".agent-desktop", "sessions", "run-a-0", "session.json"),
+    "{}",
+  );
+  const before = process.env.HOME;
+  process.env.HOME = home;
   const pi: any = {
     registerTool: (t: typeof tool) => {
       tool = t;
@@ -351,6 +380,7 @@ it("ends the session a tool start opened on shutdown", async () => {
   );
   calls.length = 0;
   await h.session_shutdown[0]({}, ctx);
+  process.env.HOME = before;
   expect(
     calls.some(
       (c) =>
@@ -403,4 +433,46 @@ it("prunes what a dead reload left when the next session starts", async () => {
   } finally {
     process.env.HOME = before;
   }
+});
+
+// The CLI keeps a directory without a manifest out of its own list and answers
+// "has no manifest" if the id is handed back, so ending one is a warning for
+// nothing. A start can land that way, so the directory is what decides.
+it("skips the end for a session id with no manifest", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const calls: string[][] = [];
+  const { mkdtemp } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const home = await mkdtemp(join(tmpdir(), "ad-home-")); // no manifest at all
+  const before = process.env.HOME;
+  process.env.HOME = home;
+  const pi: any = {
+    registerTool: () => {},
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (_bin: string, args: string[]) => {
+      calls.push(args);
+      return {
+        code: 0,
+        stdout: '{"data":{"session_id":"run-a-0"}}',
+        stderr: "",
+      };
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: false,
+    mode: "tui",
+    ui: { setStatus: () => {}, notify: () => {} },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  await h.agent_start[0]({}, ctx);
+  calls.length = 0;
+  await h.agent_settled[0]({}, ctx);
+  await h.session_shutdown[0]({}, ctx);
+  process.env.HOME = before;
+  expect(calls.some((c) => c.includes("end"))).toBe(false);
 });
