@@ -199,7 +199,11 @@ it("does not end a session a tool already ended", async () => {
     },
     exec: async (_bin: string, args: string[]) => {
       calls.push(args);
-      return { code: 0, stdout: '{"data":{"session_id":"run-a-0"}}', stderr: "" };
+      return {
+        code: 0,
+        stdout: '{"data":{"session_id":"run-a-0"}}',
+        stderr: "",
+      };
     },
   };
   start(pi);
@@ -210,7 +214,13 @@ it("does not end a session a tool already ended", async () => {
   };
   await h.session_start[0]({ reason: "startup" }, ctx);
   await h.agent_start[0]({}, ctx);
-  await tool!.execute("1", { action: "session", sub: "end" }, undefined, () => {}, {});
+  await tool!.execute(
+    "1",
+    { action: "session", sub: "end" },
+    undefined,
+    () => {},
+    {},
+  );
   calls.length = 0;
   await h.agent_settled[0]({}, ctx);
   expect(calls.some((c) => c.includes("end"))).toBe(false);
@@ -232,7 +242,11 @@ it("ends the session a tool start opened on shutdown", async () => {
     },
     exec: async (_bin: string, args: string[]) => {
       calls.push(args);
-      return { code: 0, stdout: '{"data":{"session_id":"run-a-0"}}', stderr: "" };
+      return {
+        code: 0,
+        stdout: '{"data":{"session_id":"run-a-0"}}',
+        stderr: "",
+      };
     },
   };
   start(pi);
@@ -242,8 +256,106 @@ it("ends the session a tool start opened on shutdown", async () => {
     ui: { setStatus: () => {}, notify: () => {} },
   };
   await h.session_start[0]({ reason: "startup" }, ctx);
-  await tool!.execute("1", { action: "session", sub: "start" }, undefined, () => {}, {});
+  await tool!.execute(
+    "1",
+    { action: "session", sub: "start" },
+    undefined,
+    () => {},
+    {},
+  );
   calls.length = 0;
   await h.session_shutdown[0]({}, ctx);
   expect(calls.some((c) => c.includes("end"))).toBe(true);
+});
+
+// The agent may run `session start`/`end` as a tool. A tool end closes the run's
+// session, so the settle hook must not end it again — the CLI answers "has no
+// manifest" for the closed id and the operator sees a warning on every turn.
+it("does not end a session a tool already ended", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  let tool: { execute: (...a: unknown[]) => Promise<unknown> } | undefined;
+  const calls: string[][] = [];
+  const pi: any = {
+    registerTool: (t: typeof tool) => {
+      tool = t;
+    },
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (_bin: string, args: string[]) => {
+      calls.push(args);
+      return {
+        code: 0,
+        stdout: '{"data":{"session_id":"run-a-0"}}',
+        stderr: "",
+      };
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: false,
+    mode: "tui",
+    ui: { setStatus: () => {}, notify: () => {} },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  await h.agent_start[0]({}, ctx);
+  await tool!.execute(
+    "1",
+    { action: "session", sub: "end" },
+    undefined,
+    () => {},
+    {},
+  );
+  calls.length = 0;
+  await h.agent_settled[0]({}, ctx);
+  expect(calls.some((c) => c.includes("end"))).toBe(false);
+});
+
+// A tool start re-points the run at a new session, so shutdown still has a
+// manifest to release even when the hooks only ever knew the placeholder.
+it("ends the session a tool start opened on shutdown", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  let tool: { execute: (...a: unknown[]) => Promise<unknown> } | undefined;
+  const calls: string[][] = [];
+  const pi: any = {
+    registerTool: (t: typeof tool) => {
+      tool = t;
+    },
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (_bin: string, args: string[]) => {
+      calls.push(args);
+      return {
+        code: 0,
+        stdout: '{"data":{"session_id":"run-a-0"}}',
+        stderr: "",
+      };
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: false,
+    mode: "tui",
+    ui: { setStatus: () => {}, notify: () => {} },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  await tool!.execute(
+    "1",
+    { action: "session", sub: "start" },
+    undefined,
+    () => {},
+    {},
+  );
+  calls.length = 0;
+  await h.session_shutdown[0]({}, ctx);
+  expect(
+    calls.some(
+      (c) =>
+        c.includes("end") &&
+        c.some((a) => a.includes("AGENT_DESKTOP_SESSION='run-a-0'")),
+    ),
+  ).toBe(true);
 });

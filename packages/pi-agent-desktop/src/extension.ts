@@ -19,6 +19,9 @@
 // compaction or queued work starts another run, and ending there kills an action
 // the run still needs.
 
+import { readdir, readFile, rm } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import {
@@ -531,7 +534,7 @@ const cli = defineTool({
     // namespace and the refs this one seeded are unreachable.
     if (start && r.code === 0) adopt(r.stdout);
     // A start or end run by the agent moves the run's session, so the settle
-    // hook must not end what is already closed or skip what it opened.
+    // hook must not end what is closed already or skip what it opened.
     markSessionArgs([p.action, p.sub ?? ""], r.code === 0);
     if (r.code !== 0 && before) {
       const landed = windowLanded(
@@ -1666,6 +1669,24 @@ function markSessionArgs(args: unknown[], ok: boolean): void {
   if (args[1] === "end") inRun = false;
 }
 
+/** The pid in a `run-<µs>-<pid>-<n>` id, which is also the directory name. */
+function pidOf(dir: string): number | undefined {
+  const pid = Number(dir.split("-")[1]);
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+}
+
+/** Whether a pid still exists; `0` only probes, it sends nothing. */
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const ORPHAN = /^run-\d+-\d+-\d+$/;
+
 export default function (pi: ExtensionAPI) {
   api = pi;
   let ready = false; // CLI present and answering
@@ -1780,6 +1801,37 @@ export default function (pi: ExtensionAPI) {
     if (inRun) inRun = !(await tell(ctx, "session", "end"));
   });
 
+  // A session directory is dead once its process is gone and its manifest shows
+  // no end: a reload kills pi and leaves exactly that, so they pile up and a day
+  // of gc never reaches one from today. An unreadable manifest counts as dead
+  // too — it is the case this started from, and the CLI cannot release it.
+  async function pruneOrphans(ctx: ExtensionContext) {
+    if (!cmd) return;
+    const store = join(homedir(), ".agent-desktop", "sessions");
+    const dirs = await readdir(store).catch(() => [] as string[]);
+    const orphans = dirs.filter((dir) => {
+      const pid = pidOf(dir);
+      return pid !== undefined && ORPHAN.test(dir) && !alive(pid);
+    });
+    let pruned = 0;
+    for (const dir of orphans) pruned += await prune(dir);
+    if (pruned && ctx.hasUI)
+      ctx.ui.notify(
+        `agent-desktop pruned ${pruned} session record(s) a dead run left`,
+        "info",
+      );
+  }
+
+  async function prune(dir: string): Promise<number> {
+    const store = join(homedir(), ".agent-desktop", "sessions");
+    const manifest = await readFile(join(store, dir, "session.json"), "utf8")
+      .then((raw) => JSON.parse(raw) as { ended_at?: unknown })
+      .catch(() => undefined);
+    if (manifest?.ended_at !== undefined) return 0;
+    await rm(join(store, dir), { recursive: true, force: true });
+    return 1;
+  }
+
   pi.on("session_shutdown", async (_e, ctx) => {
     // A reload tears the process tree down mid-run, so no settle ever ends the
     // run's session. The placeholder id is not a session at all, so ending it
@@ -1789,6 +1841,7 @@ export default function (pi: ExtensionAPI) {
     // turn and they are never collected on their own. A day is old enough that a
     // trace is unlikely to be wanted and young enough to keep the store bounded.
     await tell(ctx, "session", "gc", "--older-than", "86400");
+    await pruneOrphans(ctx);
     inRun = false;
     session = undefined;
     if (ctx.hasUI) ctx.ui.setStatus("agent-desktop", undefined);
