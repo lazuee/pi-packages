@@ -25,7 +25,8 @@ agent-desktop skills get platform
 `status` reports permissions. macOS needs Accessibility; the other platforms report what their backends need.
 
 A source checkout under `upstream/` is a launcher, not a binary: it works only once npm's postinstall has put the native binary beside it.
-The extension probes both, so it uses that checkout when it answers (a local patch is then live at once) and otherwise falls through to the `agent-desktop` on your `PATH`.
+The extension probes both, so it uses that checkout when it answers (a local patch is then live at once) and otherwise falls through to the `agent-desktop` a global npm, bun, pnpm or yarn install put on your `PATH`.
+Windows does its own thing for the same reason: there is no `sh` to carry the session id, so calls run bare with `AGENT_DESKTOP_SESSION` in their environment and the lookup is `where.exe`.
 `open_system_surface` is not implemented on macOS (the trait method is a `not_supported` default no macOS adapter overrides), so it refuses as `PLATFORM_NOT_SUPPORTED` there whatever build answers.
 The vendored 1.0.2 build also lacks the `dock` and `menu-bar-extras` snapshot surfaces it would cover, so on that build the Dock and the status items are not reachable by surface — `list-surfaces --app Dock` comes back empty even though the Dock runs.
 An installed 2.6 CLI does support both `snapshot --surface dock` and `--surface menu-bar-extras`; the bundled checkout wins discovery, so update the submodule to get them.
