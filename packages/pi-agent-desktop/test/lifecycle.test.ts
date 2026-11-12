@@ -476,3 +476,62 @@ it("skips the end for a session id with no manifest", async () => {
   process.env.HOME = before;
   expect(calls.some((c) => c.includes("end"))).toBe(false);
 });
+
+// Tool calls run after the settle, so a record created *now* cannot be pruned
+// just because its pid is gone: the next call would land in a fresh empty
+// directory and the run's trace would start over.
+it("leaves a record of this very turn alone", async () => {
+  let mine = "";
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const tool: { execute: (...a: unknown[]) => Promise<unknown> }[] = [];
+  const { existsSync } = await import("node:fs");
+  const { mkdir, mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const home = await mkdtemp(join(tmpdir(), "ad-home-"));
+  // This test's own pid is alive, as a live run's would be; the grace is what
+  // has to hold, so the record is made just before the round trip.
+  const before = process.env.HOME;
+  process.env.HOME = home;
+  const pi: any = {
+    registerTool: (t: never) => tool.push(t),
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async () => ({
+      code: 0,
+      stdout: `{"data":{"session_id":"${mine}"}}`,
+      stderr: "",
+      killed: false,
+      truncated: false,
+    }),
+  };
+  try {
+    start(pi);
+    const ctx: any = {
+      hasUI: false,
+      mode: "tui",
+      ui: { setStatus: () => {}, notify: () => {} },
+    };
+    await h.session_start[0]({ reason: "startup" }, ctx);
+    // Created after discovery, and ended nowhere: the settle is what would drop
+    // it if the grace did not hold. `run-<now>-<pid>-0`, the CLI's own shape.
+    mine = `run-${Date.now()}-${process.ppid}-0`;
+    await mkdir(join(home, ".agent-desktop", "sessions", mine), {
+      recursive: true,
+    });
+    await writeFile(
+      join(home, ".agent-desktop", "sessions", mine, "session.json"),
+      "{}",
+    );
+    await h.agent_start[0]({}, ctx);
+    await h.agent_settled[0]({}, ctx);
+    process.stdout.write("");
+    expect(existsSync(join(home, ".agent-desktop", "sessions", mine))).toBe(
+      true,
+    );
+  } finally {
+    process.env.HOME = before;
+  }
+});

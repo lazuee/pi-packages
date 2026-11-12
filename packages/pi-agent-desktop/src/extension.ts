@@ -1695,6 +1695,9 @@ function alive(pid: number): boolean {
 
 const ORPHAN = /^run-\d+-\d+-\d+$/;
 
+/** How long this turn's own record is left alone after it was created. */
+const MINE_GRACE_MS = 60_000;
+
 export default function (pi: ExtensionAPI) {
   api = pi;
   let ready = false; // CLI present and answering
@@ -1832,11 +1835,19 @@ export default function (pi: ExtensionAPI) {
   // while Pi was still on it.
   async function pruneOrphans(ctx: ExtensionContext) {
     if (!cmd) return;
+    const mine = session;
     const store = join(homedir(), ".agent-desktop", "sessions");
     const dirs = await readdir(store).catch(() => [] as string[]);
     const orphans = dirs.filter((dir) => {
       const pid = pidOf(dir);
-      return pid !== undefined && ORPHAN.test(dir) && !alive(pid);
+      if (pid === undefined || !ORPHAN.test(dir) || alive(pid)) return false;
+      // A record of this turn is only safe to drop once its own end has landed:
+      // tool calls run after the settle, and they would be pointed at a fresh
+      // empty directory. shortcut: a long tool call can outlive the grace below,
+      // so narrow it if callers start racing their own trace.
+      if (dir !== mine && session === mine) return true;
+      const born = Number(/^run-(\d+)-/.exec(dir)?.[1]);
+      return !(Number.isFinite(born) && Date.now() - born < MINE_GRACE_MS);
     });
     let pruned = 0;
     for (const dir of orphans) pruned += await prune(dir);
