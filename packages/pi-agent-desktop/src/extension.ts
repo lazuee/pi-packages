@@ -530,6 +530,9 @@ const cli = defineTool({
     // A start has to hand its id on, or the next call is back in the old
     // namespace and the refs this one seeded are unreachable.
     if (start && r.code === 0) adopt(r.stdout);
+    // A start or end run by the agent moves the run's session, so the settle
+    // hook must not end what is already closed or skip what it opened.
+    markSessionArgs([p.action, p.sub ?? ""], r.code === 0);
     if (r.code !== 0 && before) {
       const landed = windowLanded(
         p.action,
@@ -652,6 +655,9 @@ let cmd: string | undefined;
 // count as one agent: without it the CLI falls back to the parent process, and
 // one session's end would release apps the other is still driving.
 let session: string | undefined;
+// Whether a session start still sits unanswered by an end. A tool start or end
+// moves it too, so the settle hook does not end what is already closed.
+let inRun = false;
 
 /** pi.exec carries no env, so the id is prefixed onto the command instead. */
 /**
@@ -1602,8 +1608,10 @@ export function startArgs(p: Record<string, unknown>): string[] {
 /** The id a start answered with, since `session start` mints its own. */
 function adopt(stdout: string): string | undefined {
   try {
-    const id = (JSON.parse(stdout) as { data?: { session_id?: unknown } }).data
-      ?.session_id;
+    const data = (
+      JSON.parse(stdout) as { data?: { session_id?: unknown; id?: unknown } }
+    ).data;
+    const id = data?.session_id ?? data?.id;
     if (typeof id === "string" && id) session = id;
   } catch {
     // An unparseable answer leaves the old id; the text still says what ran.
@@ -1648,10 +1656,19 @@ function putEq(args: string[], flag: string, v: unknown): void {
   else if (typeof v === "number") args.push(`${flag}=${v}`);
 }
 
+/**
+ * A tool `session start` (or `session end`) run by the agent itself: it moves the
+ * id the *run* is in, so the hook must not end a session that is already closed.
+ */
+function markSessionArgs(args: unknown[], ok: boolean): void {
+  if (args[0] !== "session" || !ok) return;
+  if (args[1] === "start") inRun = true;
+  if (args[1] === "end") inRun = false;
+}
+
 export default function (pi: ExtensionAPI) {
   api = pi;
   let ready = false; // CLI present and answering
-  let inRun = false; // a session start we have not answered with an end
   // pi.exec does not throw on a non-zero exit, so the exit code is the only
   // honest signal.
   async function call(
@@ -1670,6 +1687,7 @@ export default function (pi: ExtensionAPI) {
       const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
       if (isStart) adopt(r.stdout);
       const ok = r.code === 0;
+      markSessionArgs(args, ok);
       // Only a failure needs saying; the success path stays a boolean.
       return ok
         ? { ok }
