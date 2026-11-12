@@ -119,7 +119,7 @@ it("prunes old sessions on shutdown", async () => {
   await h.session_shutdown[0]({}, ctx);
   // A prefixed call carries its argv after the sh wrapper, so search the args.
   const gc = calls.find((c) => c.includes("gc"));
-  expect(gc?.slice(-4)).toEqual(["session", "gc", "--older-than", "86400"]);
+  expect(gc?.slice(-3)).toEqual(["session", "gc", "--ended"]);
 });
 
 // A reload tears the process tree down mid-run, so no settle ends the run's
@@ -563,7 +563,7 @@ it("runs gc unprefixed", async () => {
   await h.session_shutdown[0]({}, ctx);
   const gc = calls.find((c) => c.args.includes("gc"));
   expect(gc?.bin).not.toBe("/bin/sh");
-  expect(gc?.args.at(-2)).toBe("--older-than");
+  expect(gc?.args).toContain("--ended");
 });
 
 // A store lock is held by whatever held file 8, so a lock file whose holder is

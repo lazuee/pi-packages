@@ -95,9 +95,9 @@ Nested CLI groups are one action plus `sub`: `skills` (`list`, `get`, `path`), `
 `session start` mints a new session id and the extension adopts it, so the refs it seeds are the ones later calls use.
 A session is started and ended around every run — one directory per turn — so `trace` reads one turn rather than the whole Pi session, and `session list` is that long.
 That is the run's only session and it is ended exactly once: a `session start` or `session end` you call yourself as a tool takes over the run's session, so it replaces the hook's bookkeeping instead of sitting in a second, parallel one.
-Shutdown prunes the ones older than a day, then, so the store does not grow without bound; run `session gc --older-than <s>` yourself to reach further back or clear now.
-It also removes a record a killed run left open — a reload leaves one, and gc reaches neither that nor a dir without a manifest.
-A record counts as dead only when its process is gone, and it is never judged in its first 30 seconds, so a session another live Pi still drives is left alone.
+Shutdown runs `session gc --ended`, so ended sessions do not grow without bound; reach further back with `session gc --older-than <s>`.
+On settle and shutdown it also removes a record a killed run left open — a reload leaves one, and gc reaches neither that nor a directory with no manifest.
+A record only counts as dead when its process is gone, and never within its first 30 seconds, so another live Pi's session is left alone.
 
 `batch` runs CLI commands back to back with no round trip.
 Steps are `{ command, args }` with `args` keyed by the CLI's long option names (`{ ref: "@e3", headed: true }`).

@@ -1944,7 +1944,9 @@ export default function (pi: ExtensionAPI) {
     // A run starts and ends a session, so one Pi session leaves one directory per
     // turn and they are never collected on their own. A day is old enough that a
     // trace is unlikely to be wanted and young enough to keep the store bounded.
-    await tell(ctx, "session", "gc", "--older-than", "86400");
+    // --ended also drops the CLI's recent-activity veto, so a just-ended record
+    // goes too rather than lingering for its trace window.
+    await tell(ctx, "session", "gc", "--ended");
     await pruneOrphans(ctx);
     inRun = false;
     session = undefined;
