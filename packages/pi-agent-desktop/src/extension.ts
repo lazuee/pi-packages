@@ -1703,18 +1703,14 @@ export default function (pi: ExtensionAPI) {
   let ready = false; // CLI present and answering
   // pi.exec does not throw on a non-zero exit, so the exit code is the only
   // honest signal.
+  // A start mints a new id; it is adopted here so no caller can forget to, and
+  // so `session end` later releases the session the start actually made.
   async function call(
-    ...args: string[]
+    args: string[],
+    runBin: string,
+    runArgs: string[],
+    isStart: boolean,
   ): Promise<{ ok: boolean; why?: string }> {
-    if (!cmd) return { ok: false };
-    // A start mints a new id; adopt it here so no caller can forget to, and so
-    // `session end` later releases the session the start actually made.
-    //
-    // It also runs unprefixed: the id it would be given belongs to the run that
-    // just settled, and a sealed session refuses to start under itself — so a
-    // later turn would stay pinned to the dead id for the rest of the process.
-    const isStart = args[0] === "session" && args[1] === "start";
-    const [runBin, runArgs] = isStart ? [cmd, args] : withSession(cmd, args);
     try {
       const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
       if (isStart) adopt(r.stdout);
@@ -1734,7 +1730,14 @@ export default function (pi: ExtensionAPI) {
 
   async function tell(ctx: ExtensionContext, ...args: string[]) {
     if (!ready || !cmd) return false;
-    const { ok, why } = await call(...args);
+    // Two calls run unprefixed: a start, because the id it would inherit belongs
+    // to the run that just settled and a sealed session refuses to start under
+    // itself; and `session gc`, which is store-wide and refuses a scope at all.
+    const bare =
+      args[0] === "session" && (args[1] === "gc" || args[1] === "start");
+    const [runBin, runArgs] = bare ? [cmd, args] : withSession(cmd, args);
+    const isStart = args[0] === "session" && args[1] === "start";
+    const { ok, why } = await call(args, runBin, runArgs, isStart);
     if (!ok && ctx.hasUI)
       ctx.ui.notify(
         `agent-desktop ${args[0]} ${args[1]} failed${why ? `: ${why}` : ""}`,

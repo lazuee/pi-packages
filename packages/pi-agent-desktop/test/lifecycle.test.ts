@@ -535,3 +535,32 @@ it("leaves a record of this very turn alone", async () => {
     process.env.HOME = before;
   }
 });
+
+// `session gc` is store-wide and refuses a session scope, so the wrapper that
+// scopes everything else makes it warn on every shutdown.
+it("runs gc unprefixed", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const calls: { bin: string; args: string[] }[] = [];
+  const pi: any = {
+    registerTool: () => {},
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (bin: string, args: string[]) => {
+      calls.push({ bin, args });
+      return { code: 0, stdout: '{"data":{}}', stderr: "" };
+    },
+  };
+  start(pi);
+  const ctx: any = {
+    hasUI: false,
+    mode: "tui",
+    ui: { setStatus: () => {}, notify: () => {} },
+  };
+  await h.session_start[0]({ reason: "startup" }, ctx);
+  await h.session_shutdown[0]({}, ctx);
+  const gc = calls.find((c) => c.args.includes("gc"));
+  expect(gc?.bin).not.toBe("/bin/sh");
+  expect(gc?.args.at(-2)).toBe("--older-than");
+});
