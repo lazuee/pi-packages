@@ -1773,6 +1773,9 @@ export default function (pi: ExtensionAPI) {
     session = `${process.pid}-${Date.now().toString(36)}`;
     cmd = undefined;
     const found = await discover();
+    // A reload is exactly what strands these, so the next startup is the right
+    // moment; `cmd` is also how pruneOrphans knows the layout it is reading.
+    if (found) await pruneOrphans(ctx);
     if (ctx.hasUI && ctx.mode === "tui" && event.reason === "startup") {
       // A missing CLI is otherwise invisible until the first call fails, and
       // the pill would claim ready either way.
@@ -1798,13 +1801,22 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("agent_settled", async (_e, ctx) => {
-    if (inRun) inRun = !(await tell(ctx, "session", "end"));
+    const ended = !inRun || (await tell(ctx, "session", "end"));
+    if (ended) inRun = false;
+    // A killed reload ends nothing, so the pile grows turn by turn. Pruning runs
+    // here, after the end above, so this run's own session is not still alive
+    // when the check counts it.
+    await pruneOrphans(ctx);
   });
 
   // A session directory is dead once its process is gone and its manifest shows
   // no end: a reload kills pi and leaves exactly that, so they pile up and a day
   // of gc never reaches one from today. An unreadable manifest counts as dead
-  // too — it is the case this started from, and the CLI cannot release it.
+  // too — it is what warns "has no manifest" whenever the CLI is handed it.
+  //
+  // It waits for the run to end rather than firing on `agent_end`, which also
+  // runs before a retry: a retried run would otherwise have its trace pruned
+  // while Pi was still on it.
   async function pruneOrphans(ctx: ExtensionContext) {
     if (!cmd) return;
     const store = join(homedir(), ".agent-desktop", "sessions");

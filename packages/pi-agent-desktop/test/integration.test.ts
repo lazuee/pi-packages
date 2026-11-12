@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { expect, it, vi } from "vitest";
+import { it } from "vitest";
 import start from "#src/extension";
 
 const exec = promisify(execFile);

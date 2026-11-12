@@ -359,3 +359,48 @@ it("ends the session a tool start opened on shutdown", async () => {
     ),
   ).toBe(true);
 });
+
+// A reload never settles and never shuts down, so the records it strands are
+// only reachable at the next startup — waiting for a shutdown would leave them
+// collected only when the operator happens not to reload again.
+it("prunes what a dead reload left when the next session starts", async () => {
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const { mkdir, mkdtemp, writeFile } = await import("node:fs/promises");
+  const { existsSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const home = await mkdtemp(join(tmpdir(), "ad-home-"));
+  const store = join(home, ".agent-desktop", "sessions");
+  const orphan = "run-1-2000001-0"; // well past any live pid
+  await mkdir(join(store, orphan), { recursive: true });
+  await writeFile(join(store, orphan, "session.json"), "{}");
+  const before = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    const pi: any = {
+      registerTool: () => {},
+      on: (n: string, f: never) => {
+        h[n] ??= [];
+        h[n].push(f);
+      },
+      exec: async () => ({
+        code: 0,
+        stdout: '{"data":{}}',
+        stderr: "",
+        killed: false,
+        truncated: false,
+      }),
+    };
+    start(pi);
+    const ctx: any = {
+      hasUI: false,
+      mode: "tui",
+      ui: { setStatus: () => {}, notify: () => {} },
+    };
+    await h.session_start[0]({ reason: "startup" }, ctx);
+    // rm is recursive and resolves before its last entry is gone.
+    await expect.poll(() => existsSync(join(store, orphan))).toBe(false);
+  } finally {
+    process.env.HOME = before;
+  }
+});
