@@ -94,6 +94,7 @@ What is left out of the `trace` and `cursor_overlay` flags is depth, not capabil
 Nested CLI groups are one action plus `sub`: `skills` (`list`, `get`, `path`), `session` (`start`, `end`, `list`, `gc`), `trace` (`show`, `export` via `trace_export`) and `cursor_overlay` (`enable`, `disable`).
 `session start` mints a new session id and the extension adopts it, so the refs it seeds are the ones later calls use.
 A session is started and ended around every run — one directory per turn — so `trace` reads one turn rather than the whole Pi session, and `session list` is that long.
+That is the run's only session and it is ended exactly once: a `session start` or `session end` you call yourself as a tool takes over the run's session, so it replaces the hook's bookkeeping instead of sitting in a second, parallel one.
 Shutdown prunes the ones older than a day, then, so the store does not grow without bound; run `session gc --older-than <s>` yourself to reach further back or clear now.
 
 `batch` runs CLI commands back to back with no round trip.
