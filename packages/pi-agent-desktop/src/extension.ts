@@ -1734,6 +1734,10 @@ export default function (pi: ExtensionAPI) {
     runArgs: string[],
     isStart: boolean,
   ): Promise<{ ok: boolean; why?: string }> {
+    if (args[0] === "release") {
+      await release();
+      return { ok: true };
+    }
     try {
       const r = await pi.exec(runBin, runArgs, { timeout: 5000 });
       if (isStart) adopt(r.stdout);
@@ -1753,9 +1757,10 @@ export default function (pi: ExtensionAPI) {
 
   async function tell(ctx: ExtensionContext, ...args: string[]) {
     if (!ready || !cmd) return false;
-    // Two calls run unprefixed: a start, because the id it would inherit belongs
-    // to the run that just settled and a sealed session refuses to start under
-    // itself; and `session gc`, which is store-wide and refuses a scope at all.
+    // Three calls run unprefixed: a start, because the id it would inherit
+    // belongs to the run that just settled and a sealed session refuses to start
+    // under itself; `session gc`, which is store-wide and refuses a scope at
+    // all; and `release`, which is not a CLI command at all.
     const bare =
       args[0] === "session" && (args[1] === "gc" || args[1] === "start");
     const [runBin, runArgs] = bare ? [cmd, args] : withSession(cmd, args);
@@ -1835,6 +1840,12 @@ export default function (pi: ExtensionAPI) {
     // the placeholder, where `session list` shows no manifest and `trace` no
     // trace directory.
     inRun = (await tell(ctx, "session", "start", "--cursor")) || inRun;
+    // A start names its id after its own short-lived child, so the "is this pid
+    // alive" test says nothing about the pid a session's own lock is held by.
+    // While another session holds a store lock, `session gc` keeps everything,
+    // so this turn gives that lock up first — after the start, so the run lands
+    // in its session.
+    if (inRun) await tell(ctx, "release");
   });
 
   pi.on("agent_settled", async (_e, ctx) => {
@@ -1882,6 +1893,36 @@ export default function (pi: ExtensionAPI) {
         `agent-desktop pruned ${pruned} session record(s) a dead run left`,
         "info",
       );
+  }
+
+  /**
+   * Drop the CLI's store lock on this run's session, keeping its end. The lock
+   * file stays behind with a dead holder, and while any one is held `session gc`
+   * keeps everything.
+   */
+  async function release(): Promise<void> {
+    if (!cmd || !session?.startsWith("run-")) return;
+    const file = join(
+      homedir(),
+      ".agent-desktop",
+      "sessions",
+      session,
+      "refstore.lock",
+    );
+    if (!existsSync(file)) return;
+    // The CLI takes a `lockf` write lock, which macOS ships no command for, so
+    // `python3` asks. A lock someone still holds is left for its owner, and a
+    // machine without python3 just keeps the file.
+    const probe = [
+      "-c",
+      "import fcntl,sys",
+      'f=open(sys.argv[1],"a+")',
+      "fcntl.lockf(f,fcntl.LOCK_EX|fcntl.LOCK_NB)",
+    ].join("\n");
+    const free = await pi
+      .exec("python3", [probe, file], { timeout: 2000 })
+      .catch(() => undefined);
+    if (free?.code === 0) await rm(file, { force: true });
   }
 
   async function prune(dir: string): Promise<number> {

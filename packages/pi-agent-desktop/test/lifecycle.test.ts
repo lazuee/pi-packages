@@ -565,3 +565,69 @@ it("runs gc unprefixed", async () => {
   expect(gc?.bin).not.toBe("/bin/sh");
   expect(gc?.args.at(-2)).toBe("--older-than");
 });
+
+// A store lock is held by whatever held file 8, so a lock file whose holder is
+// gone stays and makes `session gc` keep the session forever. The start gives
+// its own lock up, but only when nobody holds it.
+it("drops its own store lock after a start", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { existsSync } = await import("node:fs");
+  const { mkdir, mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const h: Record<string, ((e: unknown, c: unknown) => Promise<void>)[]> = {};
+  const home = await mkdtemp(join(tmpdir(), "ad-home-"));
+  const id = "run-a-0";
+  await mkdir(join(home, ".agent-desktop", "sessions", id), {
+    recursive: true,
+  });
+  await writeFile(
+    join(home, ".agent-desktop", "sessions", id, "refstore.lock"),
+    "",
+  );
+  const before = process.env.HOME;
+  process.env.HOME = home;
+  const pi: any = {
+    registerTool: () => {},
+    on: (n: string, f: never) => {
+      h[n] ??= [];
+      h[n].push(f);
+    },
+    exec: async (bin: string, args: string[]) => {
+      if (bin !== "python3")
+        return {
+          code: 0,
+          stdout: `{"data":{"session_id":"${id}"}}`,
+          stderr: "",
+        };
+      try {
+        execFileSync(bin, args);
+        return { code: 0, stdout: "", stderr: "" };
+      } catch {
+        return { code: 1, stdout: "", stderr: "" };
+      }
+    },
+  };
+  try {
+    start(pi);
+    const ctx: any = {
+      hasUI: false,
+      mode: "tui",
+      ui: { setStatus: () => {}, notify: () => {} },
+    };
+    await h.session_start[0]({ reason: "startup" }, ctx);
+    await h.agent_start[0]({}, ctx);
+    await expect
+      .poll(() =>
+        existsSync(
+          join(home, ".agent-desktop", "sessions", id, "refstore.lock"),
+        ),
+      )
+      .toBe(false);
+    expect(
+      existsSync(join(home, ".agent-desktop", "sessions", id, "session.json")),
+    ).toBe(false);
+  } finally {
+    process.env.HOME = before;
+  }
+});
