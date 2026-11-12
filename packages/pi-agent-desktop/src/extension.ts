@@ -13,7 +13,7 @@
 // Signals map to pi's lifecycle as the CLI expects them:
 //   agent_start      -> session start   a run begins
 //   agent_settled    -> session end     nothing more will run
-//   session_shutdown -> session end     pi leaves, so the apps are let go
+//   session_shutdown -> session end     pi leaves, so an open run is let go
 //
 // It is agent_settled, not agent_end: agent_end also fires before a retry,
 // compaction or queued work starts another run, and ending there kills an action
