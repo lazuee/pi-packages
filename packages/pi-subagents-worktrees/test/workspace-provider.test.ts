@@ -85,6 +85,16 @@ describe("PanedCwdWorkspace", () => {
       description: "backgrounded",
     });
     expect(notes.at(0)?.stillRunning).toBe(true);
+    expect(notes).toHaveLength(1);
+  });
+
+  it("ends the follow on a finished child after a running one", () => {
+    const { notes, pane } = stubPane();
+    const ws = new PanedCwdWorkspace("/tmp", pane);
+    ws.dispose({ status: "running", description: "backgrounded" });
+    ws.dispose({ status: "completed", description: "backgrounded" });
+    // The real end is the last call and must stop the follower.
+    expect(notes.at(-1)?.stillRunning).toBe(false);
   });
 });
 

@@ -169,6 +169,7 @@ export async function openPane(
 
   let follower: fs.FSWatcher | undefined;
   let stopped = false;
+  let noted = false;
 
   // Type into the pane rather than `pane run`, so the pane stays a plain terminal
   // and successive writes land in order.
@@ -204,9 +205,16 @@ export async function openPane(
     },
     finish(note: string, stillRunning = false) {
       if (stopped) return;
-      write(`echo; echo '${note.replace(/'/g, `'\\''`)}'`);
-      if (stillRunning) return;
+      // A still-running finish is followed by the real one at the child's actual
+      // end. Writing the note here too would land it above the last lines, so it
+      // waits — but only the first time.
+      if (stillRunning && !noted) {
+        noted = true;
+        write(`echo; echo '(running) ${note.replace(/'/g, `'\\''`)}'`);
+        return;
+      }
       stopped = true;
+      write(`echo; echo '${note.replace(/'/g, `'\\''`)}'`);
       follower?.close();
       // The loop exits on its own once the stamp is gone, so dropping it is the
       // signal; `kill %1` only makes that immediate. No stamp also means "leave
