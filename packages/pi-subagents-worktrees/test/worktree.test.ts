@@ -52,8 +52,21 @@ describe("worktree", () => {
   });
 
   afterEach(() => {
-    // Clean up any lingering worktrees first, then remove repo
+    // Prune only drops metadata, so remove each checkout first: a test that leaves
+    // a worktree behind would otherwise keep the directory under tmp for good.
     try {
+      const listed = execFileSync("git", ["worktree", "list", "--porcelain"], {
+        cwd: repoDir,
+        stdio: "pipe",
+        encoding: "utf8",
+      });
+      for (const line of listed.split("\n")) {
+        if (!line.startsWith("worktree ")) continue;
+        const path = line.slice("worktree ".length);
+        if (path !== repoDir) {
+          rmSync(path, { recursive: true, force: true });
+        }
+      }
       pruneWorktrees(repoDir);
     } catch {
       /* ignore */

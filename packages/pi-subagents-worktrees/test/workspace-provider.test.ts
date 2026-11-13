@@ -106,11 +106,22 @@ describe("WorktreeWorkspaceProvider", () => {
   });
 
   afterEach(() => {
+    // `prune` alone only drops metadata: a worktree left held by a test keeps its
+    // directory under tmp, and those pile up across runs. Remove each checkout
+    // before the repo that registers it goes.
     try {
-      execFileSync("git", ["worktree", "prune"], {
+      const listed = execFileSync("git", ["worktree", "list", "--porcelain"], {
         cwd: repoDir,
         stdio: "pipe",
+        encoding: "utf8",
       });
+      for (const line of listed.split("\n")) {
+        if (!line.startsWith("worktree ")) continue;
+        const path = line.slice("worktree ".length);
+        if (path !== repoDir) {
+          rmSync(path, { recursive: true, force: true });
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -290,11 +301,22 @@ describe("WorktreeWorkspaceProvider — reopening a disposed worktree", () => {
   });
 
   afterEach(() => {
+    // `prune` alone only drops metadata: a worktree left held by a test keeps its
+    // directory under tmp, and those pile up across runs. Remove each checkout
+    // before the repo that registers it goes.
     try {
-      execFileSync("git", ["worktree", "prune"], {
+      const listed = execFileSync("git", ["worktree", "list", "--porcelain"], {
         cwd: repoDir,
         stdio: "pipe",
+        encoding: "utf8",
       });
+      for (const line of listed.split("\n")) {
+        if (!line.startsWith("worktree ")) continue;
+        const path = line.slice("worktree ".length);
+        if (path !== repoDir) {
+          rmSync(path, { recursive: true, force: true });
+        }
+      }
     } catch {
       /* ignore */
     }
