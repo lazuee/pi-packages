@@ -106,10 +106,9 @@ afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Symbol-keyed global property
   delete store[SESSION_SERVICES_KEY];
   vi.unstubAllEnvs();
-  // Removing per test is not enough: a child torn down here keeps writing into
-  // its directory afterwards and re-creates the tree just removed. The dirs are
-  // kept and swept once in afterAll, when nothing is left to write.
-  rmSync(agentDir, { recursive: true, force: true });
+  // The setup file sweeps this file's scratch dirs at its end. One dir at a time
+  // is not enough: a child torn down here keeps writing into its directory
+  // afterwards and re-creates the tree just removed.
 });
 
 /**
@@ -278,7 +277,9 @@ async function approveForwardedRequest(
     forwardingDir,
     parentSessionId,
   );
-  const deadline = Date.now() + 2000;
+  // Generous: the request is written by a child process, and the parallel suite
+  // can put seconds between its write and this poll seeing it.
+  const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     let files: string[] = [];
     try {
@@ -321,11 +322,17 @@ describe("event-handler registration completeness", () => {
 });
 
 describe("subagent registry sharing across factory instances", () => {
+  // These spawn real child processes and sit at the default 5s wall, which the
+  // parallel suite pushes them over. The budget is for the spawns, not for slowness
+  // in the code under test.
+  const CHILD_SPAWN_TIMEOUT = 15_000;
   // The #296 regression class: two factory invocations on *different* event
   // buses must still resolve the same process-global SubagentSessionRegistry,
   // so a child registered via the parent's bus detects itself as a subagent and
   // forwards (rather than blocking) an external-directory `ask`.
-  it("lets a child instance forward an ask it received via the parent's bus", async () => {
+  it(
+    "lets a child instance forward an ask it received via the parent's bus",
+    async () => {
     writeGlobalConfig({
       permission: { "*": "allow", external_directory: "ask" },
     });
@@ -392,9 +399,13 @@ describe("subagent registry sharing across factory instances", () => {
 
     rmSync(childCwd, { recursive: true, force: true });
     rmSync(externalDir, { recursive: true, force: true });
-  });
+    },
+    CHILD_SPAWN_TIMEOUT,
+  );
 
-  it("forwards the floor that raised a child's bash ask", async () => {
+  it(
+    "forwards the floor that raised a child's bash ask",
+    async () => {
     writeGlobalConfig({ permission: { "*": "allow" } });
 
     const childCwd = tempDir("pi-perm-child-cwd-");
@@ -437,9 +448,13 @@ describe("subagent registry sharing across factory instances", () => {
 
     await firePromise;
     rmSync(childCwd, { recursive: true, force: true });
-  });
+    },
+    CHILD_SPAWN_TIMEOUT,
+  );
 
-  it("forwards every unit a child's bash chain left asking", async () => {
+  it(
+    "forwards every unit a child's bash chain left asking",
+    async () => {
     writeGlobalConfig({ permission: { "*": "allow", bash: { "*": "ask" } } });
 
     const childCwd = tempDir("pi-perm-child-cwd-");
@@ -484,7 +499,9 @@ describe("subagent registry sharing across factory instances", () => {
 
     await firePromise;
     rmSync(childCwd, { recursive: true, force: true });
-  });
+    },
+    CHILD_SPAWN_TIMEOUT,
+  );
 
   // The #719 failure mode: the child forwards correctly, but nothing drains
   // the parent's inbox. Before the serving registry it waited out the full

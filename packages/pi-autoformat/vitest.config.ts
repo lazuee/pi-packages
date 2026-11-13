@@ -25,6 +25,7 @@ export default defineConfig({
           name: "unit",
           include: ["test/**/*.test.ts"],
           exclude: acceptanceFiles,
+          setupFiles: ["./test/sweep-scratch.ts"],
         },
       },
       {
