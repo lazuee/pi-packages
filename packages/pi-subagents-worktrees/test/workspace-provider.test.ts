@@ -13,7 +13,7 @@ import { join } from "node:path";
 import type { Workspace } from "@lazuee/pi-subagents";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ActiveWorktrees } from "#src/active-worktrees";
-import { WorktreeWorkspaceProvider } from "#src/workspace-provider";
+import { childStillRunning, WorktreeWorkspaceProvider } from "#src/workspace-provider";
 import {
   initGitRepo,
   installPreCommitHook,
@@ -36,6 +36,17 @@ function makeProvider(
 ) {
   return new WorktreeWorkspaceProvider({ worktreeAgents }, live);
 }
+
+describe("childStillRunning", () => {
+  it("keeps the pane following only while the child reports running", () => {
+    const outcome = (status: string) => ({ status, description: "d" }) as never;
+    expect(childStillRunning(outcome("running"))).toBe(true);
+    // A finished, stopped or failed child has nothing left to follow.
+    for (const status of ["completed", "aborted", "stopped", "error", "queued"]) {
+      expect(childStillRunning(outcome(status))).toBe(false);
+    }
+  });
+});
 
 describe("WorktreeWorkspaceProvider", () => {
   let repoDir: string;

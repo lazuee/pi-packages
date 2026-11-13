@@ -109,8 +109,14 @@ export interface ChildPane {
   paneId: string;
   /** The child's session directory — its transcript appears here once written. */
   follow(sessionDir: string): void;
-  /** Stop tailing and write the final note. Leaves the pane open for reading. */
-  finish(note: string): void;
+  /**
+   * Write a note and stop tailing. Leaves the pane open for reading.
+   *
+   * `stillRunning` keeps the follower alive: a background child's call returns
+   * before the child does, so ending the follow there would freeze the pane
+   * mid-run.
+   */
+  finish(note: string, stillRunning?: boolean): void;
 }
 
 /**
@@ -174,20 +180,22 @@ export async function openPane(
         write(`clear; echo '${MARKER}${label} =='`);
         touchStamp(paneId);
         write(
-          `m=1; q=1; while [ $q -lt 30 ] && [ -f '${stamp}' ]; do c=$(wc -l < '${file}'); if [ "$c" -gt "$((m-1))" ]; then q=1; else q=$((q+1)); fi; tail -n +$m '${file}' | sed '/^$/d'; m=$((c+1)); sleep 1; touch '${stamp}'; done &`,
+          `m=1; q=1; while [ -f '${stamp}' ] && [ $q -lt 600 ]; do c=$(wc -l < '${file}'); if [ "$c" -gt "$((m-1))" ]; then q=1; else q=$((q+1)); fi; tail -n +$m '${file}' | sed '/^$/d'; m=$((c+1)); sleep 1; touch '${stamp}'; done &`,
         );
       });
       setTimeout(() => watch.close(), 60000).unref();
     },
-    finish(note: string) {
+    finish(note: string, stillRunning = false) {
       if (stopped) return;
+      write(`echo; echo '${note.replace(/'/g, `'\\''`)}'`);
+      if (stillRunning) return;
       stopped = true;
       follower?.close();
       // The loop exits on its own once the stamp is gone, so dropping it is the
       // signal; `kill %1` only makes that immediate. No stamp also means "leave
       // alone", which is exactly right for a pane left for reading.
       dropStamp(paneId);
-      write(`kill %1 2>/dev/null; echo; echo '${note.replace(/'/g, `'\\''`)}'`);
+      write("kill %1 2>/dev/null; true");
     },
   };
 }

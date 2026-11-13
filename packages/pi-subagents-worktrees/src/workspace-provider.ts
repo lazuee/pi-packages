@@ -37,6 +37,16 @@ import {
   type WorktreeInfo,
 } from "#src/worktree";
 
+/**
+ * True when a dispose reports a child that is still going.
+ *
+ * A background child's tool call returns when it is spawned, not when it ends. The
+ * pane keeps following while that is possible, so it is not frozen mid-run.
+ */
+export function childStillRunning(outcome: WorkspaceDisposeOutcome): boolean {
+  return outcome.status === "running";
+}
+
 /** What a cleanup left behind, as a resume needs to know it. */
 interface ResumePoint {
   /** The commit the worktree was left at — restores detach here, never at HEAD. */
@@ -73,7 +83,7 @@ class WorktreeWorkspace implements Workspace {
       outcome.description,
     );
     // A finished pane keeps the transcript visible; the worktree note joins it there.
-    this.pane?.finish(`${outcome.status}: ${outcome.description}`);
+    this.pane?.finish(`${outcome.status}: ${outcome.description}`, childStillRunning(outcome));
     // No child is running here any more — a worktree cleanup left behind is a
     // preserved one from this point on, and the scan may report it.
     this.live.remove(this.info.path);
@@ -173,7 +183,7 @@ class PanedCwdWorkspace implements Workspace {
   }
 
   dispose(outcome: WorkspaceDisposeOutcome): undefined {
-    this.pane.finish(`${outcome.status}: ${outcome.description}`);
+    this.pane.finish(`${outcome.status}: ${outcome.description}`, childStillRunning(outcome));
     return undefined;
   }
 }
