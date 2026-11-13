@@ -123,6 +123,20 @@ export class WorkspaceBracket {
 		return addendum;
 	}
 
+	/**
+	 * Hand the child's session directory to the held workspace, if it accepts one.
+	 *
+	 * Workspaces are the only thing that knows about a pane, a shell, or anything
+	 * else that wants a transcript location, so the core stays ignorant: a
+	 * workspace without this optional member is simply not told.
+	 */
+	tellSessionDir(sessionDir: string): void {
+		const workspace = this.prepared as
+			| { followSession?: (dir: string) => void }
+			| undefined;
+		workspace?.followSession?.(sessionDir);
+	}
+
 	/** Validate a held reopenable workspace without adding an asynchronous boundary. */
 	validateHeld(): void {
 		if (this.prepared?.resume && !isDirectory(this.prepared.cwd)) {

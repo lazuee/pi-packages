@@ -102,6 +102,11 @@ export class SubagentSession {
     return this.meta.outputFile;
   }
 
+  /** The child session directory — where its transcript is written. */
+  get sessionDir(): string {
+    return this.meta.sessionDir;
+  }
+
   /** The model the child is running now — a failover or `/model` switch shows here. */
   get model(): Model<any> | undefined {
     return this._session.model;

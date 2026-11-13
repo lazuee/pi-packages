@@ -453,6 +453,7 @@ export class Subagent {
 			return;
 		}
 
+		this.workspaceBracket.tellSessionDir(this.subagentSession.sessionDir);
 		this.flushPendingSteers();
 		this.execution.observer?.onSessionCreated?.(this);
 		await this.runOnSession(run, this.subagentSession, this.execution.prompt);
