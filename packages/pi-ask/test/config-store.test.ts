@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { test } from "vitest";
+import { onTestFinished, test } from "vitest";
 import { DEFAULT_ASK_CONFIG } from "#src/config/defaults";
 import type { AskConfig } from "#src/config/schema";
 import {
@@ -31,6 +31,7 @@ async function makeTempPath(name: string): Promise<string> {
   const root = await import("node:fs/promises").then(({ mkdtemp }) =>
     mkdtemp(join(tmpdir(), name)),
   );
+  onTestFinished(() => rm(root, { recursive: true, force: true }));
   return join(root, "pi-agent-ask.json");
 }
 

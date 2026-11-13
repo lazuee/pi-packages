@@ -1,10 +1,24 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "#src/config";
 
-const dir = () => mkdtempSync(join(tmpdir(), "pi-continue-"));
+/** Scratch dirs made by a test, removed once the file is done. */
+const dirs: string[] = [];
+
+function dir(): string {
+  const path = mkdtempSync(join(tmpdir(), "pi-continue-"));
+  dirs.push(path);
+  return path;
+}
+
+afterAll(() => {
+  for (const path of dirs) {
+    rmSync(path, { recursive: true, force: true });
+  }
+  dirs.length = 0;
+});
 
 describe("normalizeConfig", () => {
   it("keeps well-typed fields", () => {
