@@ -20,5 +20,9 @@ export default defineConfig({
   },
   test: {
     include: ["test/**/*.test.ts"],
+    // Many files here spawn a real herdr server and drive a real Pi through it.
+    // Run in parallel they contend for the machine and fail on timing rather than
+    // on behaviour, so files run one at a time.
+    fileParallelism: false,
   },
 });
