@@ -58,8 +58,8 @@
       "packages/pi-permission-model-judge/src/index.ts",
       "packages/pi-permission-system/src/index.ts",
       "packages/pi-session-tools/src/index.ts",
-      "packages/pi-subagents-worktrees/src/index.ts",
-      "packages/pi-subagents/src/index.ts"
+      "packages/pi-subagents/src/index.ts",
+      "packages/pi-subagents-worktrees/src/index.ts"
     ],
     "skills": [
       "packages/pi-colgrep/skills",

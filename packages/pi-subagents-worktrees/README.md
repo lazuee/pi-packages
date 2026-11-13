@@ -39,6 +39,28 @@ List the agent types that should run in a worktree in a `subagents-worktrees.jso
 
 An agent type not in `worktreeAgents` runs in the parent working directory, exactly as if this extension were not installed.
 
+### Watching a child in a herdr pane
+
+When pi itself runs inside [herdr](https://herdr.dev), a child can be given a pane of its own to be watched in:
+
+```json
+{
+  "herdrAgents": ["Explore", "spike"]
+}
+```
+
+A pane opens beside the parent, follows the child's transcript as it is written, and ends with the child's outcome above a returned shell.
+The pane stays open afterwards for you to read; close it when done.
+
+This is orthogonal to `worktreeAgents` — the two compose, so a child can be in a worktree and in a pane at once.
+Only the pane is visual: the child still runs in-process, so steering, ask-back and turn budgets are unaffected.
+
+An agent in **both** lists still needs a worktree, so it can only run where one can be created: pi must be started inside a git repository with at least one commit.
+From anywhere else the run fails, names the directory it tried, and the pane it had already opened shows the same reason.
+
+Nothing happens: for an agent type not listed, or when not running inside herdr.
+Every pane failure is best-effort — the child runs on unobserved rather than failing.
+
 ## Behavior
 
 - A child whose agent type is listed gets a fresh detached worktree at `HEAD` before it runs.

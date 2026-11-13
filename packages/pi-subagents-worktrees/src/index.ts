@@ -20,6 +20,7 @@ import { getSubagentsService } from "@lazuee/pi-subagents";
 import { ActiveWorktrees } from "#src/active-worktrees";
 import { loadWorktreesConfig } from "#src/config";
 import { debugLog } from "#src/debug";
+import { reapOrphanedPanes } from "#src/herdr-panes";
 import { findPreservedWorktrees, formatPreservedNotice } from "#src/preserved";
 import { registerPreservedWorktreesCommand } from "#src/preserved-command";
 import {
@@ -66,6 +67,9 @@ export default function piSubagentsWorktrees(pi: ExtensionAPI): void {
     if (unmerged.length > 0) {
       ctx.ui.notify(formatRescueBranchNotice(unmerged), "warning");
     }
+    // Panes a hard kill of a previous pi left behind. Cheap and silent when
+    // herdr is absent or nothing is stale.
+    void reapOrphanedPanes(process.env.HERDR_PANE_ID ?? "");
   });
 
   registerPreservedWorktreesCommand(pi, {

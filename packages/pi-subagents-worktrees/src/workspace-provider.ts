@@ -14,6 +14,11 @@
  * same path, because the resumed child's session is fixed on that directory.
  * A cleanup that failed records nothing, so a resume fails closed instead of
  * rebuilding over the work the preserved worktree still holds.
+ *
+ * A child opted into `herdrAgents` additionally gets a herdr pane of its own to be
+ * watched in, when the parent runs inside herdr. The pane is orthogonal to the
+ * worktree: the child still runs in-process and in its worktree, the pane only
+ * follows its transcript.
  */
 
 import type {
@@ -24,6 +29,7 @@ import type {
 } from "@lazuee/pi-subagents";
 import type { ActiveWorktrees } from "#src/active-worktrees";
 import type { WorktreesConfig } from "#src/config";
+import { type ChildPane, openPane } from "#src/herdr-panes";
 import {
   cleanupWorktree,
   createWorktree,
@@ -45,11 +51,17 @@ class WorktreeWorkspace implements Workspace {
     private readonly repoCwd: string,
     private readonly info: WorktreeInfo,
     private readonly live: ActiveWorktrees,
+    private readonly pane?: ChildPane,
   ) {}
 
   /** The worktree directory — already exists when this workspace is handed back. */
   get cwd(): string {
     return this.info.path;
+  }
+
+  /** Point the pane at the child's transcript once its session directory exists. */
+  followSession(sessionDir: string): void {
+    this.pane?.follow(sessionDir);
   }
 
   dispose(
@@ -60,6 +72,8 @@ class WorktreeWorkspace implements Workspace {
       this.info,
       outcome.description,
     );
+    // A finished pane keeps the transcript visible; the worktree note joins it there.
+    this.pane?.finish(`${outcome.status}: ${outcome.description}`);
     // No child is running here any more — a worktree cleanup left behind is a
     // preserved one from this point on, and the scan may report it.
     this.live.remove(this.info.path);
@@ -121,19 +135,45 @@ export class WorktreeWorkspaceProvider implements WorkspaceProvider {
     private readonly live: ActiveWorktrees,
   ) {}
 
-  // eslint-disable-next-line @typescript-eslint/require-await -- the seam contract is async; worktree creation is synchronous, but staying async ensures failures reject the returned promise rather than throwing synchronously at the call site
   async prepare(ctx: WorkspacePrepareContext): Promise<Workspace | undefined> {
-    if (!this.config.worktreeAgents.includes(ctx.agentType)) return undefined;
+    const pane = this.config.herdrAgents?.includes(ctx.agentType)
+      ? await openPane(ctx.agentType, ctx.baseCwd)
+      : undefined;
+
+    if (!this.config.worktreeAgents.includes(ctx.agentType)) {
+      // No worktree wanted, but a pane may still have been opened. The provider
+      // has to hand back a workspace for the pane to outlive this call, so it
+      // returns one over the parent cwd with no teardown of its own.
+      return pane ? new PanedCwdWorkspace(ctx.baseCwd, pane) : undefined;
+    }
 
     const info = createWorktree(ctx.baseCwd, ctx.agentId);
     if (!info) {
+      pane?.finish(`failed: no worktree from ${ctx.baseCwd}`);
       throw new Error(
-        `Cannot run agent "${ctx.agentType}" with worktree isolation — ` +
+        `Cannot run agent "${ctx.agentType}" with worktree isolation in \`${ctx.baseCwd}\` — ` +
           "not a git repo, no commits yet, or `git worktree add` failed. " +
-          "Initialize git and commit at least once, or remove the agent from worktreeAgents.",
+          "Start pi inside the repository, commit at least once, or remove the agent from worktreeAgents.",
       );
     }
     this.live.add(info.path);
-    return new WorktreeWorkspace(ctx.baseCwd, info, this.live);
+    return new WorktreeWorkspace(ctx.baseCwd, info, this.live, pane);
+  }
+}
+
+/** A child in the parent cwd that only carries a pane — no teardown to do. */
+class PanedCwdWorkspace implements Workspace {
+  constructor(
+    readonly cwd: string,
+    private readonly pane: ChildPane,
+  ) {}
+
+  followSession(sessionDir: string): void {
+    this.pane.follow(sessionDir);
+  }
+
+  dispose(outcome: WorkspaceDisposeOutcome): undefined {
+    this.pane.finish(`${outcome.status}: ${outcome.description}`);
+    return undefined;
   }
 }

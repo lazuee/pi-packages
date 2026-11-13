@@ -16,6 +16,8 @@ import { loadLayeredSettings } from "@lazuee/pi-subagents/settings";
 export interface WorktreesConfig {
   /** Agent-type names that run in a git worktree. Empty → no children isolated. */
   worktreeAgents: string[];
+  /** Agent-type names that get their own herdr pane. Empty → no panes opened. */
+  herdrAgents?: string[];
 }
 
 const CONFIG_FILENAME = "subagents-worktrees.json";
@@ -25,11 +27,11 @@ function sanitize(raw: unknown): Partial<WorktreesConfig> {
   if (!raw || typeof raw !== "object") return {};
   const r = raw as Record<string, unknown>;
   const out: Partial<WorktreesConfig> = {};
-  if (
-    Array.isArray(r.worktreeAgents) &&
-    r.worktreeAgents.every((x) => typeof x === "string")
-  ) {
-    out.worktreeAgents = r.worktreeAgents;
+  for (const key of ["worktreeAgents", "herdrAgents"] as const) {
+    const value = r[key];
+    if (Array.isArray(value) && value.every((x) => typeof x === "string")) {
+      out[key] = value;
+    }
   }
   return out;
 }
@@ -46,5 +48,8 @@ export function loadWorktreesConfig(
     sanitize,
     warnLabel: "pi-subagents-worktrees",
   });
-  return { worktreeAgents: merged.worktreeAgents ?? [] };
+  return {
+    worktreeAgents: merged.worktreeAgents ?? [],
+    herdrAgents: merged.herdrAgents ?? [],
+  };
 }
