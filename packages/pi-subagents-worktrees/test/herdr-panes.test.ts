@@ -1,4 +1,4 @@
-import { tmpdir } from "node:os";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -54,12 +54,27 @@ describe("herdr panes", () => {
     await expect(reapOrphanedPanes("w1:p1")).resolves.toEqual([]);
   });
 
-  it("names stamps under the temp dir, shell-safely", async () => {
+  it("names stamps under the agent dir, shell-safely", async () => {
     const { stampPath } = await load();
     const stamp = stampPath("w1:p2");
-    expect(stamp.startsWith(tmpdir() + path.sep)).toBe(true);
+    // The agent dir is not swept by a /tmp clean, unlike the temp dir.
+    expect(stamp.startsWith(getAgentDir() + path.sep)).toBe(true);
     expect(stamp.endsWith("pi-herdr-pane-w1-p2.stamp")).toBe(true);
     // A literal colon would still work unquoted, but not in every shell.
     expect(stamp).not.toContain(":");
+  });
+
+  it("recovers the pane id from a stamp name", async () => {
+    const { paneFromStamp, stampPath } = await load();
+    for (const paneId of ["w1:p2", "w2:p1V", "w12:p34"]) {
+      const name = path.basename(stampPath(paneId));
+      expect(paneFromStamp(name)).toBe(paneId);
+    }
+  });
+
+  it("ignores a name that is not a stamp", async () => {
+    const { paneFromStamp } = await load();
+    expect(paneFromStamp("pi-herdr-pane-oops.stamp")).toBeUndefined();
+    expect(paneFromStamp("pi-herdr-pane-w1-p2.stamp")).toBe("w1:p2");
   });
 });

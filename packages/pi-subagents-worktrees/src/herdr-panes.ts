@@ -13,8 +13,8 @@
 
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 const HERDR_BIN = process.env.HERDR_BIN_PATH ?? "herdr";
 
@@ -25,21 +25,31 @@ const HERDR_BIN = process.env.HERDR_BIN_PATH ?? "herdr";
  */
 const MARKER = "== subagent: ";
 
-/**
- * Printed by the follower on every pass after a carriage return, so it overwrites
- * itself at the end of the output. A pane whose pi died stops printing it, and
- * the stale one scrolls away from the tail — without it the scrollback looks the
- * same for a live and a dead pane.
- */
 /** How long a child pane may go without a follow pass before it counts as orphaned. */
 const ORPHAN_SECONDS = 30;
 
-/** Stamp file holding the mtime of the last follow pass for a pane. */
+const STAMP_PREFIX = "pi-herdr-pane-";
+
+/**
+ * Stamp file holding the mtime of the last follow pass for a pane.
+ *
+ * Lives under the agent directory rather than the temp dir: that directory is not
+ * swept, and a `/tmp` clean mid-run would make every live child pane look
+ * orphaned at the next session start.
+ */
 export function stampPath(paneId: string): string {
   return path.join(
-    os.tmpdir(),
-    `pi-herdr-pane-${paneId.replace(/[^\w]/g, "-")}.stamp`,
+    getAgentDir(),
+    `${STAMP_PREFIX}${paneId.replace(/[^\w]/g, "-")}.stamp`,
   );
+}
+
+/** Recover the pane id from a stamp name: `w1:p2` became `w1-p2`. */
+export function paneFromStamp(file: string): string | undefined {
+  const name = file.slice(STAMP_PREFIX.length, -".stamp".length);
+  const at = name.indexOf("-p");
+  if (at < 1) return undefined;
+  return `${name.slice(0, at)}:${name.slice(at + 1)}`;
 }
 
 /** Remove the stamp. Best-effort — a leftover stamp only outlives one reap window. */
@@ -90,16 +100,6 @@ function herdr(args: string[]): Promise<HerdrReply> {
       } catch {
         reject(new Error(`unparseable herdr output: ${stdout.slice(0, 200)}`));
       }
-    });
-  });
-}
-
-/** Run a herdr subcommand that answers plain text rather than JSON. */
-function herdrText(args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(HERDR_BIN, args, { timeout: 15000 }, (err, stdout, stderr) => {
-      if (err) reject(new Error(stderr.trim() || err.message));
-      else resolve(stdout);
     });
   });
 }
@@ -221,32 +221,34 @@ export async function reapOrphanedPanes(ownPaneId: string): Promise<string[]> {
     return [];
   }
 
+  // A stamp names its pane, so it is the only observation needed: a live pane is
+  // touched every pass, and a finished one drops its stamp. Reading scrollback for
+  // a marker is unreliable here — the raw transcript floods it out of any
+  // window small enough to read cheaply.
+  let stamps: string[];
+  try {
+    stamps = fs
+      .readdirSync(getAgentDir())
+      .filter((f) => f.startsWith(STAMP_PREFIX) && f.endsWith(".stamp"));
+  } catch {
+    return [];
+  }
+
   const closed: string[] = [];
-  for (const paneId of panes) {
-    let text: string;
+  for (const stamp of stamps) {
+    const paneId = paneFromStamp(stamp);
+    if (!paneId || paneId === ownPaneId || !panes.includes(paneId)) continue;
+
+    let age: number;
     try {
-      // `pane read` answers plain text, never JSON.
-      text = await herdrText([
-        "pane",
-        "read",
-        paneId,
-        "--source",
-        "recent-unwrapped",
-        "--lines",
-        "200",
-      ]);
+      age =
+        (Date.now() - fs.statSync(path.join(getAgentDir(), stamp)).mtimeMs) /
+        1000;
     } catch {
       continue;
     }
-    if (!text.includes(MARKER)) continue;
-    // The stamp is touched every pass, so only its mtime says whether a pass ran
-    // recently. A missing stamp means the follower never started; leave it alone.
-    try {
-      const age = (Date.now() - fs.statSync(stampPath(paneId)).mtimeMs) / 1000;
-      if (age < ORPHAN_SECONDS) continue;
-    } catch {
-      continue;
-    }
+    if (age < ORPHAN_SECONDS) continue;
+
     try {
       await herdr(["pane", "close", paneId]);
       dropStamp(paneId);
