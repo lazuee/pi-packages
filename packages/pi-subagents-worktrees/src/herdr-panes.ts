@@ -38,18 +38,29 @@ const STAMP_PREFIX = "pi-herdr-pane-";
  * orphaned at the next session start.
  */
 export function stampPath(paneId: string): string {
-  return path.join(
-    getAgentDir(),
-    `${STAMP_PREFIX}${paneId.replace(/[^\w]/g, "-")}.stamp`,
-  );
+  return path.join(getAgentDir(), `${STAMP_PREFIX}${stampName(paneId)}.stamp`);
 }
 
-/** Recover the pane id from a stamp name: `w1:p2` became `w1-p2`. */
+/**
+ * The id, with `:` kept and anything else made filename-safe.
+ *
+ * A herdr pane id is `<workspace>:<pane>` with exactly one colon, so keeping the
+ * colon and splitting on it undoes the encoding exactly — splitting on a
+ * substituted character cannot, because `-` is legal in a workspace id.
+ */
+function stampName(paneId: string): string {
+  return paneId.split(":").map(safePart).join(":");
+}
+
+/** Make one id part filename-safe. `:` is already the separator, so it is never in a part. */
+function safePart(part: string): string {
+  return part.replace(/[^\w]/g, "-");
+}
+
+/** Recover the pane id from a stamp name. */
 export function paneFromStamp(file: string): string | undefined {
   const name = file.slice(STAMP_PREFIX.length, -".stamp".length);
-  const at = name.indexOf("-p");
-  if (at < 1) return undefined;
-  return `${name.slice(0, at)}:${name.slice(at + 1)}`;
+  return name.includes(":") ? name : undefined;
 }
 
 /** Remove the stamp. Best-effort — a leftover stamp only outlives one reap window. */
