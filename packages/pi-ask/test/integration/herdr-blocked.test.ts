@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { test } from "vitest";
+import { afterAll, beforeAll, describe, test } from "vitest";
 import {
   herdrBlockedConversation,
   herdrQueueCheckpointConversation,
@@ -91,171 +91,205 @@ function queueStats(result: PiRun) {
 }
 
 // Load Herdr's installed consumer, never an imitation. Pi must own Herdr's native PTY.
-test("real Herdr tracks blocked queued and recovered questions", async (t) => {
-  try {
-    await exec("herdr", ["--version"]);
-  } catch {
-    t.skip("The Herdr CLI is required");
-    return;
-  }
-  await mkdir(path.join(root, ".tmp"), { recursive: true });
-  const directory = await mkdtemp(path.join(root, ".tmp", "herdr-blocked-"));
-  const session = `ask-blocked-${process.pid}-${Date.now()}`;
-  const config = path.join(directory, "config.toml");
-  await writeFile(config, "");
-  const env: NodeJS.ProcessEnv = { ...process.env };
-  env.HERDR_SESSION = session;
-  env.HERDR_CONFIG_PATH = config;
-  for (const key of [
-    "HERDR_SOCKET_PATH",
-    "HERDR_WORKSPACE_ID",
-    "HERDR_TAB_ID",
-    "HERDR_PANE_ID",
-  ]) {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- stripping a known key list.
-    delete env[key];
-  }
-  const cli = async (args: string[]) => {
-    const { stdout } = await exec("herdr", ["--session", session, ...args], {
-      env,
-      timeout: 5000,
-    });
-    return stdout.trim() ? JSON.parse(stdout).result : undefined;
-  };
-  const createPane = async (): Promise<string> => {
-    const deadline = Date.now() + 10_000;
-    for (;;) {
-      try {
-        return (await cli(["workspace", "create", "--cwd", root, "--no-focus"]))
-          .root_pane.pane_id;
-      } catch (error) {
+describe("real Herdr tracks blocked queued and recovered questions", () => {
+  // Spawns a real herdr server and drives a real Pi; the default 5s is a fraction
+  // of that, so cases and their hooks get room.
+  const TIMEOUT = 120_000;
+  // Hoisted so the setup below can live in beforeAll: the two cases were nested
+  // `test()` calls inside one `test()`, which vitest does not collect.
+  let directory: string;
+  let session: string;
+  let env: NodeJS.ProcessEnv;
+  let server: ReturnType<typeof spawn> | undefined;
+  let cli: (args: string[]) => Promise<any>;
+  let createPane: () => Promise<string>;
+  let assertNativeScreen: (paneId: string, visible: string[]) => Promise<void>;
+  let skipped = false;
+
+  beforeAll(async () => {
+    try {
+      await exec("herdr", ["--version"]);
+    } catch {
+      skipped = true;
+      return;
+    }
+    await mkdir(path.join(root, ".tmp"), { recursive: true });
+    directory = await mkdtemp(path.join(root, ".tmp", "herdr-blocked-"));
+    session = `ask-blocked-${process.pid}-${Date.now()}`;
+    const config = path.join(directory, "config.toml");
+    await writeFile(config, "");
+    env = { ...process.env };
+    env.HERDR_SESSION = session;
+    env.HERDR_CONFIG_PATH = config;
+    for (const key of [
+      "HERDR_SOCKET_PATH",
+      "HERDR_WORKSPACE_ID",
+      "HERDR_TAB_ID",
+      "HERDR_PANE_ID",
+    ]) {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- stripping a known key list.
+      delete env[key];
+    }
+    cli = async (args: string[]): Promise<any> => {
+      const { stdout } = await exec("herdr", ["--session", session, ...args], {
+        env,
+        timeout: 5000,
+      });
+      return stdout.trim() ? JSON.parse(stdout).result : undefined;
+    };
+    createPane = async (): Promise<string> => {
+      const deadline = Date.now() + 10_000;
+      for (;;) {
+        try {
+          return (
+            await cli(["workspace", "create", "--cwd", root, "--no-focus"])
+          ).root_pane.pane_id;
+        } catch (error) {
+          if (Date.now() >= deadline) {
+            throw error;
+          }
+          await tick();
+        }
+      }
+    };
+    assertNativeScreen = async (
+      paneId: string,
+      visible: string[],
+    ): Promise<void> => {
+      // The adapter's terminal is not native Pi output. Inspect the real owned pane.
+      // A render lags the state by a frame or two, so re-read until every string has
+      // appeared rather than failing on the first look.
+      const deadline = Date.now() + 10_000;
+      for (;;) {
+        const { stdout } = await exec(
+          "herdr",
+          [
+            "--session",
+            session,
+            "pane",
+            "read",
+            paneId,
+            "--source",
+            "recent-unwrapped",
+            "--lines",
+            "120",
+          ],
+          { env, timeout: 5000 },
+        );
+        const missing = visible.filter((text) => !stdout.includes(text));
+        if (missing.length === 0) return;
         if (Date.now() >= deadline) {
-          throw error;
+          assert.fail(missing.join(", "));
         }
         await tick();
       }
-    }
-  };
-  const assertNativeScreen = async (paneId: string, visible: string[]) => {
-    // The adapter's terminal is not native Pi output. Inspect the real owned pane.
-    const { stdout } = await exec(
-      "herdr",
-      [
-        "--session",
-        session,
-        "pane",
-        "read",
-        paneId,
-        "--source",
-        "recent-unwrapped",
-        "--lines",
-        "120",
-      ],
-      { env, timeout: 5000 },
-    );
-    for (const text of visible) {
-      assert(stdout.includes(text), text);
-    }
-  };
-  const server = spawn("herdr", ["--session", session, "server"], {
-    env,
-    stdio: "ignore",
+    };
+    server = spawn("herdr", ["--session", session, "server"], {
+      env,
+      stdio: "ignore",
+    });
   });
-  try {
-    test("keeps blocked during work, queue handoff, and idle", async () => {
-      const paneId = await createPane();
-      const result = await runNative({
-        session,
-        paneId,
-        testName: "herdr-native-queue",
-        conversation: herdrBlockedConversation,
-      });
-      assertToolsSucceeded(result, [
-        "first-form",
-        "second-form",
-        "first",
-        "second",
-        "hide",
-        "reopen",
-        "idle",
-        "stats",
-      ]);
-      const stats = queueStats(result);
-      assert.deepEqual(stats.observations, [
-        { phase: "working-first", status: "blocked", question: "first" },
-        { phase: "handoff-second", status: "blocked", question: "second" },
-        { phase: "working-second", status: "blocked", question: "second" },
-        { phase: "hidden", status: "working", question: "second" },
-        { phase: "reopened", status: "blocked", question: "second" },
-        { phase: "idle", status: "blocked", question: "second" },
-      ]);
-      assert.equal(stats.activeForms, 0);
-      assert.notEqual(stats.status, "blocked");
-      await assertNativeScreen(paneId, [
-        "Choose first?",
-        "Choose second?",
-        "Herdr queue verification complete.",
-      ]);
-      console.log(JSON.stringify(stats));
-    });
-    test("restores blocked after restarting Pi with the consumer loaded last", async () => {
-      const paneId = await createPane();
-      const savedSession = path.join(directory, "pending-session.jsonl");
-      const checkpoint = await runNative({
-        session,
-        paneId,
-        savedSession,
-        testName: "herdr-queue-checkpoint",
-        conversation: herdrQueueCheckpointConversation,
-      });
-      assertToolsSucceeded(checkpoint, [
-        "first-form",
-        "second-form",
-        "first",
-        "second",
-        "checkpoint",
-      ]);
-      assert(
-        existsSync(savedSession),
-        "The pending session must be saved before the runner cleans up",
-      );
-      assert.equal(
-        (await cli(["pane", "get", paneId])).pane.agent_status,
-        "blocked",
-      );
-      await cli(["pane", "close", paneId]);
-      const restoredPane = await createPane();
-      const result = await runNative({
-        session,
-        paneId: restoredPane,
-        resumeSession: savedSession,
-        testName: "herdr-queue-resume",
-        conversation: herdrQueueResumeConversation,
-      });
-      assertToolsSucceeded(result, ["recover", "idle", "stats"]);
-      const stats = queueStats(result);
-      assert.deepEqual(stats.observations, [
-        { phase: "recovered", status: "blocked", question: "second" },
-        { phase: "idle", status: "blocked", question: "second" },
-      ]);
-      assert.equal(stats.activeForms, 0);
-      assert.notEqual(stats.status, "blocked");
-      await assertNativeScreen(restoredPane, [
-        "Choose second?",
-        "Recovered queue verification complete.",
-      ]);
-      console.log(JSON.stringify(stats));
-    });
-  } finally {
+
+  afterAll(async () => {
+    if (skipped) return;
     await exec("herdr", ["--session", session, "server", "stop"], {
       env,
       timeout: 5000,
     }).catch(() => undefined);
-    server.kill();
+    server?.kill();
     await exec("herdr", ["session", "delete", session], {
       env,
       timeout: 5000,
     }).catch(() => undefined);
     await rm(directory, { recursive: true, force: true });
-  }
+  });
+
+  test("keeps blocked during work, queue handoff, and idle", {
+    timeout: TIMEOUT,
+  }, async () => {
+    const paneId = await createPane();
+    const result = await runNative({
+      session,
+      paneId,
+      testName: "herdr-native-queue",
+      conversation: herdrBlockedConversation,
+    });
+    assertToolsSucceeded(result, [
+      "first-form",
+      "second-form",
+      "first",
+      "second",
+      "hide",
+      "reopen",
+      "idle",
+      "stats",
+    ]);
+    const stats = queueStats(result);
+    assert.deepEqual(stats.observations, [
+      { phase: "working-first", status: "blocked", question: "first" },
+      { phase: "handoff-second", status: "blocked", question: "second" },
+      { phase: "working-second", status: "blocked", question: "second" },
+      { phase: "hidden", status: "working", question: "second" },
+      { phase: "reopened", status: "blocked", question: "second" },
+      { phase: "idle", status: "blocked", question: "second" },
+    ]);
+    assert.equal(stats.activeForms, 0);
+    assert.notEqual(stats.status, "blocked");
+    await assertNativeScreen(paneId, [
+      "Choose first?",
+      "Choose second?",
+      "Herdr queue verification complete.",
+    ]);
+    console.log(JSON.stringify(stats));
+  });
+  test("restores blocked after restarting Pi with the consumer loaded last", {
+    timeout: TIMEOUT,
+  }, async () => {
+    const paneId = await createPane();
+    const savedSession = path.join(directory, "pending-session.jsonl");
+    const checkpoint = await runNative({
+      session,
+      paneId,
+      savedSession,
+      testName: "herdr-queue-checkpoint",
+      conversation: herdrQueueCheckpointConversation,
+    });
+    assertToolsSucceeded(checkpoint, [
+      "first-form",
+      "second-form",
+      "first",
+      "second",
+      "checkpoint",
+    ]);
+    assert(
+      existsSync(savedSession),
+      "The pending session must be saved before the runner cleans up",
+    );
+    assert.equal(
+      (await cli(["pane", "get", paneId])).pane.agent_status,
+      "blocked",
+    );
+    await cli(["pane", "close", paneId]);
+    const restoredPane = await createPane();
+    const result = await runNative({
+      session,
+      paneId: restoredPane,
+      resumeSession: savedSession,
+      testName: "herdr-queue-resume",
+      conversation: herdrQueueResumeConversation,
+    });
+    assertToolsSucceeded(result, ["recover", "idle", "stats"]);
+    const stats = queueStats(result);
+    assert.deepEqual(stats.observations, [
+      { phase: "recovered", status: "blocked", question: "second" },
+      { phase: "idle", status: "blocked", question: "second" },
+    ]);
+    assert.equal(stats.activeForms, 0);
+    assert.notEqual(stats.status, "blocked");
+    await assertNativeScreen(restoredPane, [
+      "Choose second?",
+      "Recovered queue verification complete.",
+    ]);
+    console.log(JSON.stringify(stats));
+  });
 });
