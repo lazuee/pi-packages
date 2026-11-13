@@ -13,7 +13,11 @@ import { join } from "node:path";
 import type { Workspace } from "@lazuee/pi-subagents";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ActiveWorktrees } from "#src/active-worktrees";
-import { childStillRunning, WorktreeWorkspaceProvider } from "#src/workspace-provider";
+import {
+  childStillRunning,
+  PanedCwdWorkspace,
+  WorktreeWorkspaceProvider,
+} from "#src/workspace-provider";
 import {
   initGitRepo,
   installPreCommitHook,
@@ -45,6 +49,42 @@ describe("childStillRunning", () => {
     for (const status of ["completed", "aborted", "stopped", "error", "queued"]) {
       expect(childStillRunning(outcome(status))).toBe(false);
     }
+  });
+});
+
+describe("PanedCwdWorkspace", () => {
+  function stubPane() {
+    const notes: { note: string; stillRunning?: boolean }[] = [];
+    return {
+      notes,
+      pane: {
+        paneId: "w1:p2",
+        follow: () => {},
+        finish: (note: string, stillRunning?: boolean) => {
+          notes.push({ note, stillRunning });
+        },
+      },
+    };
+  }
+
+  it("notes the outcome and stops following", () => {
+    const { notes, pane } = stubPane();
+    new PanedCwdWorkspace("/tmp", pane).dispose({
+      status: "completed",
+      description: "did the thing",
+    });
+    expect(notes).toEqual([
+      { note: "completed: did the thing", stillRunning: false },
+    ]);
+  });
+
+  it("keeps following while the child still runs", () => {
+    const { notes, pane } = stubPane();
+    new PanedCwdWorkspace("/tmp", pane).dispose({
+      status: "running",
+      description: "backgrounded",
+    });
+    expect(notes.at(0)?.stillRunning).toBe(true);
   });
 });
 

@@ -82,16 +82,23 @@ class WorktreeWorkspace implements Workspace {
       this.info,
       outcome.description,
     );
-    // A finished pane keeps the transcript visible; the worktree note joins it there.
-    this.pane?.finish(`${outcome.status}: ${outcome.description}`, childStillRunning(outcome));
     // No child is running here any more — a worktree cleanup left behind is a
     // preserved one from this point on, and the scan may report it.
     this.live.remove(this.info.path);
+    // The pane note is written after the switch so it can carry where the work
+    // went: a human watching the pane reads that, not the agent's result.
+    const note = (detail?: string) => {
+      const line = detail
+        ? `${outcome.status}: ${outcome.description} — ${detail}`
+        : `${outcome.status}: ${outcome.description}`;
+      this.pane?.finish(line, childStillRunning(outcome));
+    };
     switch (result.outcome) {
       case "clean":
         // Nothing to save, so a resume restores the state the child started
         // with, at the exact commit this run was created from.
         this.resumePoint = { commit: result.commit };
+        note();
         return undefined;
       case "committed":
         this.resumePoint = { commit: result.commit };
@@ -99,6 +106,7 @@ class WorktreeWorkspace implements Workspace {
           const bypassNote = result.hooksBypassed
             ? "\nCommit hooks were bypassed to save this work — review the commit before merging."
             : "";
+          note(`saved to branch ${result.branch}${result.hooksBypassed ? " (hooks bypassed)" : ""}`);
           return {
             resultAddendum: `\n\n---\nChanges saved to branch \`${result.branch}\`. Merge with: \`git merge ${result.branch}\`${bypassNote}`,
           };
@@ -108,6 +116,7 @@ class WorktreeWorkspace implements Workspace {
         // state cleanup could not read. Reopening it would mean guessing, so
         // there is no restore point and a resume is refused by the core.
         this.resumePoint = undefined;
+        note(`left in place at ${result.path}`);
         return {
           resultAddendum: `\n\n---\nWorktree cleanup failed; the worktree was left in place at \`${result.path}\` for manual recovery: ${result.error}`,
         };
@@ -172,7 +181,7 @@ export class WorktreeWorkspaceProvider implements WorkspaceProvider {
 }
 
 /** A child in the parent cwd that only carries a pane — no teardown to do. */
-class PanedCwdWorkspace implements Workspace {
+export class PanedCwdWorkspace implements Workspace {
   constructor(
     readonly cwd: string,
     private readonly pane: ChildPane,
