@@ -128,6 +128,7 @@ Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is 
 ## Layout
 
 - `src/extension.ts` — the tool, the CLI invocation, and the session bookkeeping.
+  A start and a `session gc` run unprefixed; everywhere else the session id rides in `AGENT_DESKTOP_SESSION`.
 - `skills/agent-desktop/` — the upstream skill, copied from the checkout so it matches the CLI it documents, plus one local section on how the tool relates to it.
 - `upstream/` — git submodule of `vercel-labs/agent-desktop`, Apache-2.0.
   Not published; see `LICENSE`.
