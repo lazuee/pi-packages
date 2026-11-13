@@ -105,6 +105,17 @@ Selecting one offers to remove it, and removal happens only after you confirm �
 A worktree is listed when it is registered with the repository, named with this package's `pi-agent-` prefix, still on disk, and not currently in use by a child of this session.
 A worktree belonging to a **different** Pi process running against the same repository cannot be told apart from an abandoned one, so it is listed too — check the path before removing anything.
 
+## A pane that stops updating
+
+Herdr keeps one agent record per pane.
+That record can wedge on a long-lived pane: state writes still return `ok` but change nothing, `state_change_seq` freezes, the reported status sticks (often at `blocked`), the session path is lost, and `herdr agent prompt` eventually refuses it.
+
+The wedge lives in the record, not the process — `herdr pane process_info` still shows a healthy foreground process, and a freshly split pane records its session and tracks state normally.
+It survives a Pi restart **in the same pane**, so restarting that way does not clear it.
+
+Quit Pi and start it in a new pane.
+The old one keeps working for reading.
+
 ## Migrating from `isolation: "worktree"`
 
 Earlier versions of `@lazuee/pi-subagents` accepted an `isolation: "worktree"` spawn flag.
