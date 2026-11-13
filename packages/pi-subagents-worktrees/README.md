@@ -61,6 +61,9 @@ From anywhere else the run fails, names the directory it tried, and the pane it 
 Nothing happens: for an agent type not listed, or when not running inside herdr.
 Every pane failure is best-effort — the child runs on unobserved rather than failing.
 
+A pane stays after its child finishes, so you can read the transcript; close it when done.
+A pane left behind by a pi that was killed outright is closed at the next session start.
+
 ## Behavior
 
 - A child whose agent type is listed gets a fresh detached worktree at `HEAD` before it runs.
