@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,13 +11,26 @@ import {
 
 const previousPath = process.env.PATH;
 
+/** Probe roots made by a test, removed after it. */
+const probeRoots: string[] = [];
+
+/** mkdtemp under tmp, tracked for cleanup. */
+function probeRoot(): string {
+  const dir = mkdtempSync(join(tmpdir(), "pi-autoformat-probe-"));
+  probeRoots.push(dir);
+  return dir;
+}
+
 afterEach(() => {
   process.env.PATH = previousPath;
+  for (const dir of probeRoots.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 describe("defaultCommandProbe", () => {
   it("finds an executable on PATH", () => {
-    const root = mkdtempSync(join(tmpdir(), "pi-autoformat-probe-"));
+    const root = probeRoot();
     const bin = join(root, "bin");
     mkdirSync(bin, { recursive: true });
     const exe = join(bin, "fakefmt");
@@ -29,7 +42,7 @@ describe("defaultCommandProbe", () => {
   });
 
   it("returns false for a command not on PATH", () => {
-    const root = mkdtempSync(join(tmpdir(), "pi-autoformat-probe-"));
+    const root = probeRoot();
     const bin = join(root, "bin");
     mkdirSync(bin, { recursive: true });
     process.env.PATH = bin;
@@ -37,7 +50,7 @@ describe("defaultCommandProbe", () => {
   });
 
   it("accepts an absolute path that points at an executable", () => {
-    const root = mkdtempSync(join(tmpdir(), "pi-autoformat-probe-"));
+    const root = probeRoot();
     const exe = join(root, "fakefmt");
     writeFileSync(exe, "#!/bin/sh\nexit 0\n");
     chmodSync(exe, 0o755);
@@ -50,7 +63,7 @@ describe("defaultCommandProbe", () => {
   });
 
   it("returns false for a non-executable file on PATH", () => {
-    const root = mkdtempSync(join(tmpdir(), "pi-autoformat-probe-"));
+    const root = probeRoot();
     const bin = join(root, "bin");
     mkdirSync(bin, { recursive: true });
     const file = join(bin, "notexec");

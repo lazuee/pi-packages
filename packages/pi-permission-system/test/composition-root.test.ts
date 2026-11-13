@@ -30,7 +30,7 @@ import {
   createEventBus,
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { unregisteredLinkMessage } from "#src/authority/authorizer-chain-audit";
 import { childNodeAbsentMessage } from "#src/authority/child-node-audit";
 import {
@@ -89,7 +89,7 @@ beforeEach(() => {
   for (const key of SUBAGENT_ENV_HINT_KEYS) {
     vi.stubEnv(key, undefined);
   }
-  agentDir = mkdtempSync(join(tmpdir(), "pi-perm-comp-root-"));
+  agentDir = tempDir("pi-perm-comp-root-");
   vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
   // A host that relocated its session store would move the forwarding dir out
   // of this tmpdir; tests that want that set it themselves.
@@ -106,7 +106,43 @@ afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- Symbol-keyed global property
   delete store[SESSION_SERVICES_KEY];
   vi.unstubAllEnvs();
+  // Removing per test is not enough: a child torn down here keeps writing into
+  // its directory afterwards and re-creates the tree just removed. The dirs are
+  // kept and swept once in afterAll, when nothing is left to write.
   rmSync(agentDir, { recursive: true, force: true });
+});
+
+/**
+ * Scratch dirs made this test, removed at the start of the next one.
+ *
+ * Not in afterEach: a test that started a child can still write into its dir
+ * after the hook has run, which re-creates the tree it just removed. Sweeping at
+ * the next beforeEach lets those writes land first.
+ */
+const scratchDirs: string[] = [];
+
+/** mkdtemp under tmp, tracked for cleanup. */
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  scratchDirs.push(dir);
+  return dir;
+}
+
+/**
+ * Final sweep. Per-test removal races a child that is still writing into its
+ * directory after the test returned; this runs once nothing else can.
+ */
+afterAll(async () => {
+  // A child torn down in a test keeps writing into its directory for a moment
+  // afterwards and re-creates it, so one pass is not enough. Three passes with a
+  // pause between them outlast that without pinning the suite to a fixed delay.
+  for (let pass = 0; pass < 3; pass++) {
+    for (const dir of scratchDirs) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+  scratchDirs.length = 0;
 });
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
@@ -294,8 +330,8 @@ describe("subagent registry sharing across factory instances", () => {
       permission: { "*": "allow", external_directory: "ask" },
     });
 
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
     const forwardingDir = join(agentDir, "sessions", "permission-forwarding");
     const parentSessionId = "parent-session-1";
     const childSessionId = "child-session-1";
@@ -361,7 +397,7 @@ describe("subagent registry sharing across factory instances", () => {
   it("forwards the floor that raised a child's bash ask", async () => {
     writeGlobalConfig({ permission: { "*": "allow" } });
 
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
     const forwardingDir = join(agentDir, "sessions", "permission-forwarding");
     const parentSessionId = "parent-session-floor";
     const childSessionId = "child-session-floor";
@@ -406,7 +442,7 @@ describe("subagent registry sharing across factory instances", () => {
   it("forwards every unit a child's bash chain left asking", async () => {
     writeGlobalConfig({ permission: { "*": "allow", bash: { "*": "ask" } } });
 
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
     const forwardingDir = join(agentDir, "sessions", "permission-forwarding");
     const parentSessionId = "parent-session-units";
     const childSessionId = "child-session-units";
@@ -458,8 +494,8 @@ describe("subagent registry sharing across factory instances", () => {
       permission: { "*": "allow", external_directory: "ask" },
     });
 
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
     const parentSessionId = "parent-session-2";
     const childSessionId = "child-session-2";
 
@@ -511,7 +547,7 @@ describe("unguarded in-process child detection", () => {
   let parentCwd: string;
 
   beforeEach(() => {
-    parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-cwd-"));
+    parentCwd = tempDir("pi-perm-parent-cwd-");
   });
 
   afterEach(() => {
@@ -588,7 +624,7 @@ describe("unguarded in-process child detection", () => {
 
     // A real child node on its own bus, publishing under its own session id —
     // the healthy case the alarm must not fire for.
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
     const childPi = makeFakePi({ events: createEventBus() });
     piPermissionSystemExtension(childPi as unknown as ExtensionAPI);
     await fireSessionStart(childPi, makeChildCtx(childCwd, "child-guarded-1"));
@@ -617,7 +653,7 @@ describe("interactive serving eligibility", () => {
   async function startRootThenSetMarker(
     markerValue: string,
   ): Promise<{ cwd: string; pi: ReturnType<typeof makeFakePi> }> {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-root-serving-cwd-"));
+    const cwd = tempDir("pi-perm-root-serving-cwd-");
     const pi = makeFakePi();
     const ctx = makeBaseCtx(cwd, "ui-root-session");
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
@@ -694,8 +730,8 @@ describe("out-of-process forwarding liveness", () => {
 
   it("blocks promptly when the out-of-process parent published no heartbeat", async () => {
     writeGlobalConfig(externalAsk);
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
     const parentSessionId = "parent-session-oop-gone";
     // The env-var path a process-based subagent extension uses: the hint makes
     // the child detect itself, and the parent id names a session that exited.
@@ -719,8 +755,8 @@ describe("out-of-process forwarding liveness", () => {
 
   it("waits for an out-of-process parent whose heartbeat is fresh", async () => {
     writeGlobalConfig(externalAsk);
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
     const forwardingDir = join(agentDir, "sessions", "permission-forwarding");
     const parentSessionId = "parent-session-oop-live";
     vi.stubEnv("PI_SUBAGENT_CHILD", "1");
@@ -745,9 +781,9 @@ describe("out-of-process forwarding liveness", () => {
 
   it("rendezvouses under a relocated PI_CODING_AGENT_SESSION_DIR", async () => {
     writeGlobalConfig(externalAsk);
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
-    const sessionDir = mkdtempSync(join(tmpdir(), "pi-perm-session-dir-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
+    const sessionDir = tempDir("pi-perm-session-dir-");
     const forwardingDir = join(sessionDir, "permission-forwarding");
     const parentSessionId = "parent-session-oop-relocated";
     vi.stubEnv("PI_CODING_AGENT_SESSION_DIR", sessionDir);
@@ -773,8 +809,8 @@ describe("out-of-process forwarding liveness", () => {
 
   it("forwards for a child that sets only the adapter convention's parent-session variable", async () => {
     writeGlobalConfig(externalAsk);
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
     const forwardingDir = join(agentDir, "sessions", "permission-forwarding");
     const parentSessionId = "parent-session-oop-convention";
     // The entire out-of-process obligation of the subagent adapter convention
@@ -801,8 +837,8 @@ describe("out-of-process forwarding liveness", () => {
   // session as its forwarding target (#909).
   it("forwards from a child that has its own UI while the named parent serves", async () => {
     writeGlobalConfig(externalAsk);
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-cwd-"));
-    const externalDir = mkdtempSync(join(tmpdir(), "pi-perm-external-"));
+    const childCwd = tempDir("pi-perm-child-cwd-");
+    const externalDir = tempDir("pi-perm-external-");
     const forwardingDir = join(agentDir, "sessions", "permission-forwarding");
     const parentSessionId = "parent-session-ui-child";
     vi.stubEnv("PI_SUBAGENT_PARENT_SESSION", parentSessionId);
@@ -847,7 +883,7 @@ describe("out-of-process forwarding liveness", () => {
 
 describe("shutdown teardown chain", () => {
   it("unpublishes the service and unsubscribes the lifecycle on shutdown", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-teardown-cwd-"));
+    const cwd = tempDir("pi-perm-teardown-cwd-");
     const pi = makeFakePi();
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -873,7 +909,7 @@ describe("shutdown teardown chain", () => {
   it("answers an unanswered ask when the session ends", async () => {
     writeGlobalConfig({ permission: { "*": "allow", demo: "ask" } });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-release-cwd-"));
+    const cwd = tempDir("pi-perm-release-cwd-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -912,7 +948,7 @@ describe("service and gate share one formatter registry", () => {
       permission: { "*": "allow", demo: "ask" },
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-ui-cwd-"));
+    const cwd = tempDir("pi-perm-ui-cwd-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -950,7 +986,7 @@ describe("service and gate share one access extractor registry", () => {
       permission: { "*": "allow", path: { "*.env": "deny" } },
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-ext-cwd-"));
+    const cwd = tempDir("pi-perm-ext-cwd-");
     const pi = makeFakePi({ toolNames: ["ffgrep"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -987,8 +1023,8 @@ describe("service and gate share one access extractor registry", () => {
       permission: { "*": "allow", path: { "*.env": "deny" } },
     });
 
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-ext-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-ext-"));
+    const parentCwd = tempDir("pi-perm-parent-ext-");
+    const childCwd = tempDir("pi-perm-child-ext-");
     const parentSessionId = "parent-session-ext";
     const childSessionId = "child-session-ext";
 
@@ -1052,8 +1088,8 @@ describe("split-provider extractor inheritance", () => {
       permission: { "*": "allow", path: { "*.env": "deny" } },
     });
 
-    parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-split-parent-"));
-    childCwd = mkdtempSync(join(tmpdir(), "pi-perm-split-child-"));
+    parentCwd = tempDir("pi-perm-split-parent-");
+    childCwd = tempDir("pi-perm-split-child-");
 
     const parentPi = makeFakePi({
       toolNames: ["ffgrep"],
@@ -1161,8 +1197,8 @@ describe("fact-shaping inheritance stops at live authority", () => {
       authorizerChain: ["parent-only-judge"],
     });
 
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-link-parent-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-link-child-"));
+    const parentCwd = tempDir("pi-perm-link-parent-");
+    const childCwd = tempDir("pi-perm-link-child-");
     const parentSessionId = "parent-session-link";
     const childSessionId = "child-session-link";
 
@@ -1243,7 +1279,7 @@ describe("service and chain share one authorizer registry", () => {
       authorizerChain: ["typo-judge"],
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-auth-cwd-"));
+    const cwd = tempDir("pi-perm-auth-cwd-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -1275,7 +1311,7 @@ describe("service and chain share one authorizer registry", () => {
   it("ignores a registered link the operator did not name (opt-in)", async () => {
     writeGlobalConfig({ permission: { "*": "ask" } }); // authorizerChain omitted
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-auth-optin-"));
+    const cwd = tempDir("pi-perm-auth-optin-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -1313,7 +1349,7 @@ describe("the nothing-on-disk license reaches the delegation envelope", () => {
       permission: { "*": "allow", external_directory: { "*": "ask" } },
       authorizerChain: ["allowing-judge"],
     });
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-license-cwd-"));
+    const cwd = tempDir("pi-perm-license-cwd-");
     const pi = makeFakePi({ toolNames: ["bash"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
     const titles: string[] = [];
@@ -1382,7 +1418,7 @@ describe("ready emitted after service publication", () => {
   // to permissions:ready must be able to resolve the service immediately. The
   // service is published and ready fires at session_start (not factory init).
   it("publishes the service before emitting permissions:ready", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-ready-cwd-"));
+    const cwd = tempDir("pi-perm-ready-cwd-");
     const seenKeyed: string[] = [];
     const pi = makeFakePi();
     pi.events.on(PERMISSIONS_READY_CHANNEL, (data) => {
@@ -1413,7 +1449,7 @@ describe("ready emitted after service publication", () => {
   // makes the ready event alone a sufficient registration site — a consumer
   // whose own session_start ran after ours no longer needs a second path.
   it("re-emits permissions:ready once at the first before_agent_start", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-latch-cwd-"));
+    const cwd = tempDir("pi-perm-latch-cwd-");
     const payloads: PermissionsReadyEvent[] = [];
     const resolvable: string[] = [];
     const pi = makeFakePi();
@@ -1461,7 +1497,7 @@ describe("ready emitted after service publication", () => {
   });
 
   it("re-arms the latch for the next session generation", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-latch-reload-"));
+    const cwd = tempDir("pi-perm-latch-reload-");
     let emissions = 0;
     const pi = makeFakePi();
     pi.events.on(PERMISSIONS_READY_CHANNEL, () => {
@@ -1516,7 +1552,7 @@ describe("single source of truth for session state", () => {
       permission: { "*": "allow", demo: "ask" },
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-sot-cwd-"));
+    const cwd = tempDir("pi-perm-sot-cwd-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -1561,7 +1597,7 @@ describe("service path queries evaluate the supplied path (#503)", () => {
   // supplied path flows through the resolver → manager and matches `path` rules
   // end-to-end.
   it("resolves a path-surface query against a deny rule on the supplied path", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-svc-path-cwd-"));
+    const cwd = tempDir("pi-perm-svc-path-cwd-");
     const target = join(cwd, "secrets.env");
     writeGlobalConfig({ permission: { path: { [target]: "deny" } } });
 
@@ -1582,7 +1618,7 @@ describe("service path queries evaluate the supplied path (#503)", () => {
 describe("project trust gates project-scoped config (#644)", () => {
   it("does not let an untrusted project's `bash: allow` override global `bash: deny`", async () => {
     writeGlobalConfig({ permission: { "*": "ask", bash: "deny" } });
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-untrusted-cwd-"));
+    const cwd = tempDir("pi-perm-untrusted-cwd-");
     writeProjectConfig(cwd, { permission: { bash: "allow" } });
 
     const pi = makeFakePi({ events: createEventBus() });
@@ -1605,7 +1641,7 @@ describe("project trust gates project-scoped config (#644)", () => {
 
   it("lets a trusted project's `bash: allow` override global `bash: deny`", async () => {
     writeGlobalConfig({ permission: { "*": "ask", bash: "deny" } });
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-trusted-cwd-"));
+    const cwd = tempDir("pi-perm-trusted-cwd-");
     writeProjectConfig(cwd, { permission: { bash: "allow" } });
 
     const pi = makeFakePi({ events: createEventBus() });
@@ -1648,7 +1684,7 @@ describe("bash bare-token path gating (#509, #645)", () => {
   }
 
   it("denies an existing bare filename matching a specific path deny rule", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-bare-token-cwd-"));
+    const cwd = tempDir("pi-perm-bare-token-cwd-");
     writeFileSync(join(cwd, "id_rsa"), "key");
     writeGlobalConfig({
       permission: { "*": "allow", path: { id_rsa: "deny" } },
@@ -1666,7 +1702,7 @@ describe("bash bare-token path gating (#509, #645)", () => {
   });
 
   it("denies an existing bare filename matching a wildcard path deny rule", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-bare-token-cwd-"));
+    const cwd = tempDir("pi-perm-bare-token-cwd-");
     writeFileSync(join(cwd, "key.pem"), "key");
     writeGlobalConfig({
       permission: { "*": "allow", path: { "*.pem": "deny" } },
@@ -1687,7 +1723,7 @@ describe("bash bare-token path gating (#509, #645)", () => {
     // The operator's case: the rule names the target, not the link. Matching a
     // token's spelling could never catch this; canonicalization after the probe
     // does.
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-bare-symlink-cwd-"));
+    const cwd = tempDir("pi-perm-bare-symlink-cwd-");
     writeFileSync(join(cwd, ".some.secret"), "s3cret");
     symlinkSync(join(cwd, ".some.secret"), join(cwd, "a_sym"));
     writeGlobalConfig({
@@ -1706,7 +1742,7 @@ describe("bash bare-token path gating (#509, #645)", () => {
   });
 
   it("leaves a bare token that does not match any path rule unaffected", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-bare-token-cwd-"));
+    const cwd = tempDir("pi-perm-bare-token-cwd-");
     writeGlobalConfig({
       permission: { "*": "allow", path: { id_rsa: "deny" } },
     });
@@ -1725,7 +1761,7 @@ describe("bash bare-token path gating (#509, #645)", () => {
   it("leaves a bare token naming no file unaffected even under a path deny rule (#645)", async () => {
     // The probe's precision: `id_rsa` matches the rule by spelling, but names
     // nothing here, so it is not an operand and is not gated.
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-bare-absent-cwd-"));
+    const cwd = tempDir("pi-perm-bare-absent-cwd-");
     writeGlobalConfig({
       permission: { "*": "allow", path: { id_rsa: "deny" } },
     });
@@ -1745,7 +1781,7 @@ describe("bash bare-token path gating (#509, #645)", () => {
     // The universal-fallback guard is what keeps probe promotion from becoming
     // a prompt firehose: a promoted token matching only the synthesized default
     // is unrestricted, so a real file with no rule naming it stays allowed.
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-bare-norule-cwd-"));
+    const cwd = tempDir("pi-perm-bare-norule-cwd-");
     writeFileSync(join(cwd, "README"), "docs");
     writeGlobalConfig({
       permission: { "*": "allow", path: { id_rsa: "deny" } },
@@ -1766,8 +1802,8 @@ describe("bash bare-token path gating (#509, #645)", () => {
     // The issue's headline repro:
     //   printf 'test' > /tmp/…-secret ; ln -s /tmp/…-secret outside-link
     //   cat outside-link            (under a permissive `cat *` bash rule)
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-escape-cwd-"));
-    const outside = mkdtempSync(join(tmpdir(), "pi-perm-escape-target-"));
+    const cwd = tempDir("pi-perm-escape-cwd-");
+    const outside = tempDir("pi-perm-escape-target-");
     const secret = join(outside, "pi-permission-test-secret");
     writeFileSync(secret, "test");
     symlinkSync(secret, join(cwd, "outside-link"));
@@ -1794,8 +1830,8 @@ describe("bash bare-token path gating (#509, #645)", () => {
   it("denies a path embedded in a long option under external_directory deny (#645)", async () => {
     // The issue's second repro: `grep --file=/tmp/…` under an allowing
     // `grep *` bash rule. The flag token never reached the path surfaces.
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-flagpath-cwd-"));
-    const outside = mkdtempSync(join(tmpdir(), "pi-perm-flagpath-target-"));
+    const cwd = tempDir("pi-perm-flagpath-cwd-");
+    const outside = tempDir("pi-perm-flagpath-target-");
     const patterns = join(outside, "pi-permission-patterns");
     writeFileSync(patterns, "secret\n");
     writeGlobalConfig({
@@ -1829,8 +1865,8 @@ describe("session-keyed service publication", () => {
   // in-process child registers into the child's own registries — the ones the
   // child's gates and chain read — instead of reaching the parent's service.
   it("gives an in-process child its own service, so a sibling's link registration does not collide", async () => {
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-keyed-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-keyed-"));
+    const parentCwd = tempDir("pi-perm-parent-keyed-");
+    const childCwd = tempDir("pi-perm-child-keyed-");
     const parentSessionId = "parent-session-keyed";
     const childSessionId = "child-session-keyed";
 
@@ -1865,8 +1901,8 @@ describe("session-keyed service publication", () => {
   });
 
   it("announces the node's session id and chain role on permissions:ready", async () => {
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-ready-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-ready-"));
+    const parentCwd = tempDir("pi-perm-parent-ready-");
+    const childCwd = tempDir("pi-perm-child-ready-");
     const parentSessionId = "parent-session-ready";
     const childSessionId = "child-session-ready";
 
@@ -1904,8 +1940,8 @@ describe("session-keyed service publication", () => {
   // ADR 0012 decision 4: a relaying node has no chain to consult a link with,
   // so the registration is honored and the vacancy recorded — never silent.
   it("records a link registered on a relaying child in the review log", async () => {
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-vacant-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-vacant-"));
+    const parentCwd = tempDir("pi-perm-parent-vacant-");
+    const childCwd = tempDir("pi-perm-child-vacant-");
     const parentSessionId = "parent-session-vacant";
     const childSessionId = "child-session-vacant";
 
@@ -1938,8 +1974,8 @@ describe("session-keyed service publication", () => {
   });
 
   it("removes only its own keyed entry when a node shuts down", async () => {
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-teardown-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-teardown-"));
+    const parentCwd = tempDir("pi-perm-parent-teardown-");
+    const childCwd = tempDir("pi-perm-child-teardown-");
     const parentSessionId = "parent-session-teardown";
     const childSessionId = "child-session-teardown";
 
@@ -1994,7 +2030,7 @@ describe("session approvals do not leak across same-cwd session switches", () =>
       permission: { "*": "allow", demo: "ask" },
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-switch-cwd-"));
+    const cwd = tempDir("pi-perm-switch-cwd-");
 
     // ── Session #1: approve `demo` for the session, then shut down ──────────
     const firstPi = makeFakePi({ toolNames: ["demo"] });
@@ -2051,7 +2087,7 @@ describe("tool-surface prose under a custom system prompt", () => {
   }
 
   it("leaves a root session's custom prompt as Pi built it", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-custom-root-cwd-"));
+    const cwd = tempDir("pi-perm-custom-root-cwd-");
     const pi = makeFakePi({ toolNames: ["read"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
     const ctx = makeBaseCtx(cwd, "custom-root-session");
@@ -2068,8 +2104,8 @@ describe("tool-surface prose under a custom system prompt", () => {
   });
 
   it("states a registered child's tools under its custom prompt", async () => {
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-custom-parent-cwd-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-custom-child-cwd-"));
+    const parentCwd = tempDir("pi-perm-custom-parent-cwd-");
+    const childCwd = tempDir("pi-perm-custom-child-cwd-");
     const parentSessionId = "custom-parent-session";
     const childSessionId = "custom-child-session";
 
@@ -2136,8 +2172,8 @@ describe("forwarded grant-scope selection round-trip", () => {
   it("records a whole-session grant on the serving node so later forwards and the parent's own action resolve without a second prompt", async () => {
     writeGlobalConfig({ permission: { "*": "allow", demo: "ask" } });
 
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-"));
+    const parentCwd = tempDir("pi-perm-parent-");
+    const childCwd = tempDir("pi-perm-child-");
     const parentSessionId = "parent-whole-1";
     const childSessionId = "child-whole-1";
     const selectLog: string[][] = [];
@@ -2201,8 +2237,8 @@ describe("forwarded grant-scope selection round-trip", () => {
   it("contains a subagent-only grant to the requesting child so the parent's own action still prompts", async () => {
     writeGlobalConfig({ permission: { "*": "allow", demo: "ask" } });
 
-    const parentCwd = mkdtempSync(join(tmpdir(), "pi-perm-parent-"));
-    const childCwd = mkdtempSync(join(tmpdir(), "pi-perm-child-"));
+    const parentCwd = tempDir("pi-perm-parent-");
+    const childCwd = tempDir("pi-perm-child-");
     const parentSessionId = "parent-sub-1";
     const childSessionId = "child-sub-1";
     const selectLog: string[][] = [];
@@ -2271,7 +2307,7 @@ describe("yolo grants asks synthesized after resolution", () => {
     command: string,
   ): Promise<{ blocked: boolean; prompts: string[] }> {
     writeGlobalConfig(config);
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-yolo-cwd-"));
+    const cwd = tempDir("pi-perm-yolo-cwd-");
     const pi = makeFakePi({ toolNames: ["bash"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2371,7 +2407,7 @@ describe("directional external-directory relief (#806)", () => {
     path: string,
   ): Promise<{ blocked: boolean; prompts: string[] }> {
     writeGlobalConfig(config);
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-directional-cwd-"));
+    const cwd = tempDir("pi-perm-directional-cwd-");
     const pi = makeFakePi({ toolNames: ["read", "write", "edit"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2527,7 +2563,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
       promptNotifications: ["bell"],
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-notify-cwd-"));
+    const cwd = tempDir("pi-perm-notify-cwd-");
     const pi = makeFakePi({ toolNames: ["demo", "quiet"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2565,7 +2601,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
       promptTimeoutMs: 20,
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-unanswered-cwd-"));
+    const cwd = tempDir("pi-perm-unanswered-cwd-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2593,7 +2629,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
         permission: { "*": "allow", demo: "ask" },
         promptNotifications: ["osc777"],
       });
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-notice-cwd-"));
+      const cwd = tempDir("pi-perm-notice-cwd-");
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
       const { ctx, press, terminalWrites } = makeTuiCtx(cwd, sessionName);
@@ -2642,7 +2678,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
       },
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-keys-cwd-"));
+    const cwd = tempDir("pi-perm-keys-cwd-");
     const pi = makeFakePi({ toolNames: ["demo"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2675,7 +2711,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
       permissionDialogKeys: { deny: "j" },
     });
 
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-keys-bad-cwd-"));
+    const cwd = tempDir("pi-perm-keys-bad-cwd-");
     const pi = makeFakePi({ toolNames: ["demo", "quiet"] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2723,7 +2759,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
         commandEffects: { sed: { effects: "read" }, xargs: { effects: [] } },
       });
 
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-shadow-cwd-"));
+      const cwd = tempDir("pi-perm-shadow-cwd-");
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2750,7 +2786,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
       // The shape `detectPermissiveBashFallback` exists to flag.
       writeGlobalConfig({ permission: { "*": "allow" } });
 
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-warn-start-cwd-"));
+      const cwd = tempDir("pi-perm-warn-start-cwd-");
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2772,7 +2808,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
       // The shape `detectPermissiveBashFallback` exists to flag.
       writeGlobalConfig({ permission: { "*": "allow" } });
 
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-warn-cwd-"));
+      const cwd = tempDir("pi-perm-warn-cwd-");
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2801,7 +2837,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
     it("is shown on the next turn when it appears mid-session", async () => {
       writeGlobalConfig({ permission: { "*": "ask" } });
 
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-warn-mid-cwd-"));
+      const cwd = tempDir("pi-perm-warn-mid-cwd-");
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
 
@@ -2841,7 +2877,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
 
     it("is reported once, with its clamp, when present at session start", async () => {
       writeGlobalConfig({ permission: { "*": "ask" } });
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-policy-start-cwd-"));
+      const cwd = tempDir("pi-perm-policy-start-cwd-");
       writeProjectConfig(cwd, { permission: { demo: "allow" }, bogusKey: 1 });
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
@@ -2857,7 +2893,7 @@ describe("configured prompt preferences reach the inline dialog", () => {
 
     it("has its clamp explained on the next turn when broken mid-session, and only once", async () => {
       writeGlobalConfig({ permission: { "*": "ask" } });
-      const cwd = mkdtempSync(join(tmpdir(), "pi-perm-policy-mid-cwd-"));
+      const cwd = tempDir("pi-perm-policy-mid-cwd-");
       writeProjectConfig(cwd, { permission: { demo: "allow" } });
       const pi = makeFakePi({ toolNames: ["demo"] });
       piPermissionSystemExtension(pi as unknown as ExtensionAPI);
@@ -2915,7 +2951,7 @@ describe("Pi's built-in MCP tools are gated on the mcp surface", () => {
       permission: { "*": "allow", mcp: { "*": "allow", "danger-srv": "deny" } },
     });
     writeGlobalMcpConfig({ "danger-srv": { command: "danger" } });
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-mcp-tool-cwd-"));
+    const cwd = tempDir("pi-perm-mcp-tool-cwd-");
     const pi = makeFakePi({ toolNames: [wipe] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
     const ctx = makeChildCtx(cwd, "mcp-tool-deny");
@@ -2930,7 +2966,7 @@ describe("Pi's built-in MCP tools are gated on the mcp surface", () => {
   it("approves exactly the asked tool for the session", async () => {
     writeGlobalConfig({ permission: { "*": "allow", mcp: { "*": "ask" } } });
     writeGlobalMcpConfig({ "danger-srv": { command: "danger" } });
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-mcp-tool-cwd-"));
+    const cwd = tempDir("pi-perm-mcp-tool-cwd-");
     const pi = makeFakePi({ toolNames: [wipe, other] });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
     const prompted: string[] = [];
@@ -2969,7 +3005,7 @@ describe("Pi infrastructure reads", () => {
     permission: Record<string, unknown>,
     target: string,
   ): Promise<{ block?: true; reason?: string } | undefined> {
-    const cwd = mkdtempSync(join(tmpdir(), "pi-perm-infra-cwd-"));
+    const cwd = tempDir("pi-perm-infra-cwd-");
     writeGlobalConfig({ permission });
     const pi = makeFakePi({ events: createEventBus() });
     piPermissionSystemExtension(pi as unknown as ExtensionAPI);
@@ -3086,7 +3122,7 @@ describe("footer status reports the enforced policy", () => {
 
   let cwd: string;
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), "pi-perm-status-cwd-"));
+    cwd = tempDir("pi-perm-status-cwd-");
   });
   afterEach(() => {
     rmSync(cwd, { recursive: true, force: true });
@@ -3208,7 +3244,7 @@ describe("a fail-closed scope under yolo", () => {
   // "fail-closed". The floor now holds under yolo.
   let cwd: string;
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), "pi-perm-failclosed-yolo-cwd-"));
+    cwd = tempDir("pi-perm-failclosed-yolo-cwd-");
   });
   afterEach(() => {
     rmSync(cwd, { recursive: true, force: true });
