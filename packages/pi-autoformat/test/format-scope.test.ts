@@ -104,7 +104,9 @@ describe("isInFormatScope", () => {
     // Resolve tmpdir realpath up front so this test exercises the symlink
     // escape check identically on Linux (where /tmp is real) and macOS
     // (where /tmp is a symlink to /private/tmp).
-    const root = realpathSync(mkdtempSync(join(tmpdir(), "pi-fmtscope-")));
+    const root = realpathSync(
+      mkdtempSync(join(tmpdir(), "pi-autoformat-fmtscope-")),
+    );
     const repo = join(root, "repo");
     const external = join(root, "external");
     mkdirSync(join(repo, "node_modules"), { recursive: true });
@@ -123,7 +125,9 @@ describe("isInFormatScope", () => {
   });
 
   it("includes a symlink whose realpath lands inside the root", () => {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), "pi-fmtscope-")));
+    const root = realpathSync(
+      mkdtempSync(join(tmpdir(), "pi-autoformat-fmtscope-")),
+    );
     const repo = join(root, "repo");
     mkdirSync(join(repo, "real"), { recursive: true });
     writeFileSync(join(repo, "real", "x.ts"), "");

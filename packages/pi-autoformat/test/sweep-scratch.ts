@@ -8,9 +8,10 @@
  *
  * The scan runs here rather than in the test, so a file needs no bookkeeping of
  * its own, and anything a straggling write re-creates after a test is caught by
- * the next scan.
+ * the next scan. This suite is short enough that a dir is never still being
+ * written at the end, so the sweep needs no recency margin.
  */
-import { readdirSync, rmSync, statSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach } from "vitest";
@@ -39,19 +40,8 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  // A sibling file's directory can appear after this file's baseline (files start
-  // at different times), so a shared prefix alone is not proof of ownership. A
-  // dir still being written is recent; a finished file's is not. This margin is
-  // per package: its suite is short, so a wider margin would skip its own dirs.
-  const cutoff = Date.now() - 300;
   for (const path of mine) {
-    let mtime: number;
-    try {
-      mtime = statSync(path).mtimeMs;
-    } catch {
-      continue;
-    }
-    if (mtime < cutoff) rmSync(path, { recursive: true, force: true });
+    rmSync(path, { recursive: true, force: true });
   }
   mine.clear();
 });
