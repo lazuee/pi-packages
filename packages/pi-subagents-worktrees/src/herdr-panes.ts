@@ -57,7 +57,13 @@ function safePart(part: string): string {
   return part.replace(/[^\w]/g, "-");
 }
 
-/** Recover the pane id from a stamp name. */
+/**
+ * Recover the pane id from a stamp name.
+ *
+ * Scoped tolerance: names written before the colon was kept (`w1-p2`) no longer
+ * parse and are skipped. That only costs them one reap window — a stamp is
+ * never live across a format change.
+ */
 export function paneFromStamp(file: string): string | undefined {
   const name = file.slice(STAMP_PREFIX.length, -".stamp".length);
   return name.includes(":") ? name : undefined;
