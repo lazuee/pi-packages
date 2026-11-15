@@ -1,0 +1,280 @@
+import { nativeAgentName } from "./agent-identity.js";
+import type { AgentsParams, READ_SOURCES } from "./agents-contract.js";
+import { readTerminal } from "./core/agents.js";
+import type { AgentFleet, ConnectedMachine } from "./fleet/index.js";
+import { type AgentProfile, loadAgentProfiles } from "./profiles.js";
+import type { AgentStatus, PaneInfo, SessionSnapshot } from "./types.js";
+
+const MAX_LIST_ITEMS = 30;
+const MAX_TERMINAL_READ_CHARS = 36_000;
+
+function describeProfiles(profiles: Map<string, AgentProfile>) {
+	return Object.fromEntries(
+		[...profiles].map(([name, profile]) => [
+			name,
+			{
+				description: profile.description,
+				...(profile.blocking === undefined ? {} : { blocking: profile.blocking }),
+				...(profile.shareContext === undefined ? {} : { share_context: profile.shareContext }),
+			},
+		]),
+	);
+}
+
+export async function agentsHelp(
+	boardAvailable = false,
+	gpt = false,
+): Promise<Record<string, unknown>> {
+	const profiles = await loadAgentProfiles();
+	return {
+		commands: gpt
+			? "commands:true lists slash commands/descriptions, NEVER executes; default=this session; target/machine→another"
+			: "commands: true lists available slash commands with descriptions; defaults to this session, target and machine optionally select another session; does not execute commands",
+		actions: {
+			help: "",
+			list: "machine?",
+			find: "query? status? machine?",
+			focus: "target machine? voice? handoff?",
+			spawn:
+				"agent_type label message name? machine? placement? workspace? cwd? base? blocking?" +
+				(boardAvailable ? " board_thread_id?" : ""),
+			watch: "target machine?",
+			unwatch: "target machine?",
+			send: "target message machine?",
+			assign: "target message machine? blocking?",
+			attach: "target context? board? machine?",
+			detach: "target context? board? machine?",
+			read: "target machine? source=latest|visible|recent? lines?",
+			reply: "target extension id message machine?",
+		},
+		rules: {
+			peers: gpt
+				? "Existing session≠your sub-agent; send/watch need no attach. Contact≠shared Notes/Board; attach changes membership"
+				: "Existing sessions may be independent peers, not your sub-agents. Messaging and watching need no attachment. Contact does not imply shared Notes or Board membership; attach changes sharing",
+			read: gpt
+				? "latest(default)=last reply+pending extension messages; visible=current TUI screen; recent=TUI scrollback, lines default 40. Findings→returned Notes path if shared Notes available"
+				: "latest (default) returns the last reply and pending extension messages; visible reads the current TUI screen; recent reads TUI scrollback, lines default 40. For findings, read the returned Notes path when shared Notes is available",
+			reply: gpt
+				? "Extension report/read template required; send≠resolve; returns after acceptance, never waits resumed work"
+				: "Use the extension-authored template from its report/read; send does not resolve it. Replies return after acceptance, without waiting for resumed work",
+			machine: gpt
+				? "machine omitted=local Pi host; list/find omitted=all machines; select current machine name or ID from list"
+				: "Omit for local (host running Pi); list/find omit for all machines. Select a current machine name or ID from list",
+			target: gpt
+				? "target=Pi session reference or terminal; /root=live spawn root"
+				: "Use the Pi session reference or terminal target; /root selects the live root of saved spawn ancestry",
+			resume: gpt
+				? "send/assign to owned closed worker→resume saved session; /quit never resumes"
+				: "Sending or assigning to a closed worker recorded by this parent resumes its saved session; /quit never resumes",
+			label: "Short Pi session name; app tabs use default names",
+			placement: "terminal (default), new_tab, new_workspace; new_tab needs space ID",
+			...(boardAvailable
+				? {
+						board_thread_id: gpt
+							? "Existing board thread→child read ref"
+							: "Existing shared-board thread; child receives a read reference",
+					}
+				: {}),
+			send: gpt
+				? "Messages wake idle agents; send ONLY to change recipient next action, NO acknowledgements/status-only/standby. Close→/quit directly, NO preceding message or wait/watch"
+				: "Messages wake idle agents. Send only when it changes the recipient's next action; skip acknowledgements, status-only updates and standby reminders. Close with /quit directly, without another message first. No waiting or watching.",
+			assign: gpt
+				? "Delegate/update work; active→share pending result, NEVER replace wait"
+				: "Delegate or update work; active updates share its pending result, never replace an existing wait",
+			focus: gpt
+				? "Running session; passive arrival+return call, NO task/watch; voice default false, true=async active mic transfer; handoff=context; remote=target Herdr session≠client machine"
+				: "Select a running session; passive arrival with return call, no task/watch. voice defaults false; true carries the active microphone asynchronously. handoff adds context. Remote focus selects the target's Herdr session, not the client's machine",
+			attach: boardAvailable
+				? gpt
+					? "Idle target; context/board=independent sharing/membership; omitted=false, at least one true; NO task/watch"
+					: "Idle target; context/board choose shared access and board membership independently; omitted=false, at least one true; no task/watch"
+				: gpt
+					? "Idle target; context:true=shared notes/history; boards unavailable; NO task/watch"
+					: "Idle target; context:true shares notes/history; shared boards unavailable; no task/watch",
+			detach: gpt
+				? "Idle target; stop context/board independently; omitted=false, at least one true; counterpart checkpoints remain readonly"
+				: "Stop context/board independently; omitted=false, at least one true; retain counterpart checkpoints read-only; idle target",
+			blocking: gpt
+				? "spawn/assign default false→dispatch then return; true→wait for result; profile overrides spawn. Parallel blocking calls: await Promise.allSettled. Background reports automatic→do other work/end turn, NO poll or await timers/extra Promises"
+				: "spawn/assign return after dispatch by default. Set blocking:true to wait for the result; profile blocking overrides spawn. Use await Promise.allSettled for parallel blocking calls, including failures. Background reports arrive automatically: do other work or end this turn, never poll or await timers or extra Promises for reports",
+			share_context: gpt
+				? "Profile false→isolated notes/history; otherwise→controller sharing setting"
+				: "Profile false isolates notes/history; otherwise follows controller sharing setting",
+			watch: gpt
+				? "Delegation/watch→report subsequent work UNTIL unwatch/close"
+				: "Delegation and watch keep reporting subsequent work until unwatch or close",
+			prompt: gpt
+				? "Task + necessary context; trust agent to choose approach. Avoid unnecessary restrictions and overly narrow scope"
+				: "Give the task and necessary context. Trust the agent to choose its approach. Avoid unnecessary restrictions and overly narrow scope",
+			slash: gpt
+				? "Leading / routes target commands/skills/templates; commands skip task wait EVEN assign/spawn; blocked→choices; /quit exits Pi+closes terminal"
+				: "Leading / routes target commands/skills/templates. Commands skip task waiting, even with assign/spawn; blocked commands return available choices. /quit shuts down Pi and closes its terminal",
+			reuse: gpt
+				? "Keep each agent until task verified complete; corrections→same agent; then close. Unrelated task→new agent; reviews independent"
+				: "Keep each agent available until its task is verified complete; return corrections to it before closing. Use separate agents for unrelated work and independent reviews.",
+			...(profiles.has("general")
+				? {
+						general: "Only when requested/orchestrating",
+					}
+				: {}),
+		},
+		profiles: describeProfiles(profiles),
+		advanced: "hc --skill: terminal processes and machines",
+	};
+}
+
+function labels(snapshot: SessionSnapshot) {
+	return {
+		panes: new Map(snapshot.panes.map((pane) => [pane.pane_id, pane.label])),
+		tabs: new Map(snapshot.tabs.map((tab) => [tab.tab_id, tab.label])),
+		workspaces: new Map(
+			snapshot.workspaces.map((workspace) => [workspace.workspace_id, workspace.label]),
+		),
+	};
+}
+
+function compactAgent(
+	agent: PaneInfo,
+	snapshot: SessionSnapshot,
+	machine: string,
+	monitored: boolean,
+): Record<string, unknown> {
+	const names = labels(snapshot);
+	return {
+		machine,
+		target: agent.pane_id,
+		...(agent.name ? { name: agent.name } : {}),
+		...(agent.label || names.panes.get(agent.pane_id) || agent.title
+			? { label: agent.label || names.panes.get(agent.pane_id) || agent.title }
+			: {}),
+		...(agent.title && (agent.label || names.panes.get(agent.pane_id))
+			? { title: agent.title }
+			: {}),
+		status: agent.agent_status,
+		cwd: agent.foreground_cwd ?? agent.cwd ?? null,
+		...(agent.workspace_id
+			? {
+					workspace: names.workspaces.get(agent.workspace_id) ?? agent.workspace_id,
+				}
+			: {}),
+		...(agent.tab_id ? { tab: names.tabs.get(agent.tab_id) ?? agent.tab_id } : {}),
+		monitored,
+	};
+}
+
+function matchesAgent(
+	agent: Record<string, unknown>,
+	query: string | undefined,
+	status: AgentStatus | undefined,
+): boolean {
+	if (status && agent["status"] !== status) return false;
+	if (!query) return true;
+	const normalize = (value: string) =>
+		value
+			.toLowerCase()
+			.replace(/[-_\s]+/g, " ")
+			.trim();
+	const needle = normalize(query);
+	return Object.values(agent)
+		.filter((value) => typeof value === "string")
+		.some((value) => normalize(value).includes(needle));
+}
+
+export async function listFleetAgents(
+	fleet: AgentFleet,
+	params: Pick<AgentsParams, "machine" | "query" | "status">,
+): Promise<Record<string, unknown>> {
+	const [profiles, machines] = await Promise.all([
+		loadAgentProfiles(),
+		fleet.snapshots(params.machine),
+	]);
+	const agents = (
+		await Promise.all(
+			machines.map(async (machine) => {
+				if (!machine.snapshot) return [];
+				const runtime = fleet.connected(machine.id);
+				return (
+					await Promise.all(
+						machine.snapshot.agents
+							.filter(
+								(agent) =>
+									agent.agent === "pi" &&
+									(!machine.local || agent.terminal_id !== process.env["HC_TERMINAL_ID"]),
+							)
+							.map(async (agent) => {
+								const result = compactAgent(
+									agent,
+									machine.snapshot!,
+									machine.id,
+									machine.monitoredPaneIds?.has(agent.pane_id) ?? false,
+								);
+								try {
+									result["agent"] = await nativeAgentName(runtime.client, agent);
+								} catch {
+									// Older or unavailable receivers remain addressable by their terminal.
+									result["identityUnavailable"] = true;
+								}
+								return result;
+							}),
+					)
+				).filter((agent) => matchesAgent(agent, params.query, params.status));
+			}),
+		)
+	).flat();
+	const workspaces = machines.flatMap((machine) =>
+		(machine.snapshot?.workspaces ?? []).map((workspace) => ({
+			machine: machine.id,
+			id: workspace.workspace_id,
+			label: workspace.label,
+		})),
+	);
+	return {
+		profiles: describeProfiles(profiles),
+		machines: machines.map(
+			({
+				snapshot: _snapshot,
+				monitoredPaneIds: _monitoredPaneIds,
+				session: _session,
+				...machine
+			}) => machine,
+		),
+		agents: agents.slice(0, MAX_LIST_ITEMS),
+		workspaces: workspaces.slice(0, MAX_LIST_ITEMS),
+		...(agents.length > MAX_LIST_ITEMS ? { moreAgents: agents.length - MAX_LIST_ITEMS } : {}),
+		...(workspaces.length > MAX_LIST_ITEMS
+			? { moreWorkspaces: workspaces.length - MAX_LIST_ITEMS }
+			: {}),
+	};
+}
+
+export async function findFleetAgents(
+	fleet: AgentFleet,
+	params: Pick<AgentsParams, "machine" | "query" | "status">,
+): Promise<Record<string, unknown>> {
+	const listed = await listFleetAgents(fleet, params);
+	return {
+		agents: listed["agents"],
+		...(listed["moreAgents"] === undefined ? {} : { moreAgents: listed["moreAgents"] }),
+	};
+}
+
+export async function readAgentTerminal(
+	runtime: ConnectedMachine,
+	panel: PaneInfo,
+	source: Exclude<(typeof READ_SOURCES)[number], "latest">,
+	lines: number,
+): Promise<Record<string, unknown>> {
+	const value = await readTerminal(
+		runtime.client,
+		panel.terminal_id,
+		source === "visible" ? 0 : lines,
+	);
+	const truncated = value.text.length > MAX_TERMINAL_READ_CHARS;
+	return {
+		machine: runtime.machine,
+		target: panel.pane_id,
+		status: panel.agent_status,
+		text: truncated ? `${value.text.slice(0, MAX_TERMINAL_READ_CHARS)}\n…` : value.text,
+		...(truncated || value.truncated ? { truncated: true } : {}),
+	};
+}

@@ -1,0 +1,317 @@
+import { defineTool, type ExtensionAPI, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
+import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
+import { resolveNativeAgent } from "./agent-identity.js";
+import {
+	AgentsParameters,
+	type AgentsParams,
+	type AgentsToolParams,
+	parseAgentsRequest,
+	requiredAgentField as required,
+} from "./agents-contract.js";
+import {
+	agentsHelp,
+	findFleetAgents,
+	listFleetAgents,
+	readAgentTerminal,
+} from "./agents-discovery.js";
+import { focusAgent } from "./agents-focus.js";
+import { replyAgent } from "./agents-reply.js";
+import { spawnAgent } from "./agents-spawn.js";
+import { dispatchAgentWork, settlementResult, toolResult } from "./agents-work.js";
+import type { AgentBoard } from "./board/host.js";
+import { resolvePiAgent } from "./core/agents.js";
+import type { AgentFleet } from "./fleet/index.js";
+import { attributeAgentPrompt } from "./messages/attribution.js";
+import type { createPeerCommands } from "./peer-commands.js";
+import type { SharedAgentContext } from "./shared-context.js";
+import { WorkerResumer } from "./worker-resume.js";
+
+export function createAgentsTool(
+	fleet: AgentFleet,
+	sharedContext: SharedAgentContext,
+	board: AgentBoard,
+	pi: ExtensionAPI,
+	commands: ReturnType<typeof createPeerCommands>,
+	gpt: () => boolean = () => false,
+) {
+	const resumer = new WorkerResumer(pi, fleet);
+	return defineTool({
+		name: "agents",
+		label: "Shepherdr",
+		description: "Delegate to persistent agents; {} lists additional action fields",
+		promptGuidelines: [
+			"agents: Read help alone first",
+			"agents: MUST use for supported agent operations, local or remote; never bypass with hc or shell commands, even after failure. Report blockers. hc remains available for non-agent processes",
+		],
+		parameters: AgentsParameters,
+		executionMode: "parallel",
+		async execute(_toolCallId, input: AgentsToolParams, signal, onUpdate, ctx) {
+			const params = parseAgentsRequest(input);
+			const executionSignal = signal ?? new AbortController().signal;
+			const update = onUpdate ?? (() => undefined);
+			if (params.action === "help" && !params.commands) {
+				return toolResult(await agentsHelp(board.enabled(ctx), gpt()));
+			}
+			if (params.commands && params.target === undefined)
+				return toolResult({ commands: commands.available() });
+			if (params.action === "list") {
+				return toolResult(await listFleetAgents(fleet, params));
+			}
+			if (params.action === "find") {
+				return toolResult(await findFleetAgents(fleet, params));
+			}
+
+			let runtime = fleet.connected(params.machine);
+			if (params.action === "spawn") {
+				return spawnAgent(
+					pi,
+					fleet,
+					runtime,
+					params,
+					executionSignal,
+					update,
+					sharedContext,
+					ctx,
+					board,
+				);
+			}
+
+			let target = required(params.target, "target");
+			if (params.action === "send" || params.action === "assign")
+				required(params.message, "message");
+			const owned =
+				(params.action === "send" || params.action === "assign") && target !== "/root"
+					? await resumer.resolve(
+							ctx,
+							target,
+							params.machine,
+							executionSignal,
+							!/^\/quit(?:\s|$)/.test(params.message?.trim() ?? ""),
+						)
+					: undefined;
+			if (owned) {
+				runtime = owned.runtime;
+				target = owned.panel.pane_id;
+			}
+			if (target === "/root") {
+				const root = await sharedContext.resolveRoot(ctx, params.machine, executionSignal);
+				runtime = root.runtime;
+				target = root.target;
+			} else if (target.startsWith("/") && !target.slice(1).includes("/")) {
+				const native = await resolveNativeAgent(fleet, target, params.machine, executionSignal);
+				runtime = native.runtime;
+				target = native.panel.pane_id;
+			}
+			if (params.action === "focus") {
+				executionSignal.throwIfAborted();
+				return toolResult(
+					await focusAgent(pi, ctx, fleet, runtime, target, params.voice ?? false, params.handoff),
+				);
+			}
+			if (params.action === "unwatch") {
+				const record = runtime.monitor
+					.list()
+					.find((agent) => agent.paneId === target || agent.name === target);
+				if (!record) {
+					return toolResult({
+						unwatched: false,
+						machine: runtime.machine,
+						target,
+					});
+				}
+				await runtime.monitor.unwatch(record.paneId);
+				return toolResult({
+					unwatched: true,
+					machine: runtime.machine,
+					target: record.paneId,
+				});
+			}
+
+			const panel =
+				owned?.panel ??
+				(await resolvePiAgent(
+					runtime.client,
+					target,
+					runtime.local ? process.env["HC_TERMINAL_ID"] : "",
+				));
+			if (params.commands) {
+				return toolResult({
+					machine: runtime.machine,
+					target: panel.pane_id,
+					commands: await runtime.client.commands(panel),
+				});
+			}
+			if (params.action === "attach" || params.action === "detach") {
+				return toolResult(
+					await sharedContext.attachment[params.action](
+						ctx,
+						runtime,
+						panel,
+						params,
+						executionSignal,
+					),
+				);
+			}
+			if (params.action === "watch") {
+				await runtime.monitor.watch(panel);
+				return toolResult({
+					watched: true,
+					machine: runtime.machine,
+					target: panel.pane_id,
+					next: "Do other work or end this turn; completion/blockage arrives automatically. Do not poll or await timers/extra Promises for reports",
+				});
+			}
+			if (params.action === "read") {
+				const source = params.source ?? "latest";
+				if (source !== "latest") {
+					return toolResult(await readAgentTerminal(runtime, panel, source, params.lines ?? 40));
+				}
+				const view = await runtime.monitor.view(panel);
+				return toolResult({
+					machine: runtime.machine,
+					target: panel.pane_id,
+					status: panel.agent_status,
+					...(view.assistant ? { reply: view.assistant.text } : { reply: null }),
+					...(view.extensionMessages ? { extensionMessages: view.extensionMessages } : {}),
+				});
+			}
+			if (params.action === "send" || params.action === "assign") {
+				const message = required(params.message, "message");
+				const attributedMessage = await attributeAgentPrompt(
+					fleet.connected().client,
+					ctx.sessionManager.getSessionId(),
+					message,
+					params.action === "send" ? "message" : "task",
+				);
+				attributedMessage.context = [
+					attributedMessage.context,
+					await sharedContext.peerReplyContext(ctx, runtime, panel, executionSignal),
+				]
+					.filter(Boolean)
+					.join("\n");
+				if (params.action === "send") {
+					executionSignal.throwIfAborted();
+					const receipt = await runtime.client.sendMessage(panel, attributedMessage);
+					if (!receipt.command) runtime.monitor.noteMessage(panel.pane_id, message);
+					return toolResult({
+						sent: true,
+						...(owned?.resumed ? { resumed: true } : {}),
+						...(receipt.command ? { commandSubmitted: true } : {}),
+						machine: runtime.machine,
+						target: panel.pane_id,
+					});
+				}
+				const dispatch = await dispatchAgentWork(
+					runtime,
+					panel,
+					message,
+					params.blocking === true,
+					executionSignal,
+					update,
+					() => runtime.client.sendMessage(panel, attributedMessage),
+					{ expectUserMessage: true },
+				);
+				return toolResult(
+					{
+						...(owned?.resumed ? { resumed: true } : {}),
+						...(dispatch.command
+							? {
+									commandSubmitted: true,
+									machine: runtime.machine,
+									target: panel.pane_id,
+								}
+							: dispatch.settlement
+								? {
+										assigned: true,
+										...settlementResult(runtime.machine, dispatch.settlement),
+									}
+								: {
+										assigned: true,
+										machine: runtime.machine,
+										target: panel.pane_id,
+										status: "working",
+										next: "Do other work or end this turn; completion/blockage arrives automatically. Do not poll or await timers/extra Promises for reports",
+									}),
+					},
+					dispatch.warning,
+				);
+			}
+			if (params.action === "reply") {
+				return replyAgent(runtime, panel, params, executionSignal, update);
+			}
+			throw new Error(`unsupported action ${params.action}`);
+		},
+		renderCall(args, theme, context) {
+			let params: AgentsParams | undefined;
+			try {
+				params = parseAgentsRequest(args);
+			} catch {
+				params = undefined;
+			}
+			const identity = params?.target ?? params?.label ?? params?.name ?? params?.agent_type ?? "";
+			const title = new Text(
+				theme.fg(
+					context && "isBlocked" in context && context.isBlocked === true ? "warning" : "toolTitle",
+					theme.bold(`agents ${params?.action ?? "request"}`),
+				) + (identity ? theme.fg("muted", ` · ${identity}`) : ""),
+				0,
+				0,
+			);
+			const message = params?.message ?? params?.handoff;
+			if (!context?.expanded || !message) return title;
+			const container = new Container();
+			container.addChild(title);
+			container.addChild(new Spacer(1));
+			container.addChild(new Text(message, 0, 0));
+			return container;
+		},
+		renderResult(toolResult, options, theme) {
+			const details =
+				typeof toolResult.details === "object" && toolResult.details !== null
+					? (toolResult.details as Record<string, unknown>)
+					: {};
+			const state =
+				typeof details["status"] === "string"
+					? details["status"]
+					: details["sent"] === true
+						? "sent"
+						: details["spawned"] === true
+							? "spawned"
+							: "done";
+			const target =
+				typeof details["name"] === "string"
+					? details["name"]
+					: typeof details["target"] === "string"
+						? details["target"]
+						: "";
+			const title = new Text(
+				theme.fg(
+					state === "blocked" ? "warning" : state === "working" ? "accent" : "success",
+					[target, state].filter(Boolean).join(" · "),
+				),
+				0,
+				0,
+			);
+			if (!options.expanded) return title;
+			const reply = typeof details["reply"] === "string" ? details["reply"] : undefined;
+			const informational = Object.fromEntries(
+				Object.entries(details).filter(([key]) => key !== "reply"),
+			);
+			if (!reply && Object.keys(informational).length === 0) {
+				return title;
+			}
+			const container = new Container();
+			container.addChild(title);
+			if (Object.keys(informational).length > 0) {
+				container.addChild(new Spacer(1));
+				container.addChild(new Text(JSON.stringify(informational, null, 2), 0, 0));
+			}
+			if (reply) {
+				container.addChild(new Spacer(1));
+				container.addChild(new Markdown(reply, 0, 0, getMarkdownTheme()));
+			}
+
+			return container;
+		},
+	});
+}

@@ -1,0 +1,67 @@
+---
+name: agent-tool-design
+description: "Read before creating, reviewing, or refining a tool exposed to an agent."
+---
+
+For a Pi tool, also read `references/pi.md`.
+
+## Start from what the agent knows
+
+- Prefer canonical tool names and argument shapes already present in the target model's training.
+- Treat a familiar tool schema as a runtime binding, not a tutorial. State only this implementation's meaningful deviations.
+- Give an unfamiliar capability an obvious action name and familiar inputs. The agent should predict the call from the name and schema.
+- When unsure, present the bare contract to the target model first. Add only the fact it could not infer correctly.
+
+## Fix model choices at the model boundary
+
+- When the implementation supports the right behaviour but the model selects the wrong action or argument, treat it as a model-facing contract failure first.
+- Fix the name, default, argument description, or prompt guidance before adding runtime policy, heuristics, or extra state.
+- Before changing a tool contract for external behaviour, exercise the actual route. Accepted fields and public docs do not prove the route honours them. Separate body controls from prompt-mediated behaviour.
+- Describe choices in terms of user intent, not only mechanics. “False returns immediately” explains execution. “Use false only while continuing other work” changes the model's decision.
+- Test paired natural requests that differ only at the decision boundary. Confirm the model chooses correctly before changing implementation.
+
+## Keep the decision surface small
+
+Prefer a stable help-backed or deferred contract for unfamiliar multi-action tools or tools whose accepted arguments vary with state. Keep capability discovery visible. Disclose current arguments and tool-specific guidance on demand. Where supported, use a string input with a help operation. Preserve familiar native contracts and simple self-explanatory schemas instead of wrapping them for uniformity. If harness or API constraints require an upfront schema, keep it minimal. For prompt or tool-vector changes, load an applicable prompt-caching skill.
+
+For help-backed tools, silently discard known presentation hints when the chosen action does not use them. Normalize at the input boundary and keep execution types strict. Reject arguments whose omission could change the target, action, scope, safety, or intended result. Do not blanket-ignore unknown fields.
+
+- Give one tool one coherent job. Extend an existing tool instead of making the agent choose between overlapping alternatives.
+- Expose only decisions the caller must make. Keep providers, models, prompts, commands, internal modes, formatting, and policy inside the implementation unless the agent genuinely chooses them.
+- Require only the minimum valid input. Add an optional field only when omission has a useful deterministic meaning.
+- Do not invent an argument whose only job is to splice ordinary intent into an existing prompt. Attach concise guidance to that prompt field instead.
+- Prefer conventional names such as `cmd`, `path`, `query`, `cwd`, and `message`. Use a small enum when the choice is genuinely closed.
+- If a field needs a paragraph to make sense, remove it, rename it, or reconsider the tool boundary.
+
+## Let the schema speak
+
+- Do not narrate types, requiredness, optionality, enums, defaults, or limits already encoded by the schema.
+- Omit a field description when its name is sufficient.
+- Write necessary descriptions as compact payload fragments: `Cwd`, `Wait ms`, `Recent days`, `Truncate`.
+- Attach guidance to the narrowest field it qualifies, so placement supplies context. Tell the agent what to supply or do. Prefer a concrete supported action over negative capability prose.
+- Omit cosmetic terminal full stops, backticks, Markdown, examples, and grammatical padding. Preserve punctuation and formatting only when they carry literal syntax or prevent ambiguity.
+- Keep safe compatibility aliases inside argument preparation rather than advertising them in the schema.
+
+## Reject bloated tool contracts
+
+- Existing text gets no exemption. When touching a tool or its integration, cull its entire model-facing contract before adding anything.
+- Judge the assembled tool block, not individual fields or packages. A collection of short descriptions can still be an oversized manual.
+- Each fact gets one representation per active mode. Reject repetition across usage, descriptions, schemas, snippets, guidelines, and help. Do not restate the tool name and action as its description.
+- Keep inventory text to one short capability or exact usage line. Help-backed tools get one compact discovery entry; detailed actions, optional fields, and examples belong in help.
+- Reject feature inventories, nested optional APIs, troubleshooting manuals, and generic agent workflow in standing prompts. Keep the immediate callable contract and necessary non-obvious constraints. Put rare invalid-state recovery in precise runtime errors.
+- Every additional standing instruction must identify the concrete wrong decision it prevents and why the existing name, schema, help, or error cannot prevent it. Unfamiliar capabilities, local deviations, tool collisions, exact syntax, safety boundaries, and recurring mistakes may justify text; mere feature existence does not.
+- "Preserve metadata", "feature parity", and "might help" do not justify prompt growth. Reject the change until redundant and unjustified text is removed; a net token reduction does not excuse remaining clutter.
+
+## Return useful state
+
+- Treat every tool return, including errors, as a next-action contract. On success, return needed state and disclose a newly available action when it is useful, not generic workflow advice.
+- On failure, state the practical consequence, what remains available, and a valid next action. Distinguish no change from partial completion before suggesting a retry.
+- Keep implementation diagnostics out of model-facing text unless needed to act. Recovery must use the agent's available capabilities; leave account, authentication, and configuration decisions to the user instead of prescribing them as agent recovery.
+- Bound large output and make truncation visible. If omitted content may be needed, return a way to retrieve it.
+- Keep render-only detail out of the model-facing result.
+
+## Validate
+
+Inspect the exact schema and prompt text sent to the model. Apply the rejection gate to every word, field, and guideline, including unchanged text in the touched contract.
+
+Check representative valid calls, invalid calls, neighbouring-tool selection, empty output, failure, and continuation where relevant. Optimize task success first, then compare token cost.

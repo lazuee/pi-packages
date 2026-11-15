@@ -1,0 +1,83 @@
+{
+	"name": "@lazuee/pi-shepherdr",
+	"version": "0.0.1",
+	"description": "Persistent blocking and asynchronous Pi agents through Herdr.",
+	"type": "module",
+	"license": "MIT",
+	"author": "lazuee",
+	"homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-shepherdr#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lazuee/pi-packages.git",
+		"directory": "packages/pi-shepherdr"
+	},
+	"bugs": {
+		"url": "https://github.com/lazuee/pi-packages/issues"
+	},
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"pi",
+		"herdr",
+		"shepherdr",
+		"agents",
+		"orchestration"
+	],
+	"files": [
+		"index.ts",
+		"worker-api.ts",
+		"src",
+		"profiles",
+		"README.md",
+		"LICENSE",
+		"tsconfig.json",
+		"CHANGELOG.md"
+	],
+	"scripts": {
+		"pack:dry": "npm pack --dry-run",
+		"check": "tsgo --noEmit"
+	},
+	"peerDependencies": {
+		"@lazuee/pi-agent-comms": "^0.0.1",
+		"@howaboua/pi-codex-conversion": ">=5.0.0",
+		"@earendil-works/pi-ai": ">=1.1.0",
+		"@earendil-works/pi-coding-agent": ">=1.5.0",
+		"@earendil-works/pi-tui": ">=1.1.0"
+	},
+	"peerDependenciesMeta": {
+		"@lazuee/pi-agent-comms": {
+			"optional": true
+		},
+		"@howaboua/pi-codex-conversion": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@lazuee/pi-agent-comms": "0.0.1",
+		"@howaboua/pi-codex-conversion": "5.0.0",
+		"@earendil-works/pi-ai": "1.5.2",
+		"@earendil-works/pi-coding-agent": "1.5.2",
+		"@earendil-works/pi-tui": "1.5.2",
+		"@types/node": "^26.6.6",
+		"typescript": "^7.0.2"
+	},
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"main": "index.ts",
+	"exports": {
+		".": "./index.ts",
+		"./worker-api": "./worker-api.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@earendil-works/pi-schema": "1.5.2"
+	}
+}

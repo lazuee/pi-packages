@@ -1,0 +1,66 @@
+{
+	"name": "@lazuee/pi-unicode-charts",
+	"version": "0.0.1",
+	"description": "Terminal-native Unicode charts for Pi Markdown",
+	"type": "module",
+	"main": "src/index.ts",
+	"exports": "./src/index.ts",
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE",
+		"tsconfig.json",
+		"CHANGELOG.md"
+	],
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"scripts": {
+		"check": "tsgo --noEmit"
+	},
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"pi-coding-agent",
+		"pi",
+		"unicode",
+		"charts",
+		"terminal",
+		"markdown",
+		"sparkline",
+		"heatmap",
+		"data-visualization"
+	],
+	"author": "howaboua",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lazuee/pi-packages.git",
+		"directory": "packages/pi-unicode-charts"
+	},
+	"bugs": {
+		"url": "https://github.com/lazuee/pi-packages/issues"
+	},
+	"homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-unicode-charts#readme",
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "1.5.2",
+		"@types/node": "^26.6.6",
+		"typescript": "^7.0.2",
+		"@howaboua/pi-codex-conversion": "5.0.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": ">=1.5.0",
+		"@earendil-works/pi-tui": ">=1.0.0",
+		"@howaboua/pi-codex-conversion": ">=5.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@howaboua/pi-codex-conversion": {
+			"optional": true
+		}
+	}
+}

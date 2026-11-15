@@ -1,0 +1,72 @@
+{
+	"name": "@lazuee/pi-ask",
+	"version": "0.0.1",
+	"description": "Interactive decisions, review triage, and human handoffs for Pi.",
+	"type": "module",
+	"license": "MIT",
+	"author": "lazuee",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lazuee/pi-packages.git",
+		"directory": "packages/pi-ask"
+	},
+	"homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-ask#readme",
+	"bugs": {
+		"url": "https://github.com/lazuee/pi-packages/issues"
+	},
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"pi-coding-agent",
+		"human-in-the-loop",
+		"review",
+		"handoff"
+	],
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [
+		"index.ts",
+		"ask",
+		"prompts",
+		"README.md",
+		"LICENSE",
+		"tsconfig.json",
+		"CHANGELOG.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@howaboua/pi-codex-conversion": ">=5.0.0",
+		"@earendil-works/pi-ai": ">=1.0.0",
+		"@earendil-works/pi-coding-agent": ">=1.5.0",
+		"@earendil-works/pi-tui": ">=1.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@howaboua/pi-codex-conversion": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@howaboua/pi-codex-conversion": "5.0.0",
+		"@earendil-works/pi-ai": "1.5.2",
+		"@earendil-works/pi-coding-agent": "1.5.2",
+		"@earendil-works/pi-tui": "1.5.2",
+		"typescript": "^7.0.2"
+	},
+	"scripts": {
+		"pack:dry": "npm pack --dry-run",
+		"check": "tsgo --noEmit"
+	},
+	"main": "index.ts",
+	"exports": "./index.ts",
+	"dependencies": {
+		"@earendil-works/pi-schema": "1.5.2"
+	}
+}
