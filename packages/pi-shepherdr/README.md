@@ -237,7 +237,7 @@ Shepherdr works without Notes or PCC. A target without active Notes sharing stil
 On first load, Shepherdr installs four editable profiles:
 
 - `general` uses `openai-codex/gpt-6-sol` with `high` thinking for implementation
-- `explorer` uses `openai-codex/gpt-6-luna` with `high` thinking for read-only discovery
+- `explorer` uses `openai-codex/gpt-6-luna` with `high` thinking for read-only discovery. Its `prepare` brief appends the working directory's entry names and any `AGENTS.md` nearby, as pointers only, so a fast-moving tree cannot make the brief stale; it reports an empty or remote directory instead of guessing
 - `reviewer` uses `openai-codex/gpt-6-luna` with `xhigh` thinking for generic read-only review
 - `committer` uses `openai-codex/gpt-6-sol` with `high` thinking for staging and committing
 
