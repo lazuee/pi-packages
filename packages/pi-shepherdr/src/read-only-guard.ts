@@ -100,7 +100,8 @@ export function registerReadOnlyGuard(pi: ExtensionAPI): void {
 
 		const byName =
 			reasonForName(event.toolName) ??
-			(profile.writeTools.includes(event.toolName)
+			// Tool-name case is not promised by anyone; compare folded.
+			(profile.writeTools.some((tool) => tool.toLowerCase() === event.toolName.toLowerCase())
 				? `\`${event.toolName}\` is declared as writing`
 				: undefined);
 		if (byName) return blocked(byName);

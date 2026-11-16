@@ -157,7 +157,9 @@ async function readProfile(name: string, directory: string): Promise<AgentProfil
 		...(blocking === undefined ? {} : { blocking }),
 		...(shareContext === undefined ? {} : { shareContext }),
 		...(writes === undefined ? {} : { writes }),
-		writeTools: parsed.write_tools ? stringArray(parsed.write_tools, `${name}.write_tools`) : [],
+		writeTools: parsed.write_tools
+			? stringArray(parsed.write_tools, `${name}.write_tools`).map((tool) => tool.trim())
+			: [],
 		accepts: parsed.accepts ? stringArray(parsed.accepts, `${name}.accepts`) : [],
 		piArgs: parsed.pi_args ? stringArray(parsed.pi_args, `${name}.pi_args`) : [],
 		...(resolvedPromptPath
