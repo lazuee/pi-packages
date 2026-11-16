@@ -2,8 +2,10 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadAgentProfiles } from "./profiles.js";
 import { PROFILE_FLAG, WRITES_FLAG } from "./worker-role.js";
 
-/** Tools that only ever write. A read-only worker never needs them. */
-const WRITES = new Set(["edit", "write", "multi_edit", "apply_patch", "patch"]);
+/** The two built-in tools that write. Everything else Pi ships (read, grep, find,
+ * ls) only reads; unknown tools, including MCP ones, are allowed and their effect
+ * is left to the prompt. */
+const WRITES = new Set(["edit", "write"]);
 
 /** Shell verbs that change the tree. Matched against command segments. */
 const MUTATORS =
