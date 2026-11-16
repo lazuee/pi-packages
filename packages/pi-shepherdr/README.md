@@ -243,9 +243,11 @@ On first load, Shepherdr installs four editable profiles:
 
 `committer` is the default for any commit, whether the user asks for one or an agent decides its work is ready. Send it rather than running `git commit` yourself, including during orchestration, unless the agent is read-only, is already the committer, or the user asked otherwise. It audits the tree, splits mixed work into one commit per concern and writes the messages in [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) form, typed and scoped, breaking changes marked with `!` and a `BREAKING CHANGE:` footer. It stages and commits only, and does not push, merge or open pull requests. Its `prepare` brief runs on the controller first and appends the root, branch, upstream state, recent subjects and bodies as style samples, the working tree, anything already staged, and state warnings such as a detached HEAD, an unfinished merge or an in-progress rebase. The agent still runs the full audit itself; the brief only orients it. It always blocks, because the split has to be read back before work continues.
 
+`agent_type` follows the shape of the task rather than habit: `committer` for a commit, `reviewer` for a review or audit, `explorer` for a question about existing code, `general` for a change. Skip the extra hop when an agent of the right kind already holds the context. `help` repeats these pairings, and each disappears with its profile.
+
 Profiles set starting defaults, not a permanent role. Their instructions accompany the initial assignment, so the same agent can take on different work later. Notes model roles can change its model and reasoning at context rollover without replacing the agent or discarding its saved notes.
 
-Use `general` sparingly, mainly when requested or while orchestration is active. For work in the controller's repository, create and prepare a dedicated worktree, then pass it as `cwd`.
+`general` is the only writing profile, so the pairing rule reaches it often. Still use it sparingly while orchestrating, where a change is cheaper done directly. For work in the controller's repository, create and prepare a dedicated worktree, then pass it as `cwd`.
 
 Profiles live under:
 
