@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 const GIT_TIMEOUT_MS = 10_000;
 const STATUS_LIMIT = 400;
 const LOG_LIMIT = 15;
+const PREFIXED = /^[a-z]+(\([a-z0-9-]+\))?!?: /;
 
 function runGit(cwd, args) {
 	const result = spawnSync("git", args, {
@@ -130,6 +131,7 @@ export function prepare(input) {
 	}
 	const state = collect(input.cwd);
 	const staging = state.staged || "(nothing staged)";
+	const untyped = state.log.split("\n").filter((line) => line && !PREFIXED.test(line)).length;
 	const warnings = [];
 	if (state.conflicts) warnings.push(`Unmerged paths need resolving first: ${state.conflicts}.`);
 	if (state.branch === "HEAD")
@@ -162,7 +164,11 @@ export function prepare(input) {
 		...(state.counts ? [`Ahead/behind: ${state.counts}`] : []),
 		...(warnings.length ? ["", "State warnings:", ...warnings.map((line) => `- ${line}`)] : []),
 		"",
-		"Recent subjects. Older ones predate the convention and carry no type; match their tone, not their shape:",
+		`Recent subjects. ${
+			untyped
+				? `${untyped} are older and unprefixed: match its tone, not its shape. The rest are typed: copy their shape too.`
+				: "All are typed: copy their shape."
+		}`,
 		section("recent_log", safe(bounded(state.log, LOG_LIMIT))),
 		"",
 		"Recent bodies, shape to match:",

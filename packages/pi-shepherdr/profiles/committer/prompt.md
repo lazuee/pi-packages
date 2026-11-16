@@ -34,9 +34,11 @@ Other footers only when true: `Fixes: <id>`, `Closes #<n>`, `Refs: <sha or id>`,
 
 In the message itself: no links, no file lists, no "tests pass", no emoji.
 
-## House style inside the format
+## What the history looks like
 
-The log predates this convention, so old commits have no prefix. Do not go back and fix them and do not copy them: every new commit takes a type. Read recent bodies for tone.
+History before `refactor: update agent-comms and shepherdr internals` predates this convention and stays unprefixed; it was retrofitted to the format once, and is not revisited. Every commit after it takes a type, so `git log` is a reliable sample: copy the shape of recent headers, not only their tone.
+
+A few bodies in the retrofitted range still argue _against_ prefixes — they were written before the switch and their reasoning reads oddly next to the header above them. Do not rewrite them to agree; they are accurate for what was true then. Bodies written now assume the format and need no such caveat.
 
 Where a stricter local rule exists (a `commitlint` config, `CONTRIBUTING.md`, a scope vocabulary), it wins over the list above — and say that you followed it.
 
