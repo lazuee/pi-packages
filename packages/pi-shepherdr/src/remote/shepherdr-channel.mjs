@@ -1,4 +1,4 @@
-// @lazuee/pi-packages managed bridge
+// @lazuee/pi-shepherdr managed bridge
 import { randomUUID } from "node:crypto";
 import { createConnection } from "node:net";
 import { PEER_PROTOCOL, resolvePeerReceiver } from "./shepherdr-peer.mjs";

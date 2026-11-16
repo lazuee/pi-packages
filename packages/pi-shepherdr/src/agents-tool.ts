@@ -24,6 +24,7 @@ import type { AgentFleet } from "./fleet/index.js";
 import { attributeAgentPrompt } from "./messages/attribution.js";
 import type { createPeerCommands } from "./peer-commands.js";
 import type { SharedAgentContext } from "./shared-context.js";
+import { setChildSupervision } from "./spawn-ownership.js";
 import { WorkerResumer } from "./worker-resume.js";
 
 export function createAgentsTool(
@@ -120,6 +121,13 @@ export function createAgentsTool(
 					});
 				}
 				await runtime.monitor.unwatch(record.paneId);
+				setChildSupervision(
+					pi,
+					ctx,
+					runtime.local ? fleet.localMachine() : runtime.machine,
+					{ pane_id: record.paneId },
+					false,
+				);
 				return toolResult({
 					unwatched: true,
 					machine: runtime.machine,
@@ -154,6 +162,13 @@ export function createAgentsTool(
 			}
 			if (params.action === "watch") {
 				await runtime.monitor.watch(panel);
+				setChildSupervision(
+					pi,
+					ctx,
+					runtime.local ? fleet.localMachine() : runtime.machine,
+					panel,
+					true,
+				);
 				return toolResult({
 					watched: true,
 					machine: runtime.machine,
@@ -189,7 +204,7 @@ export function createAgentsTool(
 				]
 					.filter(Boolean)
 					.join("\n");
-				if (params.action === "send") {
+				if (params.action === "send" && !owned?.restoreSupervision) {
 					executionSignal.throwIfAborted();
 					const receipt = await runtime.client.sendMessage(panel, attributedMessage);
 					if (!receipt.command) runtime.monitor.noteMessage(panel.pane_id, message);
@@ -205,12 +220,33 @@ export function createAgentsTool(
 					runtime,
 					panel,
 					message,
-					params.blocking === true,
+					params.action === "assign" && params.blocking === true,
 					executionSignal,
 					update,
 					() => runtime.client.sendMessage(panel, attributedMessage),
-					{ expectUserMessage: true },
+					{
+						expectUserMessage: true,
+						onAccepted: () =>
+							setChildSupervision(
+								pi,
+								ctx,
+								runtime.local ? fleet.localMachine() : runtime.machine,
+								panel,
+								true,
+							),
+					},
 				);
+				if (params.action === "send")
+					return toolResult(
+						{
+							sent: true,
+							...(owned?.resumed ? { resumed: true } : {}),
+							...(dispatch.command ? { commandSubmitted: true } : {}),
+							machine: runtime.machine,
+							target: panel.pane_id,
+						},
+						dispatch.warning,
+					);
 				return toolResult(
 					{
 						...(owned?.resumed ? { resumed: true } : {}),

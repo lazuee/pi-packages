@@ -1,4 +1,4 @@
-// @lazuee/pi-packages managed bridge
+// @lazuee/pi-shepherdr managed bridge
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";

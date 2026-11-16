@@ -1,4 +1,4 @@
-// @lazuee/pi-packages managed bridge
+// @lazuee/pi-shepherdr managed bridge
 
 import { createHash } from "node:crypto";
 import { open, stat } from "node:fs/promises";

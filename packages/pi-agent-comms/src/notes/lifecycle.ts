@@ -36,6 +36,7 @@ export class NotesLifecycle {
 	active = false;
 	normalCompaction = false;
 	newWindowRequests: NewWindowRequests = "unrestricted";
+	taskCompletionRollover = false;
 	idleMinutes: IdleMinutes = 0;
 	taskBoundaryReminder = 0;
 	bridge: NotesBridge | undefined;
@@ -156,9 +157,19 @@ export class NotesLifecycle {
 			runId,
 		);
 	}
-	requestRollover(ctx: ExtensionContext, callId: string, handoff?: ModelRoleHandoff): boolean {
+	requestRollover(
+		ctx: ExtensionContext,
+		callId: string,
+		handoff?: ModelRoleHandoff,
+		resume = true,
+		parentCallId?: string,
+	): boolean {
 		if (this.newWindowRequests === "off")
 			throw new Error("New window requests are disabled. Continue in the current window.");
+		if (!resume && !this.taskCompletionRollover)
+			throw new Error(
+				"Task-completion rollover is disabled. Continue here, or use new_context without resume: false.",
+			);
 		if (this.checkpoint.pending || this.admission.pending) return false;
 		if (this.requests.pending) return false;
 		if (
@@ -167,12 +178,13 @@ export class NotesLifecycle {
 				this.windows.current?.currentWindowId,
 				this.runId,
 				callId,
+				parentCallId,
 			)
 		)
 			throw new Error(
 				"Save your progress in your own notes using a relative path, wait for the write to succeed, then call new_context next. Writing another agent's notes does not save your checkpoint.",
 			);
-		this.requests.schedule(ctx, handoff);
+		this.requests.schedule(ctx, handoff, resume);
 		return true;
 	}
 	private async openWindow(
@@ -213,6 +225,7 @@ export class NotesLifecycle {
 	}
 	outcome(outcome: "completed" | "aborted" | "error"): void {
 		this.checkpoint.outcome(outcome);
+		this.requests.outcome(outcome);
 	}
 	input(event: InputEvent, ctx: ExtensionContext): Promise<InputEventResult | undefined> {
 		return this.admission.input(event, ctx);
@@ -261,7 +274,7 @@ export class NotesLifecycle {
 			return;
 		}
 		if (this.admission.drain()) return;
-		const rollover = this.requests.settled(ctx);
+		const rollover = this.requests.settled(ctx, event.aborted);
 		if (rollover) await rollover;
 	}
 }

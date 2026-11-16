@@ -1,4 +1,4 @@
-// @lazuee/pi-packages managed bridge
+// @lazuee/pi-shepherdr managed bridge
 import { watch } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";

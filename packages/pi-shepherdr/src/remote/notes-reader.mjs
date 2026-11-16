@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
-const packages = ["@lazuee/pi-agent-comms", "@howaboua/pi-notes-compaction"];
+const packages = ["@lazuee/pi-agent-comms", "@lazuee/pi-notes-compaction"];
 export const NOTES_READER_UNAVAILABLE =
 	"Saved Notes reads are unavailable. Install Agent Comms or Notes Compaction alongside Shepherdr, then reload Pi. Other agent operations remain available.";
 const INVALID_READER =
@@ -42,16 +42,8 @@ async function loadReader(url) {
 	}
 }
 
-/** Shape of the reader result owned by Agent Comms' saved-session module.
- * @typedef {object} SavedNotesSession
- * @property {string} threadId
- * @property {import("@earendil-works/pi-coding-agent").SessionEntry[]} entries
- * @property {import("@earendil-works/pi-coding-agent").SessionEntry[]} branch
- * @property {number} [savedAt]
- */
-
 /** @param {string} path @param {AbortSignal} [signal] @param {boolean} [history]
- * @returns {Promise<SavedNotesSession>}
+ * @returns {ReturnType<typeof import("@lazuee/pi-agent-comms/saved-session").readSavedNotesSession>}
  */
 export async function readSavedNotesSession(path, signal, history = false) {
 	signal?.throwIfAborted();

@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { AskRequest, RequestChange } from "./requests.js";
 
 const ENTRY = "shepherdr-extension-message";
-const REPLY_CHANNEL = "@howaboua/pi-shepherdr/extension-reply/v1";
+const REPLY_CHANNEL = "@lazuee/pi-shepherdr/extension-reply/v1";
 const EXTENSION = "@howaboua/pi-ask";
 
 function questionText(request: AskRequest): string {

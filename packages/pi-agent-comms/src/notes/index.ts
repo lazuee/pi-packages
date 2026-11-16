@@ -30,9 +30,11 @@ export async function createNotesRuntime(pi: ExtensionAPI, store: NotesStore) {
 	const lifecycle = new NotesLifecycle(pi, store);
 	const checkpoints = new WindowCheckpoints((entries) => lifecycle.windows.projectBranch(entries));
 	let refreshNested = () => {};
-	const activation = createNotesActivation(pi, store, search, lifecycle, settingsPath, () =>
-		refreshNested(),
-	);
+	let refreshTools = () => {};
+	const activation = createNotesActivation(pi, store, search, lifecycle, settingsPath, () => {
+		refreshTools();
+		refreshNested();
+	});
 	const stopAdmission = pi.events.on("pi-notes-compaction:custom-turn-admission:v1", (value) => {
 		const request = value as {
 			protocol?: number;
@@ -48,8 +50,10 @@ export async function createNotesRuntime(pi: ExtensionAPI, store: NotesStore) {
 		}
 	});
 	const roles = createModelRoles(pi, activation, lifecycle);
-	const tools = createTools(pi, store, lifecycle, search, roles);
-	refreshNested = await registerNotesToolIntegrations(pi, lifecycle, activation, tools);
+	const toolRegistration = createTools(pi, store, lifecycle, search, roles);
+	const { tools } = toolRegistration;
+	refreshTools = toolRegistration.refresh;
+	refreshNested = await registerNotesToolIntegrations(pi, lifecycle, activation, toolRegistration);
 	for (const tool of tools) pi.registerTool(tool);
 	const owner = createNotesContextOwner(pi, store, lifecycle, search);
 	const { family, stopOwner } = await registerNotesSharing(pi, owner, activation, lifecycle);

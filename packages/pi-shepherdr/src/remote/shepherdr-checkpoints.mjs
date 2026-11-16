@@ -1,4 +1,4 @@
-// @lazuee/pi-packages managed bridge
+// @lazuee/pi-shepherdr managed bridge
 import { isDeepStrictEqual } from "node:util";
 
 /** @param {unknown} identity */

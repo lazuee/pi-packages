@@ -1,4 +1,4 @@
-// @lazuee/pi-packages managed bridge
+// @lazuee/pi-shepherdr managed bridge
 import { createHash, randomUUID } from "node:crypto";
 import { watch } from "node:fs";
 import { readFile } from "node:fs/promises";

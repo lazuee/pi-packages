@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { ExtensionReply } from "./types.js";
 
-const EXTENSION_REPLY_EVENT = "@lazuee/pi-packages/extension-reply/v1";
+const EXTENSION_REPLY_EVENT = "@lazuee/pi-shepherdr/extension-reply/v1";
 
 /** Producers claim synchronously and resolve only after semantic delivery/persistence. */
 export async function dispatchExtensionReply(

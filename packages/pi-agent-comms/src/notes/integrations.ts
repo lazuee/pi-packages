@@ -22,8 +22,9 @@ export async function registerNotesToolIntegrations(
 	pi: ExtensionAPI,
 	lifecycle: NotesLifecycle,
 	activation: NotesActivation,
-	tools: ReturnType<typeof createTools>,
+	registration: ReturnType<typeof createTools>,
 ) {
+	const { tools, requestContext } = registration;
 	try {
 		const { registerGptPromptMode } = await import("@howaboua/pi-codex-conversion/prompt-mode");
 		const registration = registerGptPromptMode(pi, (active, ctx) => {
@@ -54,33 +55,67 @@ export async function registerNotesToolIntegrations(
 		const { adaptToolForCodeMode, registerCodeModeExtensionTools } = await import(
 			"@howaboua/pi-codex-conversion/code-mode"
 		);
+		const rollover: ReturnType<typeof adaptToolForCodeMode> = {
+			name: "new_context",
+			topLevelName: "new_context",
+			usage: "await tools.new_context(args)",
+			description: "",
+			kind: "function",
+			inputOptional: true,
+			deferLoading: true,
+			discoverWhenDeferred: false,
+			propagateTermination: true,
+			executionMode: "sequential",
+			inputSchema: tools.find((tool) => tool.name === "new_context")!.parameters,
+			async invoke(input, context, signal) {
+				if (!context.extensionContext || !context.originalExecCallId || !context.toolCallId)
+					throw new Error(
+						"Context rollover is unavailable in this call. Save notes and call new_context directly.",
+					);
+				const output = await requestContext(
+					context.toolCallId,
+					input,
+					signal,
+					context.extensionContext,
+					context.originalExecCallId,
+				);
+				context.captureResult?.(output);
+				const part = output.content[0];
+				return part?.type === "text" ? JSON.parse(part.text) : undefined;
+			},
+		};
 		const registration = registerCodeModeExtensionTools(
 			pi,
-			() =>
-				tools
-					.filter((tool) => tool.name === "notes" || tool.name === "history")
-					.map((tool) => ({
-						...adaptToolForCodeMode(tool, {
-							discovery: "help",
-							usage: tool.name === "notes" ? NOTES_USAGE : HISTORY_USAGE,
-							deferLoading: tool.name !== "notes",
-							opaqueResult: tool.name === "notes",
-							...(tool.name === "history" ? { resultValue: historyResultValue } : {}),
-						}),
-						// Code checks inputs before Pi can normalise these aliases.
-						...(tool.name === "notes"
-							? {
-									inputSchema: {
-										...NOTES_SCHEMA,
-										properties: {
-											...noteProperties,
-											content: noteProperties["text"],
-											end_line: noteProperties["stop_line"],
+			() => {
+				rollover.inputSchema = tools.find((tool) => tool.name === "new_context")!.parameters;
+				return [
+					rollover,
+					...tools
+						.filter((tool) => tool.name === "notes" || tool.name === "history")
+						.map((tool) => ({
+							...adaptToolForCodeMode(tool, {
+								discovery: "help",
+								usage: tool.name === "notes" ? NOTES_USAGE : HISTORY_USAGE,
+								deferLoading: tool.name !== "notes",
+								opaqueResult: tool.name === "notes",
+								...(tool.name === "history" ? { resultValue: historyResultValue } : {}),
+							}),
+							// Code checks inputs before Pi can normalise these aliases.
+							...(tool.name === "notes"
+								? {
+										inputSchema: {
+											...NOTES_SCHEMA,
+											properties: {
+												...noteProperties,
+												content: noteProperties["text"],
+												end_line: noteProperties["stop_line"],
+											},
 										},
-									},
-								}
-							: {}),
-					})),
+									}
+								: {}),
+						})),
+				];
+			},
 			{ isActive: () => lifecycle.active },
 		);
 		refreshNested = registration.refresh;
