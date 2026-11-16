@@ -234,11 +234,14 @@ Shepherdr works without Notes or PCC. A target without active Notes sharing stil
 
 ## Profiles
 
-On first load, Shepherdr installs three editable profiles:
+On first load, Shepherdr installs four editable profiles:
 
 - `general` uses `openai-codex/gpt-6-sol` with `high` thinking for implementation
 - `explorer` uses `openai-codex/gpt-6-luna` with `high` thinking for read-only discovery
 - `reviewer` uses `openai-codex/gpt-6-luna` with `xhigh` thinking for generic read-only review
+- `committer` uses `openai-codex/gpt-6-sol` with `high` thinking for staging and committing
+
+`committer` is the default for any commit, whether the user asks for one or an agent decides its work is ready. Send it rather than running `git commit` yourself, including during orchestration, unless the agent is read-only, is already the committer, or the user asked otherwise. It audits the tree, splits mixed work into one commit per concern and writes the messages; it stages and commits only, and does not push, merge or open pull requests. Its `prepare` brief runs on the controller first and appends the root, branch, upstream state, recent subjects and bodies as style samples, the working tree, anything already staged, and state warnings such as a detached HEAD, an unfinished merge or an in-progress rebase. The agent still runs the full audit itself; the brief only orients it. It always blocks, because the split has to be read back before work continues.
 
 Profiles set starting defaults, not a permanent role. Their instructions accompany the initial assignment, so the same agent can take on different work later. Notes model roles can change its model and reasoning at context rollover without replacing the agent or discarding its saved notes.
 
