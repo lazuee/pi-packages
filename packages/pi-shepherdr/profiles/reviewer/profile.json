@@ -5,6 +5,22 @@
 	"thinking": "xhigh",
 	"prompt": "prompt.md",
 	"writes": false,
+	"write_tools": [
+		"mcp__rea__annotate_native_function",
+		"mcp__rea__comment",
+		"mcp__rea__inline_comment",
+		"mcp__rea__set_address_name",
+		"mcp__rea__set_addresses_names",
+		"mcp__rea__set_bookmark",
+		"mcp__rea__set_comment",
+		"mcp__rea__set_inline_comment",
+		"mcp__rea__unset_bookmark",
+		"mcp__rea__batch_decompile",
+		"mcp__rea__decompile_all",
+		"mcp__rea__execute_rizin_command",
+		"mcp__rea__cutter_command",
+		"mcp__rea__close_binary"
+	],
 	"prepare": "prepare.mjs",
 	"accepts": ["base"],
 	"pi_args": []
