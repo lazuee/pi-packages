@@ -112,6 +112,12 @@ export async function agentsHelp(
 			reuse: gpt
 				? "Keep each agent until task verified complete; corrections→same agent; then close. Unrelated task→new agent; reviews independent"
 				: "Keep each agent available until its task is verified complete; return corrections to it before closing. Use separate agents for unrelated work and independent reviews.",
+			...(profiles.has("committer")
+				? {
+						committer:
+							"Default for any commit, whether the user asks for one or an agent decides to; read-only agents that only commit exempt themselves",
+					}
+				: {}),
 			...(profiles.has("general")
 				? {
 						general: "Only when requested/orchestrating",

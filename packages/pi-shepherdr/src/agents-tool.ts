@@ -43,6 +43,7 @@ export function createAgentsTool(
 		promptGuidelines: [
 			"agents: Read help alone first",
 			"agents: MUST use for supported agent operations, local or remote; never bypass with hc or shell commands, even after failure. Report blockers. hc remains available for non-agent processes",
+			"agents: Committing is a supported agent operation. Delegate it to agent_type committer unless the agent is read-only, already committing, or the user asked otherwise",
 		],
 		parameters: AgentsParameters,
 		executionMode: "parallel",
