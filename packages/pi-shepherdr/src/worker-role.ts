@@ -2,6 +2,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { registerSpawnAncestry } from "./ancestry-record.js";
 
 export const WORKER_FLAG = "shepherdr-worker";
+/** Which profile launched this worker. Survives compaction; the prompt may not. */
+export const PROFILE_FLAG = "shepherdr-profile";
 const WORKER_MARKER = "herdr-worker-v1";
 const WORKER_ROLE_CHANNEL = "shepherdr:worker-role:v1";
 
@@ -22,12 +24,21 @@ export function markedWorker(manager: SessionManager): boolean {
 	});
 }
 
+function profileFlag(pi: ExtensionAPI): string | undefined {
+	const value = pi.getFlag(PROFILE_FLAG);
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 export function registerWorkerRole(pi: ExtensionAPI) {
 	registerSpawnAncestry(pi);
 	pi.registerFlag(WORKER_FLAG, {
 		type: "boolean",
 		default: false,
 		description: "Run as a supervised Shepherdr worker",
+	});
+	pi.registerFlag(PROFILE_FLAG, {
+		type: "string",
+		description: "Worker profile that launched this session",
 	});
 	const isWorker = (manager: SessionManager) =>
 		pi.getFlag(WORKER_FLAG) === true || markedWorker(manager);
@@ -49,5 +60,5 @@ export function registerWorkerRole(pi: ExtensionAPI) {
 			});
 		}
 	});
-	return { isWorker };
+	return { isWorker, profile: () => profileFlag(pi) };
 }

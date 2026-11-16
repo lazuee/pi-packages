@@ -287,6 +287,8 @@ Herdr still owns terminals, layout, agent processes and restored sessions. Sheph
 
 Every Shepherdr launch carries `--shepherdr-worker`, including remote workers, profiles without prompts and resumed workers. The role survives session resume after the first task. Forks do not inherit the saved role, but a fork opened inside a flagged worker process is still a worker. Existing agents reached through `assign` or `attach` are not automatically classified as workers. Pi Codex Conversion is not required.
 
+A worker launched with a profile also carries `--shepherdr-profile <name>`. The profile prompt normally rides in the first task message, which compaction can summarise away; the recorded name lets Shepherdr supply the role again for each new context window, so a worker does not drift into a generic agent mid-run. Resumed workers keep the flag, because it describes the worker rather than a model default. Deleting a profile after launch stops the re-supply; turns already spent under it are unaffected.
+
 Other extensions can query the current role synchronously through public Pi events, including during `session_start`:
 
 ```ts

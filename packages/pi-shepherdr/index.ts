@@ -13,6 +13,7 @@ import { registerPeerInbox } from "./src/peer-inbox.js";
 import { installAgentProfiles } from "./src/profiles.js";
 import { registerSharedAgentContext } from "./src/shared-context-host.js";
 import { registerVoiceFocusReceiver } from "./src/voice-handoff.js";
+import { registerWorkerBriefing } from "./src/worker-briefing.js";
 import { registerWorkerRole } from "./src/worker-role.js";
 import { registerWorkerService } from "./src/worker-service.js";
 
@@ -22,6 +23,7 @@ const CODE_MODE_MODULE = `${CODE_MODE_PACKAGE}/code-mode`;
 export default async function shepherdrExtension(pi: ExtensionAPI): Promise<void> {
 	registerCoreStatus(pi);
 	const workerRole = registerWorkerRole(pi);
+	registerWorkerBriefing(pi);
 
 	await installAgentProfiles();
 	// Older saved launch commands may still carry this flag. It no longer pins a role.

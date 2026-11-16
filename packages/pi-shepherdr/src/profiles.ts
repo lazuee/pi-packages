@@ -13,6 +13,7 @@ import {
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { PROFILE_FLAG } from "./worker-role.js";
 
 const PROFILE_NAME = /^[a-z][a-z0-9_-]{0,31}$/;
 const AGENT_DIRECTORY = process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent");
@@ -249,7 +250,15 @@ export async function loadAgentProfiles(): Promise<Map<string, AgentProfile>> {
 }
 
 export function profileAgentArgs(profile: AgentProfile): string[] {
-	return ["--model", profile.model, "--thinking", profile.thinking, ...profile.piArgs];
+	return [
+		"--model",
+		profile.model,
+		"--thinking",
+		profile.thinking,
+		`--${PROFILE_FLAG}`,
+		profile.name,
+		...profile.piArgs,
+	];
 }
 
 export async function prepareProfileMessage(

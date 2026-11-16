@@ -57,6 +57,7 @@ export function resumeAgentArgs(args: readonly string[]): string[] {
 		"--name",
 		"-n",
 		"--shepherdr-profile-prompt",
+		// The profile is a fact about this worker, not a model default to re-derive.
 	]);
 	const result: string[] = [];
 	for (let index = 0; index < args.length; index += 1) {
