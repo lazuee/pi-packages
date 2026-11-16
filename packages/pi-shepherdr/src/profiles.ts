@@ -34,6 +34,8 @@ export interface AgentProfile {
 	shareContext?: boolean;
 	/** `false` makes the profile read-only; the tool guard enforces it. */
 	writes?: boolean;
+	/** Extra tool names that write, for MCP tools the guard cannot know. */
+	writeTools: string[];
 	thinking: string;
 }
 
@@ -56,6 +58,7 @@ interface ProfileFile {
 	share_context?: unknown;
 	thinking?: unknown;
 	writes?: unknown;
+	write_tools?: unknown;
 }
 
 function stringArray(value: unknown, field: string): string[] {
@@ -105,8 +108,12 @@ function readProfileFile(name: string, directory: string): ProfileFile {
 		"prompt",
 		"share_context",
 		"writes",
+		"write_tools",
 		"thinking",
 	]);
+	if (parsed.write_tools !== undefined && parsed.writes !== false) {
+		throw new Error(`${name}.write_tools has no effect without ${name}.writes: false`);
+	}
 	const unknown = Object.keys(parsed).filter((key) => !allowed.has(key));
 	if (unknown.length > 0) {
 		throw new Error(`unknown ${name} profile field(s): ${unknown.join(", ")}`);
@@ -150,6 +157,7 @@ async function readProfile(name: string, directory: string): Promise<AgentProfil
 		...(blocking === undefined ? {} : { blocking }),
 		...(shareContext === undefined ? {} : { shareContext }),
 		...(writes === undefined ? {} : { writes }),
+		writeTools: parsed.write_tools ? stringArray(parsed.write_tools, `${name}.write_tools`) : [],
 		accepts: parsed.accepts ? stringArray(parsed.accepts, `${name}.accepts`) : [],
 		piArgs: parsed.pi_args ? stringArray(parsed.pi_args, `${name}.pi_args`) : [],
 		...(resolvedPromptPath

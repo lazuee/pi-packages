@@ -93,7 +93,11 @@ export function registerReadOnlyGuard(pi: ExtensionAPI): void {
 		const profile = (await loadAgentProfiles()).get(name.trim());
 		if (profile?.writes !== false) return;
 
-		const byName = reasonForName(event.toolName);
+		const byName =
+			reasonForName(event.toolName) ??
+			(profile.writeTools.includes(event.toolName)
+				? `\`${event.toolName}\` is declared as writing`
+				: undefined);
 		if (byName) return blocked(byName);
 		if (event.toolName !== "bash" && event.toolName !== "powershell") return;
 		const command = typeof event.input["command"] === "string" ? event.input["command"] : "";
