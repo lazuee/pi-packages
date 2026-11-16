@@ -17,6 +17,11 @@ const GIT_WRITES =
 const INSTALLERS =
 	/^(npm|pnpm|yarn|bun)\s+(install|add|remove|update|ci|link)\b|^(npx|bunx|tsc|prettier)\b.*\s--write\b/;
 
+/** A task runner is a write unless its target reads as inspection. `make` with no
+ * target runs the default goal, which builds more often than it checks. */
+const RUNNER = /^(?:make|npm|pnpm|yarn|bun|npx|bunx|cargo|just|task)(?:\s+(.*))?$/;
+const RUNNER_READS = /\b(check|lint|typecheck|test|status|pack:dry|fmt:check|format:check)\b/i;
+
 /** Split on shell separators, keeping quoted strings intact enough to classify. */
 function segments(command: string): string[] {
 	return command
@@ -49,6 +54,14 @@ function writes(segment: string): boolean {
 		return inner ? writes(inner) : false;
 	}
 	if (REDIRECT.test(bare) || SINK.test(bare)) return true;
+	const runner = RUNNER.exec(bare);
+	// `bun run check` reads; `npm run build` may not. A bare runner hits the default
+	// goal, so only `make`'s is predictable enough to allow.
+	if (runner) {
+		const tail = (runner[1] ?? "").trim();
+		if (tail && RUNNER_READS.test(tail)) return false;
+		if (tail || /^make\b/.test(bare)) return true;
+	}
 	if (GIT_WRITES.test(bare) || INSTALLERS.test(bare) || MUTATORS.test(bare)) return true;
 	const first = bare.split(/\s+/)[0] ?? "";
 	return SCRIPT.test(first) && !INSPECTING_NAME.test(first);
