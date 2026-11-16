@@ -33,15 +33,15 @@ with no `index.ts` are imported by nobody; exempt them in the script if intentio
 # local, hot-reloadable via /reload
 pi install ./packages/my-extension
 
-# from git (tag a release first)
-pi install git:github.com/lazuee/pi-packages@v0.1.0
-
-# from npm
-pi install npm:@lazuee/pi-extension-my-extension
+# from git, tracking main
+pi install git:github.com/lazuee/pi-packages
 ```
 
-A git or npm source installs **every** package in the repo, so tag `v*` only when
-the whole set is coherent.
+The aggregate is installed from git only. There are no release tags and nothing is
+published to npm: `main` is the released state, so an install picks up whatever is
+there. The import resolves every package in the repo, so one install brings the whole
+set — keep `main` coherent rather than tagging. Individual packages are still
+`npm publish`-ready if one is ever distributed alone.
 
 `pi-agent-comms` replaces the standalone `@howaboua/pi-notes-compaction` and
 `@howaboua/pi-agent-board` packages. Prefer it for shared notes and boards, and never
