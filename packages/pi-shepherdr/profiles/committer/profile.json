@@ -1,0 +1,10 @@
+{
+	"description": "Commits only: audit, one commit per concern, prose bodies",
+	"blocking": true,
+	"model": "openai-codex/gpt-6-sol",
+	"thinking": "high",
+	"prompt": "prompt.md",
+	"prepare": "prepare.mjs",
+	"accepts": [],
+	"pi_args": []
+}
