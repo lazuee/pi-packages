@@ -120,18 +120,19 @@ export async function agentsHelp(
 				: {}),
 			...(profiles.has("reviewer")
 				? {
-						reviewer: "Any read-only review, audit or second opinion; pass base for a branch range",
+						reviewer:
+							"When the task must produce a judgement on existing work; pass base for a branch range",
 					}
 				: {}),
 			...(profiles.has("explorer")
 				? {
-						explorer: "Any question about existing code: where, which, how does X work; read-only",
+						explorer: "When the task must produce facts about existing code; read-only",
 					}
 				: {}),
 			...(profiles.has("general")
 				? {
 						general:
-							"Any change to files; the only profile that writes. Sparingly while orchestrating",
+							"When the task must produce changed files; the only one that writes. Sparingly while orchestrating",
 					}
 				: {}),
 		},

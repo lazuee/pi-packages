@@ -43,7 +43,7 @@ export function createAgentsTool(
 		promptGuidelines: [
 			"agents: Read help alone first",
 			"agents: MUST use for supported agent operations, local or remote; never bypass with hc or shell commands, even after failure. Report blockers. hc remains available for non-agent processes",
-			"agents: Pick agent_type by task shape, not by habit: commit → committer, review/audit → reviewer, where/which/how does X work → explorer, change code → general. Skip the hop when that agent already owns the context, is read-only, or the user asked otherwise",
+			"agents: Choose agent_type by what the task must produce: a commit → committer, a judgement on existing work → reviewer, facts about existing code → explorer, changed files → general. Skip the hop when one agent already holds the context or the user named one",
 		],
 		parameters: AgentsParameters,
 		executionMode: "parallel",
