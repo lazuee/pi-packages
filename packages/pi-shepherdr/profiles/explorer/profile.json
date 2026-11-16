@@ -3,6 +3,7 @@
 	"model": "openai-codex/gpt-6-luna",
 	"thinking": "high",
 	"prompt": "prompt.md",
+	"writes": false,
 	"prepare": "prepare.mjs",
 	"accepts": [],
 	"pi_args": []

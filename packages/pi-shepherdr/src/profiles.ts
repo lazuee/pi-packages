@@ -32,6 +32,8 @@ export interface AgentProfile {
 	prepare?: string;
 	prompt?: string;
 	shareContext?: boolean;
+	/** `false` makes the profile read-only; the tool guard enforces it. */
+	writes?: boolean;
 	thinking: string;
 }
 
@@ -53,6 +55,7 @@ interface ProfileFile {
 	prompt?: unknown;
 	share_context?: unknown;
 	thinking?: unknown;
+	writes?: unknown;
 }
 
 function stringArray(value: unknown, field: string): string[] {
@@ -101,6 +104,7 @@ function readProfileFile(name: string, directory: string): ProfileFile {
 		"prepare",
 		"prompt",
 		"share_context",
+		"writes",
 		"thinking",
 	]);
 	const unknown = Object.keys(parsed).filter((key) => !allowed.has(key));
@@ -121,6 +125,7 @@ async function readProfile(name: string, directory: string): Promise<AgentProfil
 	const parsed = readProfileFile(name, directory);
 	const blocking = optionalBoolean(parsed.blocking, `${name}.blocking`);
 	const shareContext = optionalBoolean(parsed.share_context, `${name}.share_context`);
+	const writes = optionalBoolean(parsed.writes, `${name}.writes`);
 	const description = optionalString(parsed.description, `${name}.description`);
 	if (!description) throw new Error(`${name}.description is required`);
 	const model = optionalString(parsed.model, `${name}.model`);
@@ -144,6 +149,7 @@ async function readProfile(name: string, directory: string): Promise<AgentProfil
 		thinking,
 		...(blocking === undefined ? {} : { blocking }),
 		...(shareContext === undefined ? {} : { shareContext }),
+		...(writes === undefined ? {} : { writes }),
 		accepts: parsed.accepts ? stringArray(parsed.accepts, `${name}.accepts`) : [],
 		piArgs: parsed.pi_args ? stringArray(parsed.pi_args, `${name}.pi_args`) : [],
 		...(resolvedPromptPath
