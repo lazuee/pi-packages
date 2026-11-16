@@ -16,6 +16,7 @@ function describeProfiles(profiles: Map<string, AgentProfile>) {
 				description: profile.description,
 				...(profile.blocking === undefined ? {} : { blocking: profile.blocking }),
 				...(profile.shareContext === undefined ? {} : { share_context: profile.shareContext }),
+				...(profile.writes === undefined ? {} : { writes: profile.writes }),
 			},
 		]),
 	);
