@@ -100,13 +100,20 @@ function collectReviewContext(cwd, requestedBase) {
 	if (diff.code !== 0 && diff.code !== 1) {
 		throw new Error(diff.stderr || `git diff --quiet ${mergeBase} failed with exit ${diff.code}`);
 	}
+	// `latest-commit` already means the tree matches its merge base.
+	const latest =
+		diff.code === 1 || status
+			? undefined
+			: gitStringOrUndefined(root, ["rev-parse", "--short", "HEAD"]);
 	return {
 		root,
-		current: current || gitString(root, ["rev-parse", "--short", "HEAD"]),
-		scope: diff.code === 1 || status ? "base-diff" : "latest-commit",
+		// `current` already names the commit on the latest-commit path.
+		current: current || latest || gitString(root, ["rev-parse", "--short", "HEAD"]),
+		scope: latest ? "latest-commit" : "base-diff",
 		status,
 		...(base ? { base } : {}),
 		mergeBase,
+		...(latest ? { latest } : {}),
 	};
 }
 
@@ -127,6 +134,12 @@ export function prepare(input) {
 		`Repository root: ${review.root}`,
 		`Current ref: ${review.current}`,
 		`Scope: ${review.scope}`,
+		...(review.latest
+			? [
+					`Subject of ${review.latest}: ${safeStatus(gitString(review.root, ["log", "-1", "--format=%s"]))}`,
+					"Nothing differs from the base, so this commit is already merged and reviews no new work. Say so, or ask for a base or range.",
+				]
+			: []),
 		`Base branch: ${review.base ?? "none"}`,
 		`Merge base: ${review.mergeBase ?? "none"}`,
 		"",
