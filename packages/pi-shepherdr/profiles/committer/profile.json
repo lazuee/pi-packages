@@ -1,5 +1,5 @@
 {
-	"description": "Commits only: audit, one commit per concern, prose bodies",
+	"description": "Commits only: audit, one Conventional Commit per concern",
 	"blocking": true,
 	"model": "openai-codex/gpt-6-sol",
 	"thinking": "high",

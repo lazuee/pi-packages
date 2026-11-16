@@ -162,7 +162,7 @@ export function prepare(input) {
 		...(state.counts ? [`Ahead/behind: ${state.counts}`] : []),
 		...(warnings.length ? ["", "State warnings:", ...warnings.map((line) => `- ${line}`)] : []),
 		"",
-		"Recent subjects, house style to match:",
+		"Recent subjects. Older ones predate the convention and carry no type; match their tone, not their shape:",
 		section("recent_log", safe(bounded(state.log, LOG_LIMIT))),
 		"",
 		"Recent bodies, shape to match:",
