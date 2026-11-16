@@ -22,7 +22,10 @@ const INSTALLERS =
 /** A task runner is a write unless its target reads as inspection. `make` with no
  * target runs the default goal, which builds more often than it checks. */
 const RUNNER = /^(?:make|npm|pnpm|yarn|bun|npx|bunx|cargo|just|task)(?:\s+(.*))?$/;
-const RUNNER_READS = /\b(check|lint|typecheck|test|status|pack:dry|fmt:check|format:check)\b/i;
+const RUNNER_READS =
+	/\b(check|lint|typecheck|test|status|parity|pack:dry|fmt:check|format:check)\b/i;
+/** Flags that make an otherwise-reading command write: snapshot updates, incremental builds. */
+const RUNNER_WRITES = /(?:[:\s-])update\b|\s-b\b|\s--write\b/;
 
 /** Split on shell separators, keeping quoted strings intact enough to classify. */
 function segments(command: string): string[] {
@@ -61,6 +64,8 @@ function writes(segment: string): boolean {
 	// goal, so only `make`'s is predictable enough to allow.
 	if (runner) {
 		const tail = (runner[1] ?? "").trim();
+		// A write flag beats a reading name: `bun test --update-snapshots` rewrites files.
+		if (tail && RUNNER_WRITES.test(tail)) return true;
 		if (tail && RUNNER_READS.test(tail)) return false;
 		if (tail || /^make\b/.test(bare)) return true;
 	}
