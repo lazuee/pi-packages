@@ -37,7 +37,7 @@ export async function agentsHelp(
 			find: "query? status? machine?",
 			focus: "target machine? voice? handoff?",
 			spawn:
-				"agent_type label message name? machine? placement? workspace? cwd? base? blocking?" +
+				"agent_type label message name? machine? placement? workspace? cwd? base? blocking? allow_writes?" +
 				(boardAvailable ? " board_thread_id?" : ""),
 			watch: "target machine?",
 			unwatch: "target machine?",

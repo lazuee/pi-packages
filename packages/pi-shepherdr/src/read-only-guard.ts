@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadAgentProfiles } from "./profiles.js";
-import { PROFILE_FLAG } from "./worker-role.js";
+import { PROFILE_FLAG, WRITES_FLAG } from "./worker-role.js";
 
 /** Tools that only ever write. A read-only worker never needs them. */
 const WRITES = new Set(["edit", "write", "multi_edit", "apply_patch", "patch"]);
@@ -58,6 +58,7 @@ function reasonForName(name: string): string | undefined {
 /** Advisory profiles can be ignored; this stops the wrong one shipping. */
 export function registerReadOnlyGuard(pi: ExtensionAPI): void {
 	pi.on("tool_call", async (event, ctx) => {
+		if (pi.getFlag(WRITES_FLAG) === "0") return;
 		const name = pi.getFlag(PROFILE_FLAG);
 		if (typeof name !== "string" || !name.trim()) return;
 		// Re-read each call, so a profile edited mid-run takes effect immediately.

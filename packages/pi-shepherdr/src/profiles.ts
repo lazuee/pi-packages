@@ -13,7 +13,7 @@ import {
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { PROFILE_FLAG } from "./worker-role.js";
+import { PROFILE_FLAG, WRITES_FLAG } from "./worker-role.js";
 
 const PROFILE_NAME = /^[a-z][a-z0-9_-]{0,31}$/;
 const AGENT_DIRECTORY = process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent");
@@ -255,7 +255,7 @@ export async function loadAgentProfiles(): Promise<Map<string, AgentProfile>> {
 	return profiles;
 }
 
-export function profileAgentArgs(profile: AgentProfile): string[] {
+export function profileAgentArgs(profile: AgentProfile, allowWrites = false): string[] {
 	return [
 		"--model",
 		profile.model,
@@ -263,6 +263,8 @@ export function profileAgentArgs(profile: AgentProfile): string[] {
 		profile.thinking,
 		`--${PROFILE_FLAG}`,
 		profile.name,
+		// Only a read-only profile needs the opt-out recorded.
+		...(allowWrites && profile.writes === false ? [`--${WRITES_FLAG}`, "0"] : []),
 		...profile.piArgs,
 	];
 }

@@ -112,7 +112,7 @@ export async function spawnAgent(
 			profile: profile.name,
 			status: "starting",
 		});
-		const agentArgs = profileAgentArgs(profile);
+		const agentArgs = profileAgentArgs(profile, params.allow_writes === true);
 		const relationship = sharedContext.spawns.prepareRelationship(ctx, runtime, agentArgs);
 		const sharing =
 			profile.shareContext === false

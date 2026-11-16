@@ -274,7 +274,7 @@ Optional profile settings:
 
 - `blocking`: `true` forces blocking spawns, `false` forces asynchronous spawns. Omission respects the call's `blocking` value, which defaults to `false`. This does not affect `assign` to existing agents.
 - `share_context`: `false` opts new spawns out of shared notes and history. Omission or `true` follows the controller setting.
-- `writes`: `false` makes the profile read-only, and Shepherdr refuses its file-writing tools. Inspecting shell commands (`git status`, `git log`, searches) still run; `git commit`, `rm`, `mkdir`, installs and `--write` formatters are refused with the reason. Omission means it may write. The bundled `explorer` and `reviewer` set it.
+- `writes`: `false` makes the profile read-only, and Shepherdr refuses its file-writing tools. Inspecting shell commands (`git status`, `git log`, searches) still run; `git commit`, `rm`, `mkdir`, installs and `--write` formatters are refused with the reason. Omission means it may write. The bundled `explorer` and `reviewer` set it. Pass `allow_writes: true` to a `spawn` when a read-only profile must genuinely edit, which opts that spawn out for its lifetime and records the fact as `--shepherdr-writes 0`.
 
 `help` and `list` expose each profile's description and configured settings. Profile names carry no blocking policy. The bundled reviewer profile sets `"blocking": true`; change it to `false` to force asynchronous review, or remove it to choose per call. Existing installed profiles are never overwritten. An existing reviewer without `blocking` now respects the call like any other profile.
 

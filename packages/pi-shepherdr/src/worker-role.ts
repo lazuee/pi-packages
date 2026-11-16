@@ -4,6 +4,8 @@ import { registerSpawnAncestry } from "./ancestry-record.js";
 export const WORKER_FLAG = "shepherdr-worker";
 /** Which profile launched this worker. Survives compaction; the prompt may not. */
 export const PROFILE_FLAG = "shepherdr-profile";
+/** Per-spawn override of the profile's write policy: "0" opts a read-only profile out. */
+export const WRITES_FLAG = "shepherdr-writes";
 const WORKER_MARKER = "herdr-worker-v1";
 const WORKER_ROLE_CHANNEL = "shepherdr:worker-role:v1";
 
@@ -39,6 +41,10 @@ export function registerWorkerRole(pi: ExtensionAPI) {
 	pi.registerFlag(PROFILE_FLAG, {
 		type: "string",
 		description: "Worker profile that launched this session",
+	});
+	pi.registerFlag(WRITES_FLAG, {
+		type: "string",
+		description: "Per-spawn write override: 0 opts out of a read-only profile",
 	});
 	const isWorker = (manager: SessionManager) =>
 		pi.getFlag(WORKER_FLAG) === true || markedWorker(manager);

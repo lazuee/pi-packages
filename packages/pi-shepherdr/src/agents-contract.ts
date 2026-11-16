@@ -48,6 +48,7 @@ const ACTION_FIELDS: Record<(typeof ACTIONS)[number], ReadonlySet<string>> = {
 		"base",
 		"blocking",
 		"board_thread_id",
+		"allow_writes",
 	]),
 	watch: new Set(["action", "machine", "target"]),
 	unwatch: new Set(["action", "machine", "target"]),
@@ -94,6 +95,11 @@ const AgentsRequest = obj({
 	context: opt(bool()),
 	board: opt(bool()),
 	board_thread_id: opt(str({ minLength: 1 })),
+	allow_writes: opt(
+		bool({
+			description: "Let a read-only profile write for this spawn only",
+		}),
+	),
 	query: opt(str()),
 	status: opt({
 		...oneOf(STATUSES),
