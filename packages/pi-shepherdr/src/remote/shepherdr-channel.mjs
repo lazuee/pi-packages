@@ -153,7 +153,7 @@ export async function openPeerChannel(request, expected, focus) {
 		throw new Error("Focus channel request is too large");
 	return new Promise((resolve, reject) => {
 		const socket = createConnection({
-			host: "127.0.0.1",
+			host: descriptor.host,
 			port: descriptor.port,
 		});
 		let buffer = "";

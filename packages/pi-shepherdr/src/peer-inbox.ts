@@ -9,7 +9,12 @@ import type { AgentFleet } from "./fleet/index.js";
 import type { createPeerCommands } from "./peer-commands.js";
 import { PeerInboxDelivery } from "./peer-inbox-delivery.js";
 import { receivePeerFocus } from "./peer-inbox-focus.js";
-import { MAX_PEER_FRAME_BYTES, PEER_PROTOCOL, peerInboxPath } from "./remote/shepherdr-peer.mjs";
+import {
+	LOOPBACK,
+	MAX_PEER_FRAME_BYTES,
+	PEER_PROTOCOL,
+	peerInboxPath,
+} from "./remote/shepherdr-peer.mjs";
 
 export function registerPeerInbox(
 	pi: ExtensionAPI,
@@ -299,7 +304,7 @@ async function openInbox(
 	try {
 		await new Promise<void>((resolve, reject) => {
 			server.once("error", reject);
-			server.listen(0, "127.0.0.1", () => {
+			server.listen(0, LOOPBACK, () => {
 				server.removeListener("error", reject);
 				resolve();
 			});
@@ -313,7 +318,7 @@ async function openInbox(
 			throw new Error("Shepherdr peer receiver has no address");
 		await writeFile(
 			temporary,
-			JSON.stringify({ protocol: PEER_PROTOCOL, port: address.port, token }),
+			JSON.stringify({ protocol: PEER_PROTOCOL, host: LOOPBACK, port: address.port, token }),
 			{ mode: 0o600, flag: "wx" },
 		);
 		await rename(temporary, path);

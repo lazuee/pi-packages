@@ -204,8 +204,8 @@ export class AgentMonitor {
 		this.settlements.releaseClaim(attempt, error);
 	}
 
-	view(panel: PaneInfo): Promise<SessionView> {
-		return this.settlements.view(panel);
+	view(panel: PaneInfo, signal?: AbortSignal): Promise<SessionView> {
+		return this.settlements.view(panel, signal);
 	}
 
 	acceptWork(attempt: WorkAttempt | undefined): void {

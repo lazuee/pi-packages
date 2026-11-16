@@ -187,7 +187,19 @@ async function installProfile(name: string): Promise<void> {
 		try {
 			await rename(staging, target);
 		} catch (error) {
-			if (!hasCode(error, "EEXIST", "ENOTEMPTY")) throw error;
+			if (hasCode(error, "EXDEV")) {
+				// The staging root sits inside the agent directory, so this only
+				// happens when a bind mount splits it. Copy straight to the target.
+				try {
+					await cp(staging, target, {
+						errorOnExist: true,
+						force: false,
+						recursive: true,
+					});
+				} catch (copyError) {
+					if (!hasCode(copyError, "EEXIST", "ENOTEMPTY")) throw copyError;
+				}
+			} else if (!hasCode(error, "EEXIST", "ENOTEMPTY")) throw error;
 		}
 	} finally {
 		await rm(stagingRoot, { force: true, recursive: true });

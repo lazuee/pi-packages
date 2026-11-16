@@ -10,6 +10,7 @@ import { piExecutable } from "./pi-executable.mjs";
 import { object } from "./protocol.js";
 import { RemoteCoreEndpoint } from "./remote-endpoint.js";
 import { terminalPane, terminalSnapshot } from "./terminal.js";
+import { TERMINAL_ADDRESS } from "./terminal-peer.mjs";
 
 export async function startCoreAgent(
 	client: CoreConnection,
@@ -63,7 +64,7 @@ export async function startCoreAgent(
 		}),
 	);
 	const terminal = result["address"];
-	if (typeof terminal !== "string" || !/^t[0-9a-z]+$/.test(terminal))
+	if (typeof terminal !== "string" || !TERMINAL_ADDRESS.test(terminal))
 		throw new Error(
 			"Core launch returned no local terminal address; inspect Core terminals before retrying",
 		);

@@ -93,8 +93,9 @@ export function extensionMessageKey(value) {
  * @param {import("node:fs/promises").FileHandle} file
  * @param {number} size
  * @param {{size:number,digest:string}|undefined} cached
+ * @param {AbortSignal} [signal]
  */
-async function fingerprint(file, size, cached) {
+async function fingerprint(file, size, cached, signal) {
 	const hash = createHash("sha256");
 	const buffer = Buffer.allocUnsafe(1024 * 1024);
 	let position = 0;
@@ -103,6 +104,7 @@ async function fingerprint(file, size, cached) {
 	while (position < size) {
 		const boundary = cached && position < cached.size ? cached.size : size;
 		const length = Math.min(buffer.length, boundary - position);
+		signal?.throwIfAborted();
 		const { bytesRead } = await file.read(buffer, 0, length, position);
 		if (!bytesRead) break;
 		hash.update(buffer.subarray(0, bytesRead));
@@ -299,9 +301,11 @@ async function sessionView(file, size, cached) {
 	return summary();
 }
 
-/** @param {string | undefined} path @returns {Promise<import("../types.js").SessionView>} */
-export async function readSessionView(path) {
+/** @param {string | undefined} path @param {AbortSignal} [signal]
+ * @returns {Promise<import("../types.js").SessionView>} */
+export async function readSessionView(path, signal) {
 	if (!path) return {};
+	signal?.throwIfAborted();
 	const expanded = expandHome(path);
 	let metadata;
 	try {
@@ -327,12 +331,13 @@ export async function readSessionView(path) {
 		metadata = await file.stat();
 		const candidate =
 			sameFile && cached.terminated && cached.size < metadata.size ? cached : undefined;
-		const fingerprinted = await fingerprint(file, metadata.size, candidate);
+		const fingerprinted = await fingerprint(file, metadata.size, candidate, signal);
 		const summary = await sessionView(
 			file,
 			metadata.size,
 			fingerprinted.prefixMatches ? candidate : undefined,
 		);
+		signal?.throwIfAborted();
 		const after = await file.stat();
 		// Never publish a cache built across a concurrent append, rewrite or truncation.
 		if (

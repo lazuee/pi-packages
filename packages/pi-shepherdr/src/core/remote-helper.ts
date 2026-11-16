@@ -35,9 +35,10 @@ async function optionalNotesSource(
 		return await load();
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
+		// Keep the cause visible: a stale package and a broken install read differently.
 		const message = reason.startsWith("Saved Notes")
 			? reason
-			: "Saved Notes could not be loaded on the controller. Update their extension and reload Pi. Other agent operations remain available.";
+			: `Saved Notes could not be loaded on the controller (${reason}). Update their extension and reload Pi. Other agent operations remain available.`;
 		return moduleUrl(
 			`export function ${operation}() { throw new Error(${JSON.stringify(message)}, { cause: new Error(${JSON.stringify(reason)}) }); }`,
 		);

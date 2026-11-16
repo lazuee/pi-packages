@@ -136,7 +136,9 @@ export async function dispatchAgentWork(
 	let sendStarted = false;
 	try {
 		await runtime.monitor.track(panel);
-		const baseline = options.expectUserMessage ? await runtime.monitor.view(panel) : undefined;
+		const baseline = options.expectUserMessage
+			? await runtime.monitor.view(panel, signal)
+			: undefined;
 		attempt = runtime.monitor.beginWork(
 			panel.pane_id,
 			task,

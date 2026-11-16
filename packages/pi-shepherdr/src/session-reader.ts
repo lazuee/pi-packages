@@ -11,8 +11,8 @@ export class SessionReader {
 	): Promise<() => void> {
 		return watchSessions(paths, onChange, onError, signal);
 	}
-	async view(path?: string): Promise<SessionView> {
-		return readSessionView(path);
+	async view(path?: string, signal?: AbortSignal): Promise<SessionView> {
+		return readSessionView(path, signal);
 	}
 	async latest(path?: string): Promise<LatestAssistant | undefined> {
 		return (await this.view(path)).assistant;
@@ -26,5 +26,5 @@ export interface AssistantReader {
 		signal: AbortSignal,
 	): Promise<() => void>;
 	latest(path?: string): Promise<LatestAssistant | undefined>;
-	view(path?: string): Promise<SessionView>;
+	view(path?: string, signal?: AbortSignal): Promise<SessionView>;
 }

@@ -16,7 +16,7 @@ export async function replyAgent(
 		id: params.id!,
 		message: params.message!,
 	};
-	const view = await runtime.monitor.view(panel);
+	const view = await runtime.monitor.view(panel, signal);
 	const pending = view.extensionMessages?.find(
 		(message) => message.extension === reply.extension && message.id === reply.id,
 	);

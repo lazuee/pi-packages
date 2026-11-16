@@ -137,12 +137,17 @@ export class CoreRemoteTransport {
 		if (this.relay.consume(id, message)) return;
 		if (message["ok"] === true) this.finish(id, undefined, message["result"]);
 		else {
-			const detail = object(message["error"]);
+			// A malformed frame must fail its own call, never the shared transport.
+			const detail = message["error"];
+			const fields =
+				typeof detail === "object" && detail !== null && !Array.isArray(detail)
+					? (detail as CoreObject)
+					: undefined;
 			const error = new Error(
-				typeof detail["message"] === "string" ? detail["message"] : "Remote request failed",
+				typeof fields?.["message"] === "string" ? fields["message"] : "Remote request failed",
 			);
 			for (const key of ["code", "kind", "hint"])
-				if (typeof detail[key] === "string") Object.assign(error, { [key]: detail[key] });
+				if (typeof fields?.[key] === "string") Object.assign(error, { [key]: fields[key] });
 			this.finish(id, error);
 		}
 	}

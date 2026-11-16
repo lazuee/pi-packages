@@ -82,8 +82,8 @@ export class SettlementReporter {
 		return this.collector.latest(panel);
 	}
 
-	view(panel: PaneInfo): Promise<SessionView> {
-		return this.collector.view(panel);
+	view(panel: PaneInfo, signal?: AbortSignal): Promise<SessionView> {
+		return this.collector.view(panel, signal);
 	}
 
 	stop(): void {

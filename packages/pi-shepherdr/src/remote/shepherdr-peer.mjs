@@ -7,6 +7,8 @@ import { basename, dirname } from "node:path";
 
 export const MAX_PEER_FRAME_BYTES = 8 * 1024 * 1024;
 export const PEER_PROTOCOL = 4;
+/** Descriptors record the bind host; dial it instead of assuming loopback.*/
+export const LOOPBACK = "127.0.0.1";
 
 /** @param {unknown} error */
 export function isDispatchRejected(error) {
@@ -207,6 +209,8 @@ export async function resolvePeerReceiver(request, expected) {
 		!Number.isInteger(descriptor.port) ||
 		descriptor.port < 1 ||
 		descriptor.port > 65535 ||
+		typeof descriptor.host !== "string" ||
+		!descriptor.host ||
 		typeof descriptor.token !== "string" ||
 		!/^[a-f0-9]{64}$/.test(descriptor.token)
 	) {
@@ -220,7 +224,7 @@ export async function resolvePeerReceiver(request, expected) {
  * @param {import("../types.js").PaneInfo} expected
  * @param {import("../types.js").PeerMessage} message
  * @param {import("../types.js").FocusRequest | undefined} focus
- * @param {{port:number,token:string}} descriptor
+ * @param {{host:string,port:number,token:string}} descriptor
  * @param {string} sessionFile
  * @param {string} id
  * @param {string} frame
@@ -247,7 +251,7 @@ function deliverPeerFrame(
 		let buffer = "";
 		let closing = false;
 		const socket = createConnection({
-			host: "127.0.0.1",
+			host: descriptor.host,
 			port: descriptor.port,
 		});
 		/** @param {unknown} [error] @param {import("../types.js").PeerDelivery} [receipt] */

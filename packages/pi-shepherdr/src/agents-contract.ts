@@ -182,6 +182,10 @@ export function parseAgentsRequest(input: unknown): AgentsParams {
 			throw new Error(`${action} requires context:true or board:true`);
 		request = { context: false, board: false, ...request };
 	}
+	if (action === "spawn" && request["board_thread_id"] !== undefined) {
+		if (typeof request["board_thread_id"] !== "string" || !request["board_thread_id"].trim())
+			throw new Error("board_thread_id must be a non-empty string");
+	}
 	if (action === "reply") {
 		for (const field of ["extension", "id", "target"]) {
 			if (typeof request[field] !== "string" || !request[field].trim())
@@ -204,6 +208,14 @@ export function parseAgentsRequest(input: unknown): AgentsParams {
 	}
 	if (!checkAgentsRequest(request)) {
 		throw new Error(`invalid ${action} request; call agents help for its contract`);
+	}
+	// Report required spawn launch fields before anything is launched.
+	if (action === "spawn") {
+		for (const field of ["agent_type", "label", "message"]) {
+			const value = (request as Record<string, unknown>)[field];
+			if (typeof value !== "string" || !value.trim())
+				throw new Error(`${field} is required for spawn`);
+		}
 	}
 	return request as AgentsParams;
 }

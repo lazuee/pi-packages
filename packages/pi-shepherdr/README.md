@@ -91,13 +91,17 @@ When a parent sends or assigns work to one of its closed workers, Shepherdr reop
 
 Delegation and explicit `watch` keep reporting subsequent work until `unwatch` or the agent's terminal closes. Finishing or failing a task clears that task, not its watch. Follow-up messages through `send` retain completion reporting without replacing the task.
 
-Every `spawn` needs an `agent_type` and a concise `label`. The label names the Pi session. The routing `name` remains optional and is derived from the label when omitted.
+Every `spawn` needs an `agent_type`, a concise `label` and the task `message`. The label names the Pi session. The routing `name` remains optional and is derived from the label when omitted. These fields and `board_thread_id` are validated before anything launches, so a bad request never leaves a half-started worker.
+
+`cwd` is resolved on the target machine before launch and defaults to the controller terminal's directory. Pass an explicit directory for work in another checkout. A `board_thread_id` must be an existing thread on the shared board, which must be enabled before spawning; otherwise the spawn fails before launch.
 
 Cancelling a blocking call does not kill its worker. The waiter detaches and the eventual result returns through normal asynchronous delivery.
 
 After Pi compaction or Notes context rollover, the controller receives its supervised agents' exact machine and target, submitted tasks and follow-up instructions, and last observed status, including settled and blocked workers. Read a target for its reply or pending extension messages. This reminder does not start a turn or bypass normal turn preparation.
 
 Prompts sent through `agents` identify peer messages versus delegated tasks and include the sender's host and session identity. Core reports use terminal addresses and include app location IDs when available. These are runtime locations, not the desktop window showing a terminal.
+
+Peer receivers publish their authenticated descriptor next to the target session file, with the bind host, port and token. Shepherdr binds loopback only, so traffic never leaves the machine unless Core itself is remote. A bare session path carries `$SSH_AUTH_SOCK`'s directory, because Core resolves a directory-less path as a hostname. Update both ends together: the descriptor gained its host field, and a receiver publishing the older shape is rejected with an invalid-receiver error rather than dialled blindly.
 
 Messages sent through `agents` bypass the receiving Pi editor, preserving unsent drafts. Update and restart Shepherdr on receiving agents as well as controllers. If a receiver is unavailable, delivery fails without pasting into its terminal.
 

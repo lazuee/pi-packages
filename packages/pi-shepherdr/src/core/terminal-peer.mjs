@@ -1,4 +1,6 @@
 /** @typedef {Pick<import('../types.js').PaneInfo, 'pane_id' | 'terminal_id' | 'agent' | 'agent_session'>} PeerTerminal */
+export const TERMINAL_ADDRESS = /^t[1-9][0-9bcdfghjkmnpqrstvwxyz]*$/;
+
 /** @typedef {{terminal:(address:string)=>Promise<PeerTerminal>,closeTerminal:(address:string)=>Promise<void>}} TerminalPeer */
 
 /** Labels survive a kept terminal's program. Only the current Pi status owns them.
@@ -33,7 +35,7 @@ export function livePiSession(record) {
 export function terminalPeer(request) {
 	/** @param {string} address */
 	async function get(address) {
-		if (!/^t[1-9][0-9bcdfghjkmnpqrstvwxyz]*$/.test(address))
+		if (!TERMINAL_ADDRESS.test(address))
 			throw new Error("Use an exact terminal address from this machine");
 		const value = await request("terminal.get", { terminal: address });
 		if (

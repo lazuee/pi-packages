@@ -181,7 +181,7 @@ export function createAgentsTool(
 				if (source !== "latest") {
 					return toolResult(await readAgentTerminal(runtime, panel, source, params.lines ?? 40));
 				}
-				const view = await runtime.monitor.view(panel);
+				const view = await runtime.monitor.view(panel, executionSignal);
 				return toolResult({
 					machine: runtime.machine,
 					target: panel.pane_id,

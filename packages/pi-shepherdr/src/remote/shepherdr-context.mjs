@@ -5,7 +5,7 @@ import { createConnection, createServer } from "node:net";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { readPersistedNoteEntries } from "./shepherdr-checkpoints.mjs";
-import { readReceiver } from "./shepherdr-peer.mjs";
+import { LOOPBACK, readReceiver } from "./shepherdr-peer.mjs";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const TIMEOUT = 35_000;
@@ -37,9 +37,17 @@ export function relayContextPath(threadId, routeId) {
 	return join(contextDirectory(), `relay-${routeId}-${threadId}.json`);
 }
 
+/** Core resolves a hostname without a directory there, so carry the socket directory.
+ * @param {string} sessionFile @returns {string} */
+function contextSessionFile(sessionFile) {
+	if (sessionFile.includes("/")) return sessionFile;
+	const socket = process.env["SSH_AUTH_SOCK"];
+	return socket ? join(socket, sessionFile) : sessionFile;
+}
+
 /** @param {string} sessionFile */
 export function sessionContextPath(sessionFile) {
-	return `${sessionFile}.shepherdr-context.json`;
+	return `${contextSessionFile(sessionFile)}.shepherdr-context.json`;
 }
 
 /** @param {unknown} error @param {string} code */
@@ -102,6 +110,8 @@ export async function requestContext(path, request, signal) {
 		!Number.isInteger(descriptor.port) ||
 		descriptor.port < 1 ||
 		descriptor.port > 65535 ||
+		typeof descriptor.host !== "string" ||
+		!descriptor.host ||
 		typeof descriptor.token !== "string" ||
 		!/^[a-f0-9]{64}$/.test(descriptor.token)
 	)
@@ -114,7 +124,7 @@ export async function requestContext(path, request, signal) {
 		let settled = false;
 		let buffer = "";
 		const socket = createConnection({
-			host: "127.0.0.1",
+			host: descriptor.host,
 			port: descriptor.port,
 		});
 		/** @param {Error} [error] @param {unknown} [result] */
@@ -271,7 +281,7 @@ export async function listenContext(path, handle) {
 	try {
 		await new Promise((resolve, reject) => {
 			server.once("error", reject);
-			server.listen(0, "127.0.0.1", () => {
+			server.listen(0, LOOPBACK, () => {
 				server.removeListener("error", reject);
 				resolve(undefined);
 			});
@@ -283,6 +293,7 @@ export async function listenContext(path, handle) {
 			temporary,
 			JSON.stringify({
 				protocol: 1,
+				host: LOOPBACK,
 				port: address.port,
 				token,
 				pid: process.pid,

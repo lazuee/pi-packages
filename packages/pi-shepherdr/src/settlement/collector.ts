@@ -66,8 +66,8 @@ export class SettlementCollector {
 		}
 	}
 
-	view(panel: PaneInfo): Promise<SessionView> {
-		return this.reader.view(sessionPath(panel));
+	view(panel: PaneInfo, signal?: AbortSignal): Promise<SessionView> {
+		return this.reader.view(sessionPath(panel), signal);
 	}
 
 	async collect(
