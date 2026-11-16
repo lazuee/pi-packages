@@ -29,6 +29,13 @@ function segments(command: string): string[] {
 const INSPECTING_NAME = /(^|[\/_-])(check|lint|test|status|list|ls|log|audit|inspect)([_.-]|$)/i;
 const SCRIPT = /^(?:\.{1,2}\/|\/|~\/)\S+$/;
 
+/** `> f`, `>> f`, `tee f`, `sponge f` all write whatever the verb before them was. */
+const REDIRECT = /(^|[^<>])>{1,2}(?![>&])\s*(?!\/dev\/null)\S/;
+const SINK = /(^|[\s|])tee\b|(^|[\s|])sponge\b/;
+
+/** `xargs [flags] cmd`: the useful part is the command it runs. */
+const XARGS = /(^|[\s|])xargs\b\s*((?:-\S+\s+)*)(.*)$/;
+
 /** `sh -c '…'`, `bash -c "…"`: classify the inner command, not the wrapper. */
 const WRAPPER = /^(?:ba|z|da)?sh\s+-c\s+(.+)$/;
 
@@ -36,6 +43,12 @@ function writes(segment: string): boolean {
 	const bare = segment.replace(/^["']|["']$/g, "").trim();
 	const wrapped = WRAPPER.exec(bare);
 	if (wrapped?.[1]) return writes(wrapped[1].replace(/^["']|["']$/g, ""));
+	const xargs = XARGS.exec(bare);
+	if (xargs) {
+		const inner = (xargs[3] ?? "").trim();
+		return inner ? writes(inner) : false;
+	}
+	if (REDIRECT.test(bare) || SINK.test(bare)) return true;
 	if (GIT_WRITES.test(bare) || INSTALLERS.test(bare) || MUTATORS.test(bare)) return true;
 	const first = bare.split(/\s+/)[0] ?? "";
 	return SCRIPT.test(first) && !INSPECTING_NAME.test(first);
@@ -46,8 +59,8 @@ function mutatingSegment(command: string): string | undefined {
 	if (!found) return undefined;
 	// Name what actually writes, so a wrapper does not get reported as itself.
 	const bare = found.replace(/^["']|["']$/g, "").trim();
-	const inner = WRAPPER.exec(bare)?.[1];
-	return inner ? inner.replace(/^["']|["']$/g, "").trim() : found;
+	const inner = WRAPPER.exec(bare)?.[1] ?? XARGS.exec(bare)?.[3];
+	return inner?.trim() ? inner.trim() : found;
 }
 
 function reasonForName(name: string): string | undefined {
