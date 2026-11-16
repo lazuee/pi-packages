@@ -118,9 +118,20 @@ export async function agentsHelp(
 							"Default for any commit, whether the user asks for one or an agent decides to; read-only agents that only commit exempt themselves",
 					}
 				: {}),
+			...(profiles.has("reviewer")
+				? {
+						reviewer: "Any read-only review, audit or second opinion; pass base for a branch range",
+					}
+				: {}),
+			...(profiles.has("explorer")
+				? {
+						explorer: "Any question about existing code: where, which, how does X work; read-only",
+					}
+				: {}),
 			...(profiles.has("general")
 				? {
-						general: "Only when requested/orchestrating",
+						general:
+							"Any change to files; the only profile that writes. Sparingly while orchestrating",
 					}
 				: {}),
 		},
