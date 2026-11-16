@@ -1,3 +1,7 @@
+// Aggregate bundle: every sibling package is imported here and awaited below.
+// Keep imports ≡ root `dependencies`/`devDependencies` keys and `pi-agent-comms`
+// strictly before `pi-shepherdr`; `bun run parity` (scripts/check-packages-parity.mjs)
+// enforces it. Skills-only `pi-skill-agent-harness` is wired via root `pi.skills`.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import PiAgentComms from "@lazuee/pi-agent-comms";
 import PiAsk from "@lazuee/pi-ask";

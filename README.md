@@ -9,7 +9,7 @@ Tool versions are pinned in `mise.toml`; mise also exposes the task runner.
 ```bash
 mise install          # provision bun + node
 mise run install      # bun install
-mise run check        # type-check all packages
+mise run check        # check package parity + type-check all packages
 mise run fmt          # prettier
 ```
 
@@ -21,6 +21,11 @@ cp -r packages/example-extension packages/my-extension
 
 Then edit `packages/my-extension/package.json`: change `name`, `description`, and
 `pi.extensions`. Keep an `exports` entry pointing at the entry module.
+
+Also add the package to `packages/pi-extensions/index.ts` (import it and `await` its
+factory in the bundle) plus root `dependencies`/`devDependencies`, then reload pi with
+`/reload` — `bun run parity` fails while any of those is missing. Skills-only packages
+with no `index.ts` are imported by nobody; exempt them in the script if intentional.
 
 ## Installing into pi
 

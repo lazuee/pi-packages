@@ -7,9 +7,8 @@ node = "24.22.3"
 BUN_INSTALL_CACHE_DIR = "{{config_root}}/.cache/bun"
 
 [tasks.check]
-description = "Type-check every package"
-run = "bun run --filter '*' check"
-
+description = "Verify package parity, then type-check every package"
+run = "bun run check"
 
 [tasks.build]
 description = "Build every package"
