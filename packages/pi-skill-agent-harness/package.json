@@ -1,41 +1,41 @@
 {
-	"name": "@lazuee/pi-skill-agent-harness",
-	"version": "0.0.1",
-	"description": "Portable Pi skills for agent harness engineering",
-	"type": "module",
-	"keywords": [
-		"pi-package",
-		"pi",
-		"pi-skill",
-		"skill",
-		"harness",
-		"agent"
-	],
-	"license": "MIT",
-	"publishConfig": {
-		"access": "public"
-	},
-	"files": [
-		"skills",
-		"README.md",
-		"LICENSE",
-		"CHANGELOG.md"
-	],
-	"pi": {
-		"skills": [
-			"./skills"
-		]
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/lazuee/pi-packages.git",
-		"directory": "packages/pi-skill-agent-harness"
-	},
-	"homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-skill-agent-harness#readme",
-	"bugs": {
-		"url": "https://github.com/lazuee/pi-packages/issues"
-	},
-	"scripts": {
-		"check": "node ../pi-skill-agent-harness/scripts/check-skills.mjs"
-	}
+  "name": "@lazuee/pi-skill-agent-harness",
+  "version": "0.0.1",
+  "description": "Portable Pi skills for agent harness engineering",
+  "keywords": [
+    "agent",
+    "harness",
+    "pi",
+    "pi-package",
+    "pi-skill",
+    "skill"
+  ],
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-skill-agent-harness#readme",
+  "bugs": {
+    "url": "https://github.com/lazuee/pi-packages/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
+    "directory": "packages/pi-skill-agent-harness"
+  },
+  "files": [
+    "skills",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "node ../pi-skill-agent-harness/scripts/check-skills.mjs"
+  },
+  "pi": {
+    "skills": [
+      "./skills"
+    ]
+  }
 }

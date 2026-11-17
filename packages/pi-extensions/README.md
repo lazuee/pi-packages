@@ -22,8 +22,6 @@ pi install npm:@lazuee/pi-extensions
 - `pi-suggestions` — editable next-prompt suggestions
 - `pi-unicode-charts` — terminal-native Unicode charts for Pi Markdown
 
-Installing this bundle loads every extension above. Install individual packages
-instead if you only want part of the set.
+Installing this bundle loads every extension above. Install individual packages instead if you only want part of the set.
 
-`pi-agent-comms` replaces the standalone Notes Compaction and Agent Board
-packages; do not load those alongside this bundle.
+`pi-agent-comms` replaces the standalone Notes Compaction and Agent Board packages; do not load those alongside this bundle.

@@ -1,9 +1,9 @@
 {
-	"extends": "../../tsconfig.json",
-	"compilerOptions": {
-		"allowImportingTsExtensions": true,
-		"allowJs": true,
-		"checkJs": true
-	},
-	"include": ["index.ts", "src/**/*.ts"]
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["index.ts", "src/**/*.ts"]
 }

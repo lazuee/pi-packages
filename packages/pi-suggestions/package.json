@@ -1,44 +1,44 @@
 {
-	"name": "@lazuee/pi-suggestions",
-	"version": "0.0.1",
-	"description": "Editable next-prompt suggestions for Pi",
-	"type": "module",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/lazuee/pi-packages.git",
-		"directory": "packages/pi-suggestions"
-	},
-	"keywords": [
-		"pi-package",
-		"pi-extension",
-		"suggestions"
-	],
-	"files": [
-		"index.ts",
-		"src",
-		"README.md",
-		"LICENSE",
-		"CHANGELOG.md",
-		"!**/AGENTS.md"
-	],
-	"main": "index.ts",
-	"exports": "./index.ts",
-	"pi": {
-		"extensions": [
-			"./index.ts"
-		]
-	},
-	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": ">=1.5.0",
-		"@earendil-works/pi-ai": ">=1.3.0",
-		"@earendil-works/pi-tui": ">=1.3.0"
-	},
-	"scripts": {
-		"pack:dry": "npm pack --dry-run",
-		"check": "tsgo --noEmit"
-	},
-	"devDependencies": {
-		"typescript": "^7.0.2"
-	}
+  "name": "@lazuee/pi-suggestions",
+  "version": "0.0.1",
+  "description": "Editable next-prompt suggestions for Pi",
+  "keywords": [
+    "pi-extension",
+    "pi-package",
+    "suggestions"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
+    "directory": "packages/pi-suggestions"
+  },
+  "files": [
+    "index.ts",
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "!**/AGENTS.md"
+  ],
+  "type": "module",
+  "main": "index.ts",
+  "exports": "./index.ts",
+  "scripts": {
+    "check": "tsgo --noEmit",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=1.3.0",
+    "@earendil-works/pi-coding-agent": ">=1.5.0",
+    "@earendil-works/pi-tui": ">=1.3.0"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
 }

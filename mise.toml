@@ -15,8 +15,12 @@ description = "Build every package"
 run = "bun run --filter '*' build"
 
 [tasks.fmt]
-description = "Format the workspace"
-run = "bunx prettier --write ."
+description = "Format and apply lint fixes"
+run = "bunx oxfmt . && bunx oxlint --config oxlint.config.ts --fix"
+
+[tasks.lint]
+description = "Report lint findings without writing"
+run = "bunx oxlint --config oxlint.config.ts"
 
 [tasks.dev]
 description = "Load an extension into pi for one session (usage: mise run dev <extension-path>)"

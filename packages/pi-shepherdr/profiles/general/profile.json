@@ -1,9 +1,9 @@
 {
-	"description": "General implementation",
-	"model": "openai-codex/gpt-6-sol",
-	"thinking": "high",
-	"prompt": "prompt.md",
-	"prepare": "prepare.mjs",
-	"accepts": [],
-	"pi_args": []
+  "description": "General implementation",
+  "model": "openai-codex/gpt-6-sol",
+  "thinking": "high",
+  "prompt": "prompt.md",
+  "prepare": "prepare.mjs",
+  "accepts": [],
+  "pi_args": []
 }

@@ -25,9 +25,9 @@ const require = createRequire(import.meta.url);
  * @returns {Database}
  */
 export function openDatabase(path) {
-	/** @type {new(path:string) => Database} */
-	const Database = process.versions["bun"]
-		? require("bun:sqlite").Database
-		: require("better-sqlite3");
-	return new Database(path);
+  /** @type {new(path:string) => Database} */
+  const Database = process.versions["bun"]
+    ? require("bun:sqlite").Database
+    : require("better-sqlite3");
+  return new Database(path);
 }

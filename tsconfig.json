@@ -1,24 +1,9 @@
 {
-	"compilerOptions": {
-		"lib": ["ESNext"],
-		"target": "ESNext",
-		"module": "Preserve",
-		"moduleResolution": "bundler",
-		"moduleDetection": "force",
-		"types": ["bun"],
-
-		"strict": true,
-		"noUncheckedIndexedAccess": true,
-		"noImplicitOverride": true,
-		"noFallthroughCasesInSwitch": true,
-
-		"verbatimModuleSyntax": true,
-		"allowImportingTsExtensions": true,
-		"noEmit": true,
-		"skipLibCheck": true,
-		"resolveJsonModule": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true
-	},
-	"exclude": ["node_modules", "dist", ".cache"]
+  "extends": "@lazuee/config/tsconfig-node",
+  "include": ["**/*.ts"],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": ["bun"]
+  },
+  "exclude": ["node_modules", "dist", ".cache"]
 }

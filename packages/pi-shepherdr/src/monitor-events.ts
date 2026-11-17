@@ -2,213 +2,219 @@ import type { CoreConnection } from "./core/backend.js";
 import type { MonitoringIssue } from "./types.js";
 
 interface SubscriptionAttempt {
-	key: string;
-	controller: AbortController;
+  key: string;
+  controller: AbortController;
 }
 
 interface Subscription {
-	attempt: SubscriptionAttempt;
-	unsubscribe: () => void;
+  attempt: SubscriptionAttempt;
+  unsubscribe: () => void;
 }
 
 interface MonitorEventsOptions {
-	client: CoreConnection;
-	reconnect?: boolean;
-	onChange: () => void;
-	reconcile: () => Promise<void>;
-	onWarning: (issue: MonitoringIssue) => void;
-	onRecovered: () => void;
-	targets: () => string[];
+  client: CoreConnection;
+  reconnect?: boolean;
+  onChange: () => void;
+  reconcile: () => Promise<void>;
+  onWarning: (issue: MonitoringIssue) => void;
+  onRecovered: () => void;
+  targets: () => string[];
 }
 
 export class MonitorEvents {
-	private readonly options: MonitorEventsOptions;
-	private active = false;
-	private epoch = 0;
-	private dirty = false;
-	private resync = false;
-	private refreshTask: Promise<void> | undefined;
-	private pending: SubscriptionAttempt | undefined;
-	private reconnectTimer: NodeJS.Timeout | undefined;
-	private subscription: Subscription | undefined;
-	private warning: "degraded" | "unavailable" | undefined;
+  private readonly options: MonitorEventsOptions;
+  private active = false;
+  private epoch = 0;
+  private dirty = false;
+  private resync = false;
+  private refreshTask: Promise<void> | undefined;
+  private pending: SubscriptionAttempt | undefined;
+  private reconnectTimer: NodeJS.Timeout | undefined;
+  private subscription: Subscription | undefined;
+  private warning: "degraded" | "unavailable" | undefined;
 
-	constructor(options: MonitorEventsOptions) {
-		this.options = options;
-	}
+  constructor(options: MonitorEventsOptions) {
+    this.options = options;
+  }
 
-	async start(): Promise<void> {
-		this.active = true;
-		await this.refresh();
-	}
+  async start(): Promise<void> {
+    this.active = true;
+    await this.refresh();
+  }
 
-	stop(): void {
-		this.active = false;
-		this.epoch += 1;
-		this.dirty = false;
-		this.resync = false;
-		this.cancelPending();
-		this.closeSubscription();
-		this.warning = undefined;
-		this.clearReconnect();
-	}
+  stop(): void {
+    this.active = false;
+    this.epoch += 1;
+    this.dirty = false;
+    this.resync = false;
+    this.cancelPending();
+    this.closeSubscription();
+    this.warning = undefined;
+    this.clearReconnect();
+  }
 
-	async refresh(): Promise<void> {
-		this.dirty = this.active;
-		this.clearReconnect();
-		const key = this.targetKey();
-		if (this.pending && this.pending.key !== key) this.cancelPending();
-		if (!this.active || key === "[]") {
-			this.cancelPending();
-			this.closeSubscription();
-			if (this.active) this.recovered();
-		}
-		while (this.dirty || this.refreshTask) {
-			this.refreshTask ??= Promise.resolve().then(async () => {
-				while (this.active && this.dirty) {
-					this.dirty = false;
-					await this.update();
-				}
-			});
-			const task = this.refreshTask;
-			try {
-				await task;
-			} finally {
-				if (this.refreshTask === task) this.refreshTask = undefined;
-			}
-		}
-	}
+  async refresh(): Promise<void> {
+    this.dirty = this.active;
+    this.clearReconnect();
+    const key = this.targetKey();
+    if (this.pending && this.pending.key !== key) this.cancelPending();
+    if (!this.active || key === "[]") {
+      this.cancelPending();
+      this.closeSubscription();
+      if (this.active) this.recovered();
+    }
+    while (this.dirty || this.refreshTask) {
+      this.refreshTask ??= Promise.resolve().then(async () => {
+        while (this.active && this.dirty) {
+          this.dirty = false;
+          await this.update();
+        }
+      });
+      const task = this.refreshTask;
+      try {
+        await task;
+      } finally {
+        if (this.refreshTask === task) this.refreshTask = undefined;
+      }
+    }
+  }
 
-	retry(): Promise<void> {
-		this.resync = true;
-		return this.refresh();
-	}
+  retry(): Promise<void> {
+    this.resync = true;
+    return this.refresh();
+  }
 
-	private targetKey(): string {
-		return JSON.stringify([...new Set(this.options.targets())].sort());
-	}
+  private targetKey(): string {
+    return JSON.stringify([...new Set(this.options.targets())].toSorted());
+  }
 
-	private async update(): Promise<void> {
-		const epoch = this.epoch;
-		let attempt: SubscriptionAttempt | undefined;
-		try {
-			if (this.resync) {
-				this.resync = false;
-				// Reconcile changes missed during the outage before restoring coverage.
-				await this.options.reconcile();
-				if (!this.active || epoch !== this.epoch) return;
-			}
-			const targets = [...new Set(this.options.targets())].sort();
-			const key = JSON.stringify(targets);
-			if (key === "[]") {
-				this.closeSubscription();
-				this.recovered();
-				return;
-			}
-			if (this.subscription?.attempt.key !== key) {
-				const candidate = { key, controller: new AbortController() };
-				attempt = candidate;
-				this.pending = candidate;
-				const unsubscribe = await this.options.client.subscribe(
-					targets,
-					() => {
-						if (this.isLive(candidate)) this.options.onChange();
-					},
-					() => this.disconnected(candidate),
-					candidate.controller.signal,
-				);
-				if (!this.isLive(candidate) || key !== this.targetKey()) {
-					unsubscribe();
-					return;
-				}
-				this.closeSubscription();
-				this.subscription = { attempt: candidate, unsubscribe };
-				this.pending = undefined;
-			}
-			// Reconcile after subscription setup to cover transitions during handover.
-			await this.options.reconcile();
-			if (!this.active || epoch !== this.epoch) return;
-			if (key !== this.targetKey()) {
-				this.dirty = true;
-				return;
-			}
-			if (this.subscription) this.recovered();
-		} catch (error) {
-			if (!this.active || epoch !== this.epoch || attempt?.controller.signal.aborted) return;
-			const failure = error instanceof Error ? error : new Error(String(error));
-			this.warn();
-			if (this.options.reconnect === false) throw failure;
-			this.scheduleReconnect();
-		} finally {
-			if (attempt && this.pending === attempt) this.cancelPending();
-		}
-	}
+  private async update(): Promise<void> {
+    const { epoch } = this;
+    let attempt: SubscriptionAttempt | undefined;
+    try {
+      if (this.resync) {
+        this.resync = false;
+        // Reconcile changes missed during the outage before restoring coverage.
+        await this.options.reconcile();
+        if (!this.active || epoch !== this.epoch) return;
+      }
+      const targets = [...new Set(this.options.targets())].toSorted();
+      const key = JSON.stringify(targets);
+      if (key === "[]") {
+        this.closeSubscription();
+        this.recovered();
+        return;
+      }
+      if (this.subscription?.attempt.key !== key) {
+        const candidate = { key, controller: new AbortController() };
+        attempt = candidate;
+        this.pending = candidate;
+        const unsubscribe = await this.options.client.subscribe(
+          targets,
+          () => {
+            if (this.isLive(candidate)) this.options.onChange();
+          },
+          () => this.disconnected(candidate),
+          candidate.controller.signal
+        );
+        if (!this.isLive(candidate) || key !== this.targetKey()) {
+          unsubscribe();
+          return;
+        }
+        this.closeSubscription();
+        this.subscription = { attempt: candidate, unsubscribe };
+        this.pending = undefined;
+      }
+      // Reconcile after subscription setup to cover transitions during handover.
+      await this.options.reconcile();
+      if (!this.active || epoch !== this.epoch) return;
+      if (key !== this.targetKey()) {
+        this.dirty = true;
+        return;
+      }
+      if (this.subscription) this.recovered();
+    } catch (error) {
+      if (
+        !this.active ||
+        epoch !== this.epoch ||
+        attempt?.controller.signal.aborted
+      )
+        return;
+      const failure = error instanceof Error ? error : new Error(String(error));
+      this.warn();
+      if (this.options.reconnect === false) throw failure;
+      this.scheduleReconnect();
+    } finally {
+      if (attempt && this.pending === attempt) this.cancelPending();
+    }
+  }
 
-	private isLive(attempt: SubscriptionAttempt): boolean {
-		return (
-			this.active &&
-			!attempt.controller.signal.aborted &&
-			(this.pending === attempt || this.subscription?.attempt === attempt)
-		);
-	}
+  private isLive(attempt: SubscriptionAttempt): boolean {
+    return (
+      this.active &&
+      !attempt.controller.signal.aborted &&
+      (this.pending === attempt || this.subscription?.attempt === attempt)
+    );
+  }
 
-	private cancelPending(): void {
-		const pending = this.pending;
-		this.pending = undefined;
-		pending?.controller.abort();
-	}
+  private cancelPending(): void {
+    const { pending } = this;
+    this.pending = undefined;
+    pending?.controller.abort();
+  }
 
-	private closeSubscription(): void {
-		const subscription = this.subscription;
-		this.subscription = undefined;
-		subscription?.attempt.controller.abort();
-		subscription?.unsubscribe();
-	}
+  private closeSubscription(): void {
+    const { subscription } = this;
+    this.subscription = undefined;
+    subscription?.attempt.controller.abort();
+    subscription?.unsubscribe();
+  }
 
-	private disconnected(attempt: SubscriptionAttempt): void {
-		if (!this.isLive(attempt)) return;
-		if (this.subscription?.attempt === attempt) this.closeSubscription();
-		if (this.pending === attempt) this.cancelPending();
-		this.warn();
-		this.scheduleReconnect();
-	}
+  private disconnected(attempt: SubscriptionAttempt): void {
+    if (!this.isLive(attempt)) return;
+    if (this.subscription?.attempt === attempt) this.closeSubscription();
+    if (this.pending === attempt) this.cancelPending();
+    this.warn();
+    this.scheduleReconnect();
+  }
 
-	private warn(): void {
-		const state = this.subscription ? "degraded" : "unavailable";
-		if (this.warning === state) return;
-		this.warning = state;
-		const message =
-			state === "degraded"
-				? "Some agent status updates may be delayed. Existing monitoring is still active."
-				: "Agent status updates are unavailable.";
-		this.options.onWarning({
-			state,
-			message: `${message}${this.options.reconnect === false ? "" : " Retrying automatically."}`,
-		});
-	}
+  private warn(): void {
+    const state = this.subscription ? "degraded" : "unavailable";
+    if (this.warning === state) return;
+    this.warning = state;
+    const message =
+      state === "degraded"
+        ? "Some agent status updates may be delayed. Existing monitoring is still active."
+        : "Agent status updates are unavailable.";
+    this.options.onWarning({
+      state,
+      message: `${message}${this.options.reconnect === false ? "" : " Retrying automatically."}`,
+    });
+  }
 
-	private recovered(): void {
-		if (!this.warning) return;
-		this.warning = undefined;
-		this.options.onRecovered();
-	}
+  private recovered(): void {
+    if (!this.warning) return;
+    this.warning = undefined;
+    this.options.onRecovered();
+  }
 
-	private clearReconnect(): void {
-		if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-		this.reconnectTimer = undefined;
-	}
+  private clearReconnect(): void {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = undefined;
+  }
 
-	private scheduleReconnect(): void {
-		if (!this.active || this.options.reconnect === false || this.reconnectTimer) return;
-		const epoch = this.epoch;
-		this.reconnectTimer = setTimeout(() => {
-			this.reconnectTimer = undefined;
-			void this.retry().catch(() => {
-				if (!this.active || epoch !== this.epoch) return;
-				this.warn();
-				this.scheduleReconnect();
-			});
-		}, 1_000);
-		this.reconnectTimer.unref();
-	}
+  private scheduleReconnect(): void {
+    if (!this.active || this.options.reconnect === false || this.reconnectTimer)
+      return;
+    const { epoch } = this;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      void this.retry().catch(() => {
+        if (!this.active || epoch !== this.epoch) return;
+        this.warn();
+        this.scheduleReconnect();
+      });
+    }, 1000);
+    this.reconnectTimer.unref();
+  }
 }

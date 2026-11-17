@@ -62,44 +62,27 @@ Update Observatory before applying if you use its historical index. Older versio
 
 ### Model roles
 
-`/roles` opens the read-only model roles subview of Notes. You can also choose
-**Model roles** in the Notes tab. It shows the configuration path, configured
-values and a JSON example. `/notes` opens Notes and `/board` opens Board.
-Press Tab or Shift-Tab to switch between those two tabs. Edit
-`<Pi agent directory>/notes-compaction/model-roles.json` to define roles:
+`/roles` opens the read-only model roles subview of Notes. You can also choose **Model roles** in the Notes tab. It shows the configuration path, configured values and a JSON example. `/notes` opens Notes and `/board` opens Board. Press Tab or Shift-Tab to switch between those two tabs. Edit `<Pi agent directory>/notes-compaction/model-roles.json` to define roles:
 
 ```json
 {
-	"roles": [
-		{
-			"id": "planning",
-			"description": "Sustained planning and design work",
-			"provider": "your-provider",
-			"model": "your-model-id",
-			"reasoning": "high"
-		}
-	]
+  "roles": [
+    {
+      "id": "planning",
+      "description": "Sustained planning and design work",
+      "provider": "your-provider",
+      "model": "your-model-id",
+      "reasoning": "high"
+    }
+  ]
 }
 ```
 
-Create the parent directory and file if missing. Use an available Pi provider
-and exact model ID. Role IDs start with a lowercase letter and contain only
-lowercase letters, numbers and hyphens. Reasoning accepts `off`, `minimal`,
-`low`, `medium`, `high`, `xhigh` or `max`. Roles have no shipped model assignments.
-Changes apply on the next turn or when reopening the subview. All defined roles
-are available to the agent. The old `enabled` property is ignored.
+Create the parent directory and file if missing. Use an available Pi provider and exact model ID. Role IDs start with a lowercase letter and contain only lowercase letters, numbers and hyphens. Reasoning accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`. Roles have no shipped model assignments. Changes apply on the next turn or when reopening the subview. All defined roles are available to the agent. The old `enabled` property is ignored.
 
-Only role IDs and descriptions are shared with the agent. After saving its
-checkpoint, it can call `new_context` with an optional `role` when a sustained
-scope shift warrants a different role. The next context window uses that role's
-model and reasoning in the same session. Without a role, `new_context` keeps the
-current model. There is no manual role switching or recommendation acceptance
-workflow.
+Only role IDs and descriptions are shared with the agent. After saving its checkpoint, it can call `new_context` with an optional `role` when a sustained scope shift warrants a different role. The next context window uses that role's model and reasoning in the same session. Without a role, `new_context` keeps the current model. There is no manual role switching or recommendation acceptance workflow.
 
-Notes must be active for both models. Pi handles authentication and clamps
-unsupported reasoning levels. Provider capabilities and context limits still
-apply, and switching does not guarantee cache reuse. Context retirement and
-recovery keep their existing Notes settings.
+Notes must be active for both models. Pi handles authentication and clamps unsupported reasoning levels. Provider capabilities and context limits still apply, and switching does not guarantee cache reuse. Context retirement and recovery keep their existing Notes settings.
 
 ### Notes settings
 
@@ -118,13 +101,13 @@ The whitelist is preseeded in `<Pi agent directory>/notes-compaction/settings.js
 
 ```json
 {
-	"active": "whitelist",
-	"modelWhitelist": ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"],
-	"normalCompaction": false,
-	"rankedHistorySearch": false,
-	"newWindowRequests": "unrestricted",
-	"idleMinutes": 0,
-	"taskBoundaryReminder": 0
+  "active": "whitelist",
+  "modelWhitelist": ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"],
+  "normalCompaction": false,
+  "rankedHistorySearch": false,
+  "newWindowRequests": "unrestricted",
+  "idleMinutes": 0,
+  "taskBoundaryReminder": 0
 }
 ```
 

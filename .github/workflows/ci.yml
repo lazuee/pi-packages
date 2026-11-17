@@ -13,4 +13,5 @@ jobs:
       - uses: jdx/mise-action@v3
       - run: mise run install
       - run: mise run check
-      - run: bunx prettier --check .
+      - run: bunx oxfmt --check .
+      - run: bunx oxlint --config oxlint.config.ts

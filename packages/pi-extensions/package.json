@@ -1,73 +1,73 @@
 {
-	"name": "@lazuee/pi-extensions",
-	"version": "0.0.1",
-	"description": "Pi extensions",
-	"type": "module",
-	"keywords": [
-		"pi-package",
-		"pi",
-		"lazuee"
-	],
-	"license": "MIT",
-	"publishConfig": {
-		"access": "public"
-	},
-	"files": [
-		"README.md",
-		"LICENSE",
-		"index.ts",
-		"CHANGELOG.md"
-	],
-	"pi": {
-		"extensions": [
-			"./index.ts"
-		]
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/lazuee/pi-packages.git",
-		"directory": "packages/pi-extensions"
-	},
-	"homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-extensions#readme",
-	"bugs": {
-		"url": "https://github.com/lazuee/pi-packages/issues"
-	},
-	"scripts": {
-		"prepack": "bun run ../../scripts/prepare-aggregate-package.mjs",
-		"check": "tsgo --noEmit"
-	},
-	"dependencies": {
-		"@lazuee/pi-agent-comms": "0.0.1",
-		"@lazuee/pi-ask": "0.0.1",
-		"@lazuee/pi-auto-trees": "0.0.1",
-		"@lazuee/pi-better-skills-tool": "0.0.1",
-		"@lazuee/pi-cache-hit-predictor": "0.0.1",
-		"@lazuee/pi-github-watch": "0.0.1",
-		"@lazuee/pi-shepherdr": "0.0.1",
-		"@lazuee/pi-smart-btw": "0.0.1",
-		"@lazuee/pi-subagent-review": "0.0.1",
-		"@lazuee/pi-suggestions": "0.0.1",
-		"@lazuee/pi-tokens": "0.0.1",
-		"@lazuee/pi-unicode-charts": "0.0.1"
-	},
-	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": ">=1.5.0",
-		"@earendil-works/pi-tui": ">=1.5.0"
-	},
-	"devDependencies": {
-		"@earendil-works/pi-coding-agent": "1.5.2",
-		"@lazuee/pi-agent-comms": "workspace:*",
-		"@lazuee/pi-ask": "workspace:*",
-		"@lazuee/pi-auto-trees": "workspace:*",
-		"@lazuee/pi-better-skills-tool": "workspace:*",
-		"@lazuee/pi-cache-hit-predictor": "workspace:*",
-		"@lazuee/pi-github-watch": "workspace:*",
-		"@lazuee/pi-shepherdr": "workspace:*",
-		"@lazuee/pi-smart-btw": "workspace:*",
-		"@lazuee/pi-subagent-review": "workspace:*",
-		"@lazuee/pi-suggestions": "workspace:*",
-		"@lazuee/pi-tokens": "workspace:*",
-		"@lazuee/pi-unicode-charts": "workspace:*",
-		"typescript": "^7.0.2"
-	}
+  "name": "@lazuee/pi-extensions",
+  "version": "0.0.1",
+  "description": "Pi extensions",
+  "keywords": [
+    "lazuee",
+    "pi",
+    "pi-package"
+  ],
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-extensions#readme",
+  "bugs": {
+    "url": "https://github.com/lazuee/pi-packages/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
+    "directory": "packages/pi-extensions"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "index.ts",
+    "CHANGELOG.md"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "tsgo --noEmit",
+    "prepack": "bun run ../../scripts/prepare-aggregate-package.mjs"
+  },
+  "dependencies": {
+    "@lazuee/pi-agent-comms": "0.0.1",
+    "@lazuee/pi-ask": "0.0.1",
+    "@lazuee/pi-auto-trees": "0.0.1",
+    "@lazuee/pi-better-skills-tool": "0.0.1",
+    "@lazuee/pi-cache-hit-predictor": "0.0.1",
+    "@lazuee/pi-github-watch": "0.0.1",
+    "@lazuee/pi-shepherdr": "0.0.1",
+    "@lazuee/pi-smart-btw": "0.0.1",
+    "@lazuee/pi-subagent-review": "0.0.1",
+    "@lazuee/pi-suggestions": "0.0.1",
+    "@lazuee/pi-tokens": "0.0.1",
+    "@lazuee/pi-unicode-charts": "0.0.1"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@lazuee/pi-agent-comms": "workspace:*",
+    "@lazuee/pi-ask": "workspace:*",
+    "@lazuee/pi-auto-trees": "workspace:*",
+    "@lazuee/pi-better-skills-tool": "workspace:*",
+    "@lazuee/pi-cache-hit-predictor": "workspace:*",
+    "@lazuee/pi-github-watch": "workspace:*",
+    "@lazuee/pi-shepherdr": "workspace:*",
+    "@lazuee/pi-smart-btw": "workspace:*",
+    "@lazuee/pi-subagent-review": "workspace:*",
+    "@lazuee/pi-suggestions": "workspace:*",
+    "@lazuee/pi-tokens": "workspace:*",
+    "@lazuee/pi-unicode-charts": "workspace:*",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=1.5.0",
+    "@earendil-works/pi-tui": ">=1.5.0"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
 }

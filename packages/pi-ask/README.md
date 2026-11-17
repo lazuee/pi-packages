@@ -37,8 +37,8 @@ Both templates are enabled by default. The extension creates `ask.json` under Pi
 
 ```json
 {
-	"grill": true,
-	"fold": true
+  "grill": true,
+  "fold": true
 }
 ```
 
@@ -54,8 +54,6 @@ The panel uses Pi's active keybindings. The defaults are:
 - `Tab` — advance, using `Other/rephrase` when the current prompt is unanswered
 - `Esc` — dismiss the panel
 
-Configure the corresponding `tui.select.*`, `tui.editor.cursorLeft`,
-`tui.editor.cursorRight`, and `tui.input.*` actions in Pi's
-`keybindings.json`.
+Configure the corresponding `tui.select.*`, `tui.editor.cursorLeft`, `tui.editor.cursorRight`, and `tui.input.*` actions in Pi's `keybindings.json`.
 
 The tool requires Pi's interactive TUI or RPC UI. It returns dismissal as a distinct result so the agent can stop asking rather than guessing.

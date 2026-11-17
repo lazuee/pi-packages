@@ -8,24 +8,24 @@ export const TERMINAL_ADDRESS = /^t[1-9][0-9bcdfghjkmnpqrstvwxyz]*$/;
  * @returns {string | undefined}
  */
 export function livePiSession(record) {
-	if (
-		!record ||
-		typeof record !== "object" ||
-		!("state" in record) ||
-		record.state !== "live" ||
-		!("status" in record) ||
-		!record.status ||
-		typeof record.status !== "object" ||
-		!("app" in record.status) ||
-		record.status.app !== "pi" ||
-		!("labels" in record) ||
-		!record.labels ||
-		typeof record.labels !== "object" ||
-		!("pi.session_file" in record.labels)
-	)
-		return undefined;
-	const path = record.labels["pi.session_file"];
-	return typeof path === "string" && path ? path : undefined;
+  if (
+    !record ||
+    typeof record !== "object" ||
+    !("state" in record) ||
+    record.state !== "live" ||
+    !("status" in record) ||
+    !record.status ||
+    typeof record.status !== "object" ||
+    !("app" in record.status) ||
+    record.status.app !== "pi" ||
+    !("labels" in record) ||
+    !record.labels ||
+    typeof record.labels !== "object" ||
+    !("pi.session_file" in record.labels)
+  )
+    return;
+  const path = record.labels["pi.session_file"];
+  return typeof path === "string" && path ? path : undefined;
 }
 
 /** Native terminal identity and lifecycle shared by local and bundled peer delivery.
@@ -33,47 +33,48 @@ export function livePiSession(record) {
  * @returns {TerminalPeer}
  */
 export function terminalPeer(request) {
-	/** @param {string} address */
-	async function get(address) {
-		if (!TERMINAL_ADDRESS.test(address))
-			throw new Error("Use an exact terminal address from this machine");
-		const value = await request("terminal.get", { terminal: address });
-		if (
-			!value ||
-			typeof value !== "object" ||
-			!("address" in value) ||
-			value.address !== address ||
-			!("state" in value)
-		)
-			throw new Error("Terminal identity changed; resolve the target again");
-		return value;
-	}
-	return {
-		async terminal(address) {
-			const record = await get(address);
-			const path = livePiSession(record);
-			return {
-				pane_id: address,
-				terminal_id: address,
-				agent: typeof path === "string" && path ? "pi" : null,
-				...(typeof path === "string" && path
-					? {
-							agent_session: {
-								agent: "pi",
-								kind: /** @type {const} */ ("path"),
-								source: "pi.session_file",
-								value: path,
-							},
-						}
-					: {}),
-			};
-		},
-		async closeTerminal(address) {
-			const record = await get(address);
-			if (record.state === "live") await request("terminal.kill", { terminal: address });
-			else if (record.state !== "finished")
-				throw new Error("Terminal state is unknown; inspect it before cleanup");
-			await request("terminal.rm", { terminal: address });
-		},
-	};
+  /** @param {string} address */
+  async function get(address) {
+    if (!TERMINAL_ADDRESS.test(address))
+      throw new Error("Use an exact terminal address from this machine");
+    const value = await request("terminal.get", { terminal: address });
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("address" in value) ||
+      value.address !== address ||
+      !("state" in value)
+    )
+      throw new Error("Terminal identity changed; resolve the target again");
+    return value;
+  }
+  return {
+    async terminal(address) {
+      const record = await get(address);
+      const path = livePiSession(record);
+      return {
+        pane_id: address,
+        terminal_id: address,
+        agent: typeof path === "string" && path ? "pi" : null,
+        ...(typeof path === "string" && path
+          ? {
+              agent_session: {
+                agent: "pi",
+                kind: /** @type {const} */ ("path"),
+                source: "pi.session_file",
+                value: path,
+              },
+            }
+          : {}),
+      };
+    },
+    async closeTerminal(address) {
+      const record = await get(address);
+      if (record.state === "live")
+        await request("terminal.kill", { terminal: address });
+      else if (record.state !== "finished")
+        throw new Error("Terminal state is unknown; inspect it before cleanup");
+      await request("terminal.rm", { terminal: address });
+    },
+  };
 }

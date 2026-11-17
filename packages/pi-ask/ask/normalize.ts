@@ -2,36 +2,46 @@ import { HANDOFF_CHOICES, OTHER_OPTION_LABEL } from "./constants.js";
 import type { AskPrompt, AskResponse, PromptChoice } from "./contracts.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null;
 }
 
 export function textContent(text: string): { type: "text"; text: string } {
-	return { type: "text", text };
+  return { type: "text", text };
 }
 
 function normalizePromptChoice(choice: unknown): PromptChoice | null {
-	if (!isRecord(choice)) return null;
-	const label = typeof choice["label"] === "string" ? choice["label"].trim() : "";
-	if (!label || label === OTHER_OPTION_LABEL) return null;
-	const description = typeof choice["description"] === "string" ? choice["description"].trim() : "";
-	return { label, ...(description ? { description } : {}) };
+  if (!isRecord(choice)) return null;
+  const label =
+    typeof choice["label"] === "string" ? choice["label"].trim() : "";
+  if (!label || label === OTHER_OPTION_LABEL) return null;
+  const description =
+    typeof choice["description"] === "string"
+      ? choice["description"].trim()
+      : "";
+  return { label, ...(description ? { description } : {}) };
 }
 
-function normalizePrompt(input: unknown, index: number, handoff = false): AskPrompt | null {
-	if (!isRecord(input)) return null;
-	const title = typeof input["title"] === "string" ? input["title"].trim() : "";
-	if (!title) return null;
-	const body = typeof input["body"] === "string" ? input["body"].trim() : "";
-	const choices = Array.isArray(input["choices"])
-		? input["choices"].map(normalizePromptChoice).filter((choice) => choice !== null)
-		: [];
-	return {
-		id: `p${index + 1}`,
-		title,
-		...(body ? { body } : {}),
-		multiple: input["multiple"] === true,
-		choices: handoff && choices.length === 0 ? [...HANDOFF_CHOICES] : choices,
-	};
+function normalizePrompt(
+  input: unknown,
+  index: number,
+  handoff = false
+): AskPrompt | null {
+  if (!isRecord(input)) return null;
+  const title = typeof input["title"] === "string" ? input["title"].trim() : "";
+  if (!title) return null;
+  const body = typeof input["body"] === "string" ? input["body"].trim() : "";
+  const choices = Array.isArray(input["choices"])
+    ? input["choices"]
+        .map(normalizePromptChoice)
+        .filter((choice) => choice !== null)
+    : [];
+  return {
+    id: `p${index + 1}`,
+    title,
+    ...(body ? { body } : {}),
+    multiple: input["multiple"] === true,
+    choices: handoff && choices.length === 0 ? [...HANDOFF_CHOICES] : choices,
+  };
 }
 
 const ASK_FIELDS = ["help", "handoff", "prompts", "delivery"];
@@ -40,98 +50,110 @@ const CHOICE_FIELDS = ["label", "description"];
 const CHOICE_SHAPE = "{ label, description? }";
 
 function unknownField(
-	value: Record<string, unknown>,
-	fields: string[],
-	path: string,
+  value: Record<string, unknown>,
+  fields: string[],
+  path: string
 ): string | undefined {
-	const field = Object.keys(value).find((key) => !fields.includes(key));
-	return field === undefined
-		? undefined
-		: `Ask doesn't recognise ${path}${field}. Use ${fields.join(", ")}; call ask({}) for the supported format.`;
+  const field = Object.keys(value).find((key) => !fields.includes(key));
+  return field === undefined
+    ? undefined
+    : `Ask doesn't recognise ${path}${field}. Use ${fields.join(", ")}; call ask({}) for the supported format.`;
 }
 
 /** Why a tool call would lose input to normalization, so a misnamed field fails instead of vanishing. */
 export function askInputProblem(params: unknown): string | undefined {
-	if (!isRecord(params)) return undefined;
-	const top = unknownField(params, ASK_FIELDS, "");
-	if (top) return top;
-	if (!Array.isArray(params["prompts"])) return undefined;
-	for (const [index, prompt] of params["prompts"].entries()) {
-		if (!isRecord(prompt)) continue;
-		const path = `prompts[${index}]`;
-		const field = unknownField(prompt, PROMPT_FIELDS, `${path}.`);
-		if (field) return `${field}; choices: [${CHOICE_SHAPE}]`;
-		if (!Array.isArray(prompt["choices"])) continue;
-		for (const [choiceIndex, choice] of prompt["choices"].entries()) {
-			const choicePath = `${path}.choices[${choiceIndex}]`;
-			if (!isRecord(choice)) return `${choicePath} must be ${CHOICE_SHAPE}`;
-			const choiceField = unknownField(choice, CHOICE_FIELDS, `${choicePath}.`);
-			if (choiceField) return choiceField;
-		}
-	}
-	return undefined;
+  if (!isRecord(params)) return undefined;
+  const top = unknownField(params, ASK_FIELDS, "");
+  if (top) return top;
+  if (!Array.isArray(params["prompts"])) return undefined;
+  for (const [index, prompt] of params["prompts"].entries()) {
+    if (!isRecord(prompt)) continue;
+    const path = `prompts[${index}]`;
+    const field = unknownField(prompt, PROMPT_FIELDS, `${path}.`);
+    if (field) return `${field}; choices: [${CHOICE_SHAPE}]`;
+    if (!Array.isArray(prompt["choices"])) continue;
+    for (const [choiceIndex, choice] of prompt["choices"].entries()) {
+      const choicePath = `${path}.choices[${choiceIndex}]`;
+      if (!isRecord(choice)) return `${choicePath} must be ${CHOICE_SHAPE}`;
+      const choiceField = unknownField(choice, CHOICE_FIELDS, `${choicePath}.`);
+      if (choiceField) return choiceField;
+    }
+  }
+  return undefined;
 }
 
 export function isSteeringAskInput(input: unknown): boolean {
-	return isRecord(input) && input["delivery"] === "steer" && input["handoff"] !== true;
+  return (
+    isRecord(input) &&
+    input["delivery"] === "steer" &&
+    input["handoff"] !== true
+  );
 }
 
 export function isAskHelpInput(input: unknown): boolean {
-	if (input === undefined) return true;
-	if (!isRecord(input) || Array.isArray(input)) return false;
-	const keys = Object.keys(input);
-	return keys.length === 0 || (keys.length === 1 && input["help"] === true);
+  if (input === undefined) return true;
+  if (!isRecord(input) || Array.isArray(input)) return false;
+  const keys = Object.keys(input);
+  return keys.length === 0 || (keys.length === 1 && input["help"] === true);
 }
 
 export function normalizeAskInput(params: unknown): {
-	delivery: "wait" | "steer";
-	handoff: boolean;
-	prompts: AskPrompt[];
+  delivery: "wait" | "steer";
+  handoff: boolean;
+  prompts: AskPrompt[];
 } {
-	const input = isRecord(params) ? params : {};
-	const handoff = input["handoff"] === true;
-	const prompts = Array.isArray(input["prompts"])
-		? input["prompts"]
-				.map((prompt, index) => normalizePrompt(prompt, index, handoff))
-				.filter((prompt) => prompt !== null)
-		: [];
-	return {
-		delivery: input["delivery"] === "steer" ? "steer" : "wait",
-		handoff,
-		prompts,
-	};
+  const input = isRecord(params) ? params : {};
+  const handoff = input["handoff"] === true;
+  const prompts = Array.isArray(input["prompts"])
+    ? input["prompts"]
+        .map((prompt, index) => normalizePrompt(prompt, index, handoff))
+        .filter((prompt) => prompt !== null)
+    : [];
+  return {
+    delivery: input["delivery"] === "steer" ? "steer" : "wait",
+    handoff,
+    prompts,
+  };
 }
 
-export function normalizeResponses(prompts: AskPrompt[], responses: unknown): AskResponse[] | null {
-	if (!Array.isArray(responses)) return null;
-	return prompts.map((prompt, index) => {
-		const response: unknown = responses[index];
-		const rawSelections = Array.isArray(response)
-			? response
-			: isRecord(response) && Array.isArray(response["selections"])
-				? response["selections"]
-				: [];
-		const selections = rawSelections.filter((selection): selection is string => {
-			return typeof selection === "string";
-		});
-		const comment =
-			isRecord(response) && typeof response["comment"] === "string"
-				? response["comment"].trim()
-				: "";
-		return {
-			id: prompt.id,
-			selections,
-			...(comment ? { comment } : {}),
-		};
-	});
+export function normalizeResponses(
+  prompts: AskPrompt[],
+  responses: unknown
+): AskResponse[] | null {
+  if (!Array.isArray(responses)) return null;
+  return prompts.map((prompt, index) => {
+    const response: unknown = responses[index];
+    const rawSelections = Array.isArray(response)
+      ? response
+      : isRecord(response) && Array.isArray(response["selections"])
+        ? response["selections"]
+        : [];
+    const selections = rawSelections.filter(
+      (selection): selection is string => typeof selection === "string"
+    );
+    const comment =
+      isRecord(response) && typeof response["comment"] === "string"
+        ? response["comment"].trim()
+        : "";
+    return {
+      id: prompt.id,
+      selections,
+      ...(comment ? { comment } : {}),
+    };
+  });
 }
 
-export function summarizeResponses(prompts: AskPrompt[], responses: AskResponse[]): string {
-	return responses
-		.map((response, index) => {
-			const prompt = prompts[index];
-			const selection = `${prompt?.title ?? `Prompt ${index + 1}`}: ${response.selections.join(", ") || "No selection"}`;
-			return response.comment ? `${selection}\n  Comment: ${response.comment}` : selection;
-		})
-		.join("\n");
+export function summarizeResponses(
+  prompts: AskPrompt[],
+  responses: AskResponse[]
+): string {
+  return responses
+    .map((response, index) => {
+      const prompt = prompts[index];
+      const selection = `${prompt?.title ?? `Prompt ${index + 1}`}: ${response.selections.join(", ") || "No selection"}`;
+      return response.comment
+        ? `${selection}\n  Comment: ${response.comment}`
+        : selection;
+    })
+    .join("\n");
 }

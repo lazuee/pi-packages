@@ -1,58 +1,68 @@
 {
-	"name": "pi-packages",
-	"private": true,
-	"type": "module",
-	"workspaces": [
-		"packages/*"
-	],
-	"scripts": {
-		"check": "node scripts/check-packages-parity.mjs; bun run --filter '*' check",
-		"build": "bun run --filter '*' build",
-		"fmt": "prettier --write .",
-		"fmt:check": "prettier --check .",
-		"prepack": "bun run check && bun run build",
-		"parity": "node scripts/check-packages-parity.mjs"
-	},
-	"dependencies": {
-		"@lazuee/pi-agent-comms": "0.0.1",
-		"@lazuee/pi-ask": "0.0.1",
-		"@lazuee/pi-auto-trees": "0.0.1",
-		"@lazuee/pi-better-skills-tool": "0.0.1",
-		"@lazuee/pi-cache-hit-predictor": "0.0.1",
-		"@lazuee/pi-github-watch": "0.0.1",
-		"@lazuee/pi-shepherdr": "0.0.1",
-		"@lazuee/pi-smart-btw": "0.0.1",
-		"@lazuee/pi-subagent-review": "0.0.1",
-		"@lazuee/pi-suggestions": "0.0.1",
-		"@lazuee/pi-tokens": "0.0.1",
-		"@lazuee/pi-unicode-charts": "0.0.1"
-	},
-	"devDependencies": {
-		"@earendil-works/pi-coding-agent": "1.5.2",
-		"@lazuee/pi-agent-comms": "workspace:*",
-		"@lazuee/pi-ask": "workspace:*",
-		"@lazuee/pi-auto-trees": "workspace:*",
-		"@lazuee/pi-better-skills-tool": "workspace:*",
-		"@lazuee/pi-cache-hit-predictor": "workspace:*",
-		"@lazuee/pi-github-watch": "workspace:*",
-		"@lazuee/pi-shepherdr": "workspace:*",
-		"@lazuee/pi-smart-btw": "workspace:*",
-		"@lazuee/pi-subagent-review": "workspace:*",
-		"@lazuee/pi-suggestions": "workspace:*",
-		"@lazuee/pi-tokens": "workspace:*",
-		"@lazuee/pi-unicode-charts": "workspace:*",
-		"@types/bun": "latest",
-		"@typescript/native-preview": "^7.0.0-dev.20260707.2",
-		"prettier": "3.6.2",
-		"typebox": "1.3.27",
-		"typescript": "5.9.3"
-	},
-	"pi": {
-		"extensions": [
-			"./packages/pi-extensions/index.ts"
-		],
-		"skills": [
-			"./packages/pi-skill-agent-harness/skills"
-		]
-	}
+  "name": "pi-packages",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "bun run --filter '*' build",
+    "check": "node scripts/check-packages-parity.mjs; bun run --filter '*' check",
+    "fmt": "oxfmt . && oxlint --config oxlint.config.ts --fix",
+    "fmt:check": "oxfmt --check . && oxlint --config oxlint.config.ts",
+    "parity": "node scripts/check-packages-parity.mjs",
+    "prepack": "bun run check && bun run build"
+  },
+  "dependencies": {
+    "@lazuee/pi-agent-comms": "0.0.1",
+    "@lazuee/pi-ask": "0.0.1",
+    "@lazuee/pi-auto-trees": "0.0.1",
+    "@lazuee/pi-better-skills-tool": "0.0.1",
+    "@lazuee/pi-cache-hit-predictor": "0.0.1",
+    "@lazuee/pi-github-watch": "0.0.1",
+    "@lazuee/pi-shepherdr": "0.0.1",
+    "@lazuee/pi-smart-btw": "0.0.1",
+    "@lazuee/pi-subagent-review": "0.0.1",
+    "@lazuee/pi-suggestions": "0.0.1",
+    "@lazuee/pi-tokens": "0.0.1",
+    "@lazuee/pi-unicode-charts": "0.0.1"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@lazuee/config": "github:lazuee/config",
+    "@lazuee/pi-agent-comms": "workspace:*",
+    "@lazuee/pi-ask": "workspace:*",
+    "@lazuee/pi-auto-trees": "workspace:*",
+    "@lazuee/pi-better-skills-tool": "workspace:*",
+    "@lazuee/pi-cache-hit-predictor": "workspace:*",
+    "@lazuee/pi-github-watch": "workspace:*",
+    "@lazuee/pi-shepherdr": "workspace:*",
+    "@lazuee/pi-smart-btw": "workspace:*",
+    "@lazuee/pi-subagent-review": "workspace:*",
+    "@lazuee/pi-suggestions": "workspace:*",
+    "@lazuee/pi-tokens": "workspace:*",
+    "@lazuee/pi-unicode-charts": "workspace:*",
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+    "eslint-plugin-github": "^6.1.2",
+    "eslint-plugin-sonarjs": "^4.2.2",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
+    "oxlint-plugin-react-doctor": "^0.9.23",
+    "oxlint-tailwindcss": "^1.17.2",
+    "typebox": "1.3.27",
+    "typescript": "5.9.3",
+    "typescript-5": "npm:typescript@5.9.3"
+  },
+  "pi": {
+    "extensions": [
+      "./packages/pi-extensions/index.ts"
+    ],
+    "skills": [
+      "./packages/pi-skill-agent-harness/skills"
+    ]
+  },
+  "trustedDependencies": [
+    "@lazuee/config"
+  ]
 }

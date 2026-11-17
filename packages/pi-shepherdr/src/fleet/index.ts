@@ -1,19 +1,32 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
+
 import { CORE_REQUIRED, CoreConnection } from "../core/backend.js";
 import { CoreClient } from "../core/client.js";
-import { type CoreMachine, coreMachines } from "../core/machines.js";
-import { AgentMonitor } from "../monitor.js";
-import type { MachineStatus, MonitoredAgent, ScopedMonitoredAgent } from "../types.js";
+import { coreMachines } from "../core/machines.js";
+import type { CoreMachine } from "../core/machines.js";
+import type { AgentMonitor } from "../monitor.js";
+import type {
+  MachineStatus,
+  MonitoredAgent,
+  ScopedMonitoredAgent,
+} from "../types.js";
 import { renderAgentWidget } from "../widget.js";
 import { reloadCoreCatalog } from "./catalog.js";
 import { connectMachine } from "./connection.js";
-import { connectedMachine, listAgents, machineSnapshots, statusFor } from "./inspection.js";
 import {
-	type ConnectedMachine,
-	errorMessage,
-	LOCAL_MACHINE,
-	type MachineRuntime,
-	type MachineSnapshot,
+  connectedMachine,
+  listAgents,
+  machineSnapshots,
+  statusFor,
+} from "./inspection.js";
+import { errorMessage, LOCAL_MACHINE } from "./machine.js";
+import type {
+  ConnectedMachine,
+  MachineRuntime,
+  MachineSnapshot,
 } from "./machine.js";
 import { createMachineMonitor } from "./monitor.js";
 import { groupSaved, MONITOR_STATE_TYPE, savedAgents } from "./persistence.js";
@@ -23,333 +36,374 @@ import { FleetSetup } from "./setup.js";
 export type { ConnectedMachine, MachineSnapshot } from "./machine.js";
 
 export class AgentFleet {
-	private readonly listeners = new Set<() => void>();
-	subscribe(listener: () => void): () => void {
-		this.listeners.add(listener);
-		return () => {
-			this.listeners.delete(listener);
-		};
-	}
-	private readonly setup = new FleetSetup(() => this.refresh());
-	private needsContextRelay: (ctx: ExtensionContext, machine: string) => boolean = () => false;
-	setContextRelay(
-		handler: (ctx: ExtensionContext, request: unknown, signal: AbortSignal) => Promise<unknown>,
-		needsRelay: (ctx: ExtensionContext, machine: string) => boolean,
-	): void {
-		this.setup.setContextRelay(handler);
-		this.needsContextRelay = needsRelay;
-	}
-	async restoreSharing(ctx: ExtensionContext): Promise<void> {
-		if (this.context !== ctx) return;
-		await Promise.all(
-			this.statuses()
-				.filter(
-					(machine) =>
-						!machine.local &&
-						machine.status === "connected" &&
-						this.needsContextRelay(ctx, machine.id),
-				)
-				.map((machine) =>
-					this.connected(machine.id)
-						.prepareSharing()
-						.catch(() => {}),
-				),
-		);
-	}
-	private context: ExtensionContext | undefined;
-	private activationFailure: Error | undefined;
-	private generation = 0;
-	private readonly pi: ExtensionAPI;
-	private readonly runtimes = new Map<string, MachineRuntime>();
-	private localCoreId: string | undefined;
-	private lastPersistedState: string | undefined;
+  private readonly listeners = new Set<() => void>();
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+  private readonly setup = new FleetSetup(() => this.refresh());
+  private needsContextRelay: (
+    ctx: ExtensionContext,
+    machine: string
+  ) => boolean = () => false;
+  setContextRelay(
+    handler: (
+      ctx: ExtensionContext,
+      request: unknown,
+      signal: AbortSignal
+    ) => Promise<unknown>,
+    needsRelay: (ctx: ExtensionContext, machine: string) => boolean
+  ): void {
+    this.setup.setContextRelay(handler);
+    this.needsContextRelay = needsRelay;
+  }
+  async restoreSharing(ctx: ExtensionContext): Promise<void> {
+    if (this.context !== ctx) return;
+    await Promise.all(
+      this.statuses()
+        .filter(
+          (machine) =>
+            !machine.local &&
+            machine.status === "connected" &&
+            this.needsContextRelay(ctx, machine.id)
+        )
+        .map((machine) =>
+          this.connected(machine.id)
+            .prepareSharing()
+            .catch(() => {
+              /* empty */
+            })
+        )
+    );
+  }
+  private context: ExtensionContext | undefined;
+  private activationFailure: Error | undefined;
+  private generation = 0;
+  private readonly pi: ExtensionAPI;
+  private readonly runtimes = new Map<string, MachineRuntime>();
+  private localCoreId: string | undefined;
+  private lastPersistedState: string | undefined;
 
-	constructor(pi: ExtensionAPI) {
-		this.pi = pi;
-		pi.on("session_tree", () => {
-			this.lastPersistedState = undefined;
-		});
-	}
+  constructor(pi: ExtensionAPI) {
+    this.pi = pi;
+    pi.on("session_tree", () => {
+      this.lastPersistedState = undefined;
+    });
+  }
 
-	async activate(ctx: ExtensionContext): Promise<void> {
-		this.deactivate();
-		const generation = this.generation;
-		this.context = ctx;
-		const identityClient = new CoreConnection();
-		let coreId: string;
-		try {
-			coreId = (await identityClient.machineIdentity()).session;
-		} catch (error) {
-			const reason =
-				error instanceof Error && "code" in error && typeof error.code === "string"
-					? "Core is unreachable"
-					: errorMessage(error);
-			throw new Error(
-				`Shepherdr could not connect to Core: ${reason}. Start or reconnect Core, then open /herdr → Status to retry.`,
-				{ cause: error },
-			);
-		} finally {
-			identityClient.close();
-		}
-		if (!this.isCurrent(generation, ctx)) return;
-		this.localCoreId = coreId;
-		const grouped = groupSaved(savedAgents(ctx, this.localCoreId));
-		const coreCatalog = await this.coreCatalog();
-		if (!this.isCurrent(generation, ctx)) return;
-		const known = new Set([LOCAL_MACHINE, ...coreCatalog.map((machine) => machine.id)]);
-		const orphaned = [...grouped.entries()]
-			.filter(([machine]) => !known.has(machine))
-			.reduce((count, [, records]) => count + records.length, 0);
-		if (orphaned > 0) {
-			ctx.ui.notify(
-				`Ignored ${orphaned} saved Shepherdr ${orphaned === 1 ? "agent" : "agents"} from removed machines`,
-				"warning",
-			);
-		}
+  async activate(ctx: ExtensionContext): Promise<void> {
+    this.deactivate();
+    const { generation } = this;
+    this.context = ctx;
+    const identityClient = new CoreConnection();
+    let coreId: string;
+    try {
+      coreId = (await identityClient.machineIdentity()).session;
+    } catch (error) {
+      const reason =
+        error instanceof Error &&
+        "code" in error &&
+        typeof error.code === "string"
+          ? "Core is unreachable"
+          : errorMessage(error);
+      throw new Error(
+        `Shepherdr could not connect to Core: ${reason}. Start or reconnect Core, then open /herdr → Status to retry.`,
+        { cause: error }
+      );
+    } finally {
+      identityClient.close();
+    }
+    if (!this.isCurrent(generation, ctx)) return;
+    this.localCoreId = coreId;
+    const grouped = groupSaved(savedAgents(ctx, this.localCoreId));
+    const coreCatalog = await this.coreCatalog();
+    if (!this.isCurrent(generation, ctx)) return;
+    const known = new Set([
+      LOCAL_MACHINE,
+      ...coreCatalog.map((machine) => machine.id),
+    ]);
+    const orphaned = [...grouped.entries()]
+      .filter(([machine]) => !known.has(machine))
+      .reduce((count, [, records]) => count + records.length, 0);
+    if (orphaned > 0) {
+      ctx.ui.notify(
+        `Ignored ${orphaned} saved Shepherdr ${orphaned === 1 ? "agent" : "agents"} from removed machines`,
+        "warning"
+      );
+    }
 
-		const localRuntime: MachineRuntime = {
-			coreId,
-			local: true,
-			pending: grouped.get(LOCAL_MACHINE) ?? [],
-			status: "connecting",
-		};
-		this.runtimes.set(LOCAL_MACHINE, localRuntime);
-		for (const machine of coreCatalog)
-			this.runtimes.set(machine.id, {
-				coreId: machine.id,
-				coreMachine: machine,
-				local: false,
-				pending: grouped.get(machine.id) ?? [],
-				status: "connecting",
-			});
+    const localRuntime: MachineRuntime = {
+      coreId,
+      local: true,
+      pending: grouped.get(LOCAL_MACHINE) ?? [],
+      status: "connecting",
+    };
+    this.runtimes.set(LOCAL_MACHINE, localRuntime);
+    for (const machine of coreCatalog)
+      this.runtimes.set(machine.id, {
+        coreId: machine.id,
+        coreMachine: machine,
+        local: false,
+        pending: grouped.get(machine.id) ?? [],
+        status: "connecting",
+      });
 
-		const localClient = new CoreConnection();
-		if (!this.isCurrent(generation, ctx)) {
-			localClient.close();
-			return;
-		}
-		const localMonitor = this.createMonitor(LOCAL_MACHINE, localRuntime, localClient);
-		localRuntime.client = localClient;
-		localRuntime.monitor = localMonitor;
-		await localMonitor.activate(ctx, localRuntime.pending);
-		if (
-			!this.isCurrent(generation, ctx) ||
-			this.runtimes.get(LOCAL_MACHINE) !== localRuntime ||
-			localRuntime.client !== localClient ||
-			localRuntime.monitor !== localMonitor
-		) {
-			localMonitor.deactivate();
-			return;
-		}
-		localRuntime.pending = [];
-		localRuntime.status = "connected";
-		this.changed();
+    const localClient = new CoreConnection();
+    if (!this.isCurrent(generation, ctx)) {
+      localClient.close();
+      return;
+    }
+    const localMonitor = this.createMonitor(
+      LOCAL_MACHINE,
+      localRuntime,
+      localClient
+    );
+    localRuntime.client = localClient;
+    localRuntime.monitor = localMonitor;
+    await localMonitor.activate(ctx, localRuntime.pending);
+    if (
+      !this.isCurrent(generation, ctx) ||
+      this.runtimes.get(LOCAL_MACHINE) !== localRuntime ||
+      localRuntime.client !== localClient ||
+      localRuntime.monitor !== localMonitor
+    ) {
+      localMonitor.deactivate();
+      return;
+    }
+    localRuntime.pending = [];
+    localRuntime.status = "connected";
+    this.changed();
 
-		for (const machine of coreCatalog) void this.connectMachine(machine.id, generation, true);
-	}
+    for (const machine of coreCatalog)
+      void this.connectMachine(machine.id, generation, true);
+  }
 
-	deactivate(activationFailure?: Error): void {
-		this.generation += 1;
-		this.activationFailure = activationFailure;
-		this.localCoreId = undefined;
-		this.lastPersistedState = undefined;
-		for (const runtime of this.runtimes.values()) {
-			runtime.monitor?.deactivate();
-			runtime.client?.close();
-		}
-		this.runtimes.clear();
-		renderAgentWidget(this.context, [], []);
-		this.context = undefined;
-		for (const listener of this.listeners) listener();
-	}
+  deactivate(activationFailure?: Error): void {
+    this.generation += 1;
+    this.activationFailure = activationFailure;
+    this.localCoreId = undefined;
+    this.lastPersistedState = undefined;
+    for (const runtime of this.runtimes.values()) {
+      runtime.monitor?.deactivate();
+      runtime.client?.close();
+    }
+    this.runtimes.clear();
+    renderAgentWidget(this.context, [], []);
+    this.context = undefined;
+    for (const listener of this.listeners) listener();
+  }
 
-	isActive(): boolean {
-		return this.context !== undefined;
-	}
+  isActive(): boolean {
+    return this.context !== undefined;
+  }
 
-	inactiveError(): Error {
-		if (!process.env["HC_TERMINAL_ID"] || !process.env["HC_TERMINAL_SOCKET"])
-			return new Error(CORE_REQUIRED);
-		return (
-			this.activationFailure ??
-			new Error(
-				"Agent operations are unavailable; open /herdr → Status to reconnect Core. Help and current-session command discovery remain available.",
-			)
-		);
-	}
+  inactiveError(): Error {
+    if (!process.env["HC_TERMINAL_ID"] || !process.env["HC_TERMINAL_SOCKET"])
+      return new Error(CORE_REQUIRED);
+    return (
+      this.activationFailure ??
+      new Error(
+        "Agent operations are unavailable; open /herdr → Status to reconnect Core. Help and current-session command discovery remain available."
+      )
+    );
+  }
 
-	async reload(): Promise<void> {
-		const ctx = this.context;
-		if (!ctx) return;
-		const generation = this.generation;
-		const catalog = await this.coreCatalog();
-		if (!this.isCurrent(generation, ctx)) return;
-		reloadCoreCatalog(this.runtimes, catalog, (id) => {
-			void this.connectMachine(id, generation, true);
-		});
-		this.changed();
-	}
+  async reload(): Promise<void> {
+    const ctx = this.context;
+    if (!ctx) return;
+    const { generation } = this;
+    const catalog = await this.coreCatalog();
+    if (!this.isCurrent(generation, ctx)) return;
+    reloadCoreCatalog(this.runtimes, catalog, (id) => {
+      void this.connectMachine(id, generation, true);
+    });
+    this.changed();
+  }
 
-	statuses(): MachineStatus[] {
-		return [...this.runtimes.keys()].map((name) => statusFor(this.runtimes, name));
-	}
+  statuses(): MachineStatus[] {
+    return [...this.runtimes.keys()].map((name) =>
+      statusFor(this.runtimes, name)
+    );
+  }
 
-	list(): ScopedMonitoredAgent[] {
-		return listAgents(this.runtimes);
-	}
-	localMachine(): string {
-		if (!this.localCoreId) throw new Error("Core is unavailable; reconnect before sharing context");
-		return this.localCoreId;
-	}
-	connected(machine?: string): ConnectedMachine {
-		const ctx = this.context;
-		if (!ctx) throw this.inactiveError();
-		return connectedMachine(
-			this.runtimes,
-			ctx,
-			async (name, runtime, client) => {
-				if (
-					!ctx ||
-					this.context !== ctx ||
-					this.runtimes.get(name) !== runtime ||
-					runtime.client !== client
-				)
-					throw new Error("Session changed; retry sharing from the current session");
-				if (runtime.local) return;
-				await this.prepareContextRelay(name, runtime, client, ctx);
-				if (
-					this.context !== ctx ||
-					this.runtimes.get(name) !== runtime ||
-					runtime.client !== client
-				)
-					throw new Error("Session changed; retry sharing from the current session");
-				client.contextRelayPath();
-			},
-			machine,
-		);
-	}
-	private isCurrent(generation: number, ctx: ExtensionContext): boolean {
-		return generation === this.generation && ctx === this.context;
-	}
+  list(): ScopedMonitoredAgent[] {
+    return listAgents(this.runtimes);
+  }
+  localMachine(): string {
+    if (!this.localCoreId)
+      throw new Error("Core is unavailable; reconnect before sharing context");
+    return this.localCoreId;
+  }
+  connected(machine?: string): ConnectedMachine {
+    const ctx = this.context;
+    if (!ctx) throw this.inactiveError();
+    return connectedMachine(
+      this.runtimes,
+      ctx,
+      async (name, runtime, client) => {
+        if (
+          !ctx ||
+          this.context !== ctx ||
+          this.runtimes.get(name) !== runtime ||
+          runtime.client !== client
+        )
+          throw new Error(
+            "Session changed; retry sharing from the current session"
+          );
+        if (runtime.local) return;
+        await this.prepareContextRelay(name, runtime, client, ctx);
+        if (
+          this.context !== ctx ||
+          this.runtimes.get(name) !== runtime ||
+          runtime.client !== client
+        )
+          throw new Error(
+            "Session changed; retry sharing from the current session"
+          );
+        client.contextRelayPath();
+      },
+      machine
+    );
+  }
+  private isCurrent(generation: number, ctx: ExtensionContext): boolean {
+    return generation === this.generation && ctx === this.context;
+  }
 
-	async snapshots(machine?: string): Promise<MachineSnapshot[]> {
-		if (!this.isActive()) throw this.inactiveError();
-		return machineSnapshots(this.runtimes, machine);
-	}
-	connect(machine?: string): string {
-		return connectMachines(
-			this.runtimes,
-			machine,
-			(name, runtime) => this.retrySetup(name, runtime),
-			(name) => this.connectMachine(name, this.generation, false),
-		);
-	}
-	private createMonitor(
-		machine: string,
-		runtime: MachineRuntime,
-		client: CoreConnection,
-	): AgentMonitor {
-		return createMachineMonitor(machine, runtime, client, this.pi, {
-			isAttached: () => this.runtimes.get(machine) === runtime,
-			context: () => this.context,
-			changed: () => this.changed(),
-			refresh: () => this.refresh(),
-			disconnected: (reason) => this.disconnected(machine, runtime, reason),
-		});
-	}
-	private async prepareContextRelay(
-		name: string,
-		runtime: MachineRuntime,
-		client: CoreConnection,
-		ctx: ExtensionContext,
-	): Promise<void> {
-		return this.setup.prepareContextRelay(
-			name,
-			runtime,
-			client,
-			ctx,
-			() => this.context === ctx && this.runtimes.get(name) === runtime,
-		);
-	}
-	private async retrySetup(name: string, runtime: MachineRuntime): Promise<void> {
-		const ctx = this.context;
-		const generation = this.generation;
-		return this.setup.retrySetup(
-			name,
-			runtime,
-			ctx,
-			() => ctx !== undefined && this.isCurrent(generation, ctx),
-			() => this.runtimes.get(name) === runtime,
-			() => this.context === ctx && this.runtimes.get(name) === runtime,
-		);
-	}
-	private async connectMachine(name: string, generation: number, initial: boolean): Promise<void> {
-		const runtime = this.runtimes.get(name);
-		const ctx = this.context;
-		if (!runtime || !ctx) return;
-		return connectMachine(this.runtimes, name, runtime, ctx, initial, {
-			isCurrent: () => this.isCurrent(generation, ctx),
-			refresh: () => this.refresh(),
-			createMonitor: (client) => this.createMonitor(name, runtime, client),
-			needsContextRelay: () => this.needsContextRelay(ctx, name),
-			prepareContextRelay: (client) => this.prepareContextRelay(name, runtime, client, ctx),
-			disconnected: (reason) => this.disconnected(name, runtime, reason),
-		});
-	}
+  async snapshots(machine?: string): Promise<MachineSnapshot[]> {
+    if (!this.isActive()) throw this.inactiveError();
+    return machineSnapshots(this.runtimes, machine);
+  }
+  connect(machine?: string): string {
+    return connectMachines(
+      this.runtimes,
+      machine,
+      (name, runtime) => this.retrySetup(name, runtime),
+      (name) => this.connectMachine(name, this.generation, false)
+    );
+  }
+  private createMonitor(
+    machine: string,
+    runtime: MachineRuntime,
+    client: CoreConnection
+  ): AgentMonitor {
+    return createMachineMonitor(machine, runtime, client, this.pi, {
+      isAttached: () => this.runtimes.get(machine) === runtime,
+      context: () => this.context,
+      changed: () => this.changed(),
+      refresh: () => this.refresh(),
+      disconnected: (reason) => this.disconnected(machine, runtime, reason),
+    });
+  }
+  private async prepareContextRelay(
+    name: string,
+    runtime: MachineRuntime,
+    client: CoreConnection,
+    ctx: ExtensionContext
+  ): Promise<void> {
+    return this.setup.prepareContextRelay(
+      name,
+      runtime,
+      client,
+      ctx,
+      () => this.context === ctx && this.runtimes.get(name) === runtime
+    );
+  }
+  private async retrySetup(
+    name: string,
+    runtime: MachineRuntime
+  ): Promise<void> {
+    const ctx = this.context;
+    const { generation } = this;
+    return this.setup.retrySetup(
+      name,
+      runtime,
+      ctx,
+      () => ctx !== undefined && this.isCurrent(generation, ctx),
+      () => this.runtimes.get(name) === runtime,
+      () => this.context === ctx && this.runtimes.get(name) === runtime
+    );
+  }
+  private async connectMachine(
+    name: string,
+    generation: number,
+    initial: boolean
+  ): Promise<void> {
+    const runtime = this.runtimes.get(name);
+    const ctx = this.context;
+    if (!runtime || !ctx) return;
+    return connectMachine(this.runtimes, name, runtime, ctx, initial, {
+      isCurrent: () => this.isCurrent(generation, ctx),
+      refresh: () => this.refresh(),
+      createMonitor: (client) => this.createMonitor(name, runtime, client),
+      needsContextRelay: () => this.needsContextRelay(ctx, name),
+      prepareContextRelay: (client) =>
+        this.prepareContextRelay(name, runtime, client, ctx),
+      disconnected: (reason) => this.disconnected(name, runtime, reason),
+    });
+  }
 
-	private disconnected(name: string, runtime: MachineRuntime, reason: string): void {
-		reason = errorMessage(reason);
-		if (runtime.status === "unavailable" && runtime.reason === reason) return;
-		// Keep the stopped owner until reconnect so in-flight dispatch cleanup
-		// updates the state we persist, rather than a detached snapshot.
-		runtime.monitor?.deactivate();
-		runtime.client?.close();
-		delete runtime.client;
-		delete runtime.contextRelayError;
-		delete runtime.monitoringIssue;
-		runtime.status = "unavailable";
-		delete runtime.attempting;
-		runtime.reason = reason;
-		this.changed();
-		this.context?.ui.notify(
-			`Shepherdr unavailable on ${name}: ${reason}\nOpen /herdr → Status to reconnect`,
-			"warning",
-		);
-	}
+  private disconnected(
+    name: string,
+    runtime: MachineRuntime,
+    reason: string
+  ): void {
+    reason = errorMessage(reason);
+    if (runtime.status === "unavailable" && runtime.reason === reason) return;
+    // Keep the stopped owner until reconnect so in-flight dispatch cleanup
+    // updates the state we persist, rather than a detached snapshot.
+    runtime.monitor?.deactivate();
+    runtime.client?.close();
+    delete runtime.client;
+    delete runtime.contextRelayError;
+    delete runtime.monitoringIssue;
+    runtime.status = "unavailable";
+    delete runtime.attempting;
+    runtime.reason = reason;
+    this.changed();
+    this.context?.ui.notify(
+      `Shepherdr unavailable on ${name}: ${reason}\nOpen /herdr → Status to reconnect`,
+      "warning"
+    );
+  }
 
-	private changed(): void {
-		if (!this.context) return;
-		const agents = this.persistedAgents();
-		const data = {
-			version: 2,
-			agents,
-			...(this.localCoreId ? { localCoreId: this.localCoreId } : {}),
-		};
-		const serialized = JSON.stringify(data);
-		if (serialized !== this.lastPersistedState) {
-			this.pi.appendEntry(MONITOR_STATE_TYPE, data);
-			this.lastPersistedState = serialized;
-		}
-		this.refresh();
-	}
-	private async coreCatalog(): Promise<CoreMachine[]> {
-		const socket = process.env["HC_TERMINAL_SOCKET"];
-		if (!socket) throw new Error("Run Pi inside a Core terminal to connect Shepherdr");
-		const client = new CoreClient(socket);
-		try {
-			return (await coreMachines(client)).filter((machine) => machine.id !== this.localCoreId);
-		} finally {
-			client.close();
-		}
-	}
+  private changed(): void {
+    if (!this.context) return;
+    const agents = this.persistedAgents();
+    const data = {
+      version: 2,
+      agents,
+      ...(this.localCoreId ? { localCoreId: this.localCoreId } : {}),
+    };
+    const serialized = JSON.stringify(data);
+    if (serialized !== this.lastPersistedState) {
+      this.pi.appendEntry(MONITOR_STATE_TYPE, data);
+      this.lastPersistedState = serialized;
+    }
+    this.refresh();
+  }
+  private async coreCatalog(): Promise<CoreMachine[]> {
+    const socket = process.env["HC_TERMINAL_SOCKET"];
+    if (!socket)
+      throw new Error("Run Pi inside a Core terminal to connect Shepherdr");
+    const client = new CoreClient(socket);
+    try {
+      return (await coreMachines(client)).filter(
+        (machine) => machine.id !== this.localCoreId
+      );
+    } finally {
+      client.close();
+    }
+  }
 
-	private refresh(): void {
-		if (!this.context) return;
-		renderAgentWidget(this.context, this.list(), this.statuses());
-		for (const listener of this.listeners) listener();
-	}
+  private refresh(): void {
+    if (!this.context) return;
+    renderAgentWidget(this.context, this.list(), this.statuses());
+    for (const listener of this.listeners) listener();
+  }
 
-	private persistedAgents(): Array<MonitoredAgent & { machine: string }> {
-		return listAgents(this.runtimes);
-	}
+  private persistedAgents(): (MonitoredAgent & { machine: string })[] {
+    return listAgents(this.runtimes);
+  }
 }

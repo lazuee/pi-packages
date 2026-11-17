@@ -17,16 +17,16 @@ import PiTokens from "@lazuee/pi-tokens";
 import PiUnicodeCharts from "@lazuee/pi-unicode-charts";
 
 export default async function (pi: ExtensionAPI) {
-	await PiAgentComms(pi);
-	await PiAsk(pi);
-	await PiAutoTrees(pi);
-	await PiBetterSkillsTool(pi);
-	await PiCacheHitPredictor(pi);
-	await PiGithubWatch(pi);
-	await PiShepherdr(pi);
-	await PiSmartBtw(pi);
-	await PiSubagentReview(pi);
-	await PiSuggestions(pi);
-	await PiTokens(pi);
-	await PiUnicodeCharts(pi);
+  await PiAgentComms(pi);
+  await PiAsk(pi);
+  await PiAutoTrees(pi);
+  await PiBetterSkillsTool(pi);
+  await PiCacheHitPredictor(pi);
+  await PiGithubWatch(pi);
+  await PiShepherdr(pi);
+  await PiSmartBtw(pi);
+  await PiSubagentReview(pi);
+  await PiSuggestions(pi);
+  await PiTokens(pi);
+  await PiUnicodeCharts(pi);
 }
