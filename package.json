@@ -24,6 +24,7 @@
 		"@lazuee/pi-smart-btw": "0.0.1",
 		"@lazuee/pi-subagent-review": "0.0.1",
 		"@lazuee/pi-suggestions": "0.0.1",
+		"@lazuee/pi-tokens": "0.0.1",
 		"@lazuee/pi-unicode-charts": "0.0.1"
 	},
 	"devDependencies": {
@@ -38,6 +39,7 @@
 		"@lazuee/pi-smart-btw": "workspace:*",
 		"@lazuee/pi-subagent-review": "workspace:*",
 		"@lazuee/pi-suggestions": "workspace:*",
+		"@lazuee/pi-tokens": "workspace:*",
 		"@lazuee/pi-unicode-charts": "workspace:*",
 		"@types/bun": "latest",
 		"@typescript/native-preview": "^7.0.0-dev.20260707.2",

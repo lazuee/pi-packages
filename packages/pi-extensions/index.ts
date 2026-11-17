@@ -13,6 +13,7 @@ import PiShepherdr from "@lazuee/pi-shepherdr";
 import PiSmartBtw from "@lazuee/pi-smart-btw";
 import PiSubagentReview from "@lazuee/pi-subagent-review";
 import PiSuggestions from "@lazuee/pi-suggestions";
+import PiTokens from "@lazuee/pi-tokens";
 import PiUnicodeCharts from "@lazuee/pi-unicode-charts";
 
 export default async function (pi: ExtensionAPI) {
@@ -26,5 +27,6 @@ export default async function (pi: ExtensionAPI) {
 	await PiSmartBtw(pi);
 	await PiSubagentReview(pi);
 	await PiSuggestions(pi);
+	await PiTokens(pi);
 	await PiUnicodeCharts(pi);
 }
