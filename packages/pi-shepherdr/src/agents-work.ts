@@ -7,8 +7,14 @@ import type { ConnectedMachine } from "./fleet/index.js";
 import { agentSource } from "./messages/attribution.js";
 import type { WorkAttempt } from "./monitor-state.js";
 import { isDispatchRejected } from "./remote/shepherdr-peer.mjs";
+import { SettlementTimeoutError } from "./settlement/delivery.js";
 import type { ClaimedSettlement } from "./settlement/index.js";
-import type { ExtensionReply, PaneInfo, PeerDelivery } from "./types.js";
+import type {
+  ExtensionReply,
+  MonitoredAgent,
+  PaneInfo,
+  PeerDelivery,
+} from "./types.js";
 
 export function toolResult(value: Record<string, unknown>, warning?: string) {
   if (warning) value = { ...value, next: warning };
@@ -41,6 +47,9 @@ function slugify(value: string): string {
 }
 
 const startingNames = new WeakMap<CoreConnection, Set<string>>();
+
+/** Human reading of the settlement retry window. */
+const SETTLEMENT_WINDOW = "7.75s";
 
 export async function reserveAgentName(
   runtime: ConnectedMachine,
@@ -133,8 +142,14 @@ export async function dispatchAgentWork(
     expectUserMessage?: boolean;
     onAccepted?: () => void;
     replyingTo?: ExtensionReply;
+    timeoutMs?: number;
+    /** Called once when a blocked result is still being collected. */
+    onStall?: (window: string) => void;
   } = {}
 ): Promise<{
+  /** Why the wait ended early; the work itself continues in every case. */
+  detach?: "session" | "stall" | "timeout";
+  detail?: string;
   settlement?: ClaimedSettlement;
   command?: true;
   warning?: string;
@@ -151,25 +166,31 @@ export async function dispatchAgentWork(
   let settlement: Promise<ClaimedSettlement> | undefined;
   let receipt: PeerDelivery | undefined;
   let sendStarted = false;
+  let track: MonitoredAgent | undefined;
   try {
-    await runtime.monitor.track(panel);
-    const baseline = options.expectUserMessage
-      ? await runtime.monitor.view(panel, signal)
-      : undefined;
-    attempt = runtime.monitor.beginWork(
-      panel.pane_id,
-      task,
-      options.expectUserMessage ? (baseline?.input?.id ?? null) : undefined
-    );
+    track = await runtime.monitor.track(panel);
+    attempt = runtime.monitor.beginWork(track.paneId, task, null);
     if (!attempt) throw new Error(`${panel.pane_id} is not monitored`);
     settlement = blocking
-      ? runtime.monitor.claimWork(attempt, signal, options.replyingTo)
+      ? runtime.monitor.claimWork(
+          attempt,
+          signal,
+          options.replyingTo,
+          options.timeoutMs
+        )
       : undefined;
     if (!blocking && options.replyingTo) {
       runtime.monitor.observeReply(attempt, options.replyingTo);
     }
     void settlement?.catch(() => undefined);
     signal.throwIfAborted();
+    // A baseline taken before the send lets a slow worker persist the prompt
+    // first, so read it immediately before submitting.
+    if (options.expectUserMessage) {
+      const baseline = await runtime.monitor.view(panel, signal);
+      if (baseline.input?.id)
+        runtime.monitor.expectUser(attempt, baseline.input.id);
+    }
     sendStarted = true;
     receipt = (await send()) ?? undefined;
   } catch (error) {
@@ -226,10 +247,52 @@ export async function dispatchAgentWork(
   }
   if (receipt?.command) return { command: true };
   if (!settlement) return {};
-  reportProgress(onUpdate, `Waiting for ${panel.name ?? panel.pane_id}`, {
-    machine: runtime.machine,
-    target: panel.pane_id,
-    status: "working",
-  });
-  return { settlement: await settlement };
+  const started = Date.now();
+  const label = panel.name ?? panel.pane_id;
+  // Visible so a long wait never looks like a stall, without repeating itself.
+  let shown = "";
+  const progress = (message: string) => {
+    if (message === shown) return;
+    shown = message;
+    reportProgress(onUpdate, message, {
+      machine: runtime.machine,
+      target: panel.pane_id,
+      status: "working",
+      elapsedMs: Date.now() - started,
+    });
+  };
+  progress(`Waiting for ${label}`);
+  if (options.onStall) {
+    const base = settlement;
+    settlement = base.then(
+      (value) => value,
+      (error) => {
+        if (error instanceof SettlementTimeoutError) throw error;
+        options.onStall!(
+          `${label} blocked without a result; still retrying for ${SETTLEMENT_WINDOW}`
+        );
+        return base;
+      }
+    );
+  }
+  try {
+    return { settlement: await settlement };
+  } catch (error) {
+    // Only the waiter was dropped; the work and its later report continue.
+    if (!(error instanceof SettlementTimeoutError)) throw error;
+    const detached =
+      error.source === "session"
+        ? "session"
+        : error.source === "stall"
+          ? "stall"
+          : "timeout";
+    reportProgress(onUpdate, `Detached from ${label}`, {
+      machine: runtime.machine,
+      target: panel.pane_id,
+      status: "working",
+      detached,
+      elapsedMs: Date.now() - started,
+    });
+    return { detach: detached, detail: error.detail };
+  }
 }

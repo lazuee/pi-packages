@@ -20,15 +20,19 @@ import type {
   SettledAgentStatus,
 } from "../types.js";
 import { blockedSettlement, SettlementCollector } from "./collector.js";
-import { SettlementDelivery } from "./delivery.js";
+import { SettlementDelivery, SettlementTimeoutError } from "./delivery.js";
 
 export { SettlementCollector } from "./collector.js";
 
+export { SettlementTimeoutError } from "./delivery.js";
 export type { ClaimedSettlement } from "./delivery.js";
 
 interface SettlementRetry {
   attemptId: string | undefined;
   count: number;
+  reason?: string;
+  /** Built from live state on every pass, never replayed stale. */
+  request: () => SettlementRequest;
 }
 
 const SETTLEMENT_RETRY_DELAYS_MS = [250, 500, 1000, 2000, 4000] as const;
@@ -36,12 +40,20 @@ const SETTLEMENT_RETRY_WINDOW_SECONDS = Math.ceil(
   SETTLEMENT_RETRY_DELAYS_MS.reduce((total, delay) => total + delay, 0) / 1000
 );
 
+const FINAL_REPLY = "the final assistant reply was not persisted";
+const EXTENSION_REPLY = "the worker remained blocked after its extension reply";
+const INPUT_PERSISTED = "the submitted input and reply were not persisted";
+const NEW_REPLY = "the new assistant reply was not persisted";
+const SNAPSHOT = "the settlement snapshot remained unavailable";
+
 function attemptKey(terminalId: string, attemptId: string | undefined): string {
   return JSON.stringify([terminalId, attemptId ?? null]);
 }
 
 export interface SettlementRequest {
   blockedMessage?: string;
+  /** Reports that the blocked result is still being collected. */
+  onStall?: (window: string) => void;
   record: MonitoredAgent;
   requireNewReply?: boolean;
   status: SettledAgentStatus;
@@ -110,9 +122,13 @@ export class SettlementReporter {
   claim(
     attempt: WorkAttempt,
     signal: AbortSignal,
-    replyingTo?: ExtensionReply
+    replyingTo?: ExtensionReply,
+    timeoutMs?: number
   ) {
-    return this.delivery.claim(attempt, signal, replyingTo);
+    return this.delivery.claim(attempt, signal, replyingTo, timeoutMs);
+  }
+  retireAttempt(attemptId: string | undefined): void {
+    this.delivery.retireAttempt(attemptId);
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.delivery.observeReply(attempt, reply);
@@ -139,9 +155,10 @@ export class SettlementReporter {
     retry?: SettlementRetry
   ): Promise<void> {
     const task = request.task ?? activityTask(request.record.activity);
-    const retryState = retry ?? {
+    const retryState: SettlementRetry = retry ?? {
       attemptId: activityAttemptId(request.record.activity),
       count: 0,
+      request: () => request,
     };
     const key = `${lifecycle.generation}:${attemptKey(
       request.record.terminalId,
@@ -159,6 +176,22 @@ export class SettlementReporter {
       return;
     }
     this.reporting.set(key, request.status);
+    const retryRequest = task ? { ...request, task } : request;
+    // A pending blocked report supersedes the visible attempt; a stall in the
+    // first pass would otherwise leave the caller silent until the window ends.
+    if (
+      retryState.count === 0 &&
+      request.status === "blocked" &&
+      request.onStall
+    )
+      request.onStall(`${SETTLEMENT_RETRY_WINDOW_SECONDS}s`);
+    // Later passes carry the live record: its settled activity no longer holds
+    // the attempt id, so a retry must not be re-stamped with a stale task.
+    const retryLive = (reason: string, record: MonitoredAgent) => ({
+      ...retryState,
+      reason,
+      request: () => ({ ...retryRequest, record }),
+    });
     try {
       const replyingTo = retryState.attemptId
         ? this.delivery.replyingTo(retryState.attemptId)
@@ -179,7 +212,14 @@ export class SettlementReporter {
         activityTask(current.activity) !== task ||
         activityAttemptId(current.activity) !== retryState.attemptId
       ) {
-        if (request.status !== "blocked") return;
+        if (request.status !== "blocked") {
+          // A follow-up assignment owns the live work. A first pass only just
+          // recorded it, so give a waiter one more chance before retiring it.
+          if (retryState.count === 0 && this.retry(lifecycle, retryState))
+            return;
+          this.delivery.retireAttempt(retryState.attemptId);
+          return;
+        }
         this.clearRetry(request.record.terminalId, retryState.attemptId);
         this.delivery.deliverSettlement(
           lifecycle,
@@ -191,13 +231,12 @@ export class SettlementReporter {
         );
         return;
       }
-      const retryRequest = task ? { ...request, task } : request;
       const expectedUser = activityExpectedUser(current.activity);
       const blocked = settlement.status === "blocked";
       // Status and session writes arrive separately. A tool call is not a reply,
       // even if done arrives before the final message is visible on disk.
       if (!blocked && settlement.session.assistantPending) {
-        if (!this.retry(lifecycle, retryRequest, retryState)) {
+        if (!this.retry(lifecycle, retryLive(FINAL_REPLY, current))) {
           this.failReconciliation(
             lifecycle,
             current,
@@ -219,7 +258,7 @@ export class SettlementReporter {
         if (
           !settlement.extensionMessages?.some((message) => message.blocking)
         ) {
-          if (!this.retry(lifecycle, retryRequest, retryState)) {
+          if (!this.retry(lifecycle, retryLive(EXTENSION_REPLY, current))) {
             this.failReconciliation(
               lifecycle,
               current,
@@ -238,7 +277,7 @@ export class SettlementReporter {
           !settlement.session.input ||
           settlement.session.input.id === expectedUser.after)
       ) {
-        if (!this.retry(lifecycle, retryRequest, retryState)) {
+        if (!this.retry(lifecycle, retryLive(INPUT_PERSISTED, current))) {
           this.failReconciliation(
             lifecycle,
             current,
@@ -252,7 +291,7 @@ export class SettlementReporter {
           ? settlement.reply
           : undefined;
       if (!blocked && request.requireNewReply && !newReply) {
-        if (!this.retry(lifecycle, retryRequest, retryState)) {
+        if (!this.retry(lifecycle, retryLive(NEW_REPLY, current))) {
           this.failReconciliation(
             lifecycle,
             current,
@@ -321,20 +360,25 @@ export class SettlementReporter {
         );
       }
       const retryRequest = task ? { ...request, task } : request;
-      if (!this.retry(lifecycle, retryRequest, retryState)) {
-        const current = this.state.byTerminal(request.record.terminalId);
-        if (
-          current &&
-          activityTask(current.activity) === task &&
-          activityAttemptId(current.activity) === retryState.attemptId
-        ) {
-          this.failReconciliation(
-            lifecycle,
-            current,
-            "the settlement snapshot remained unavailable"
-          );
-        }
-      }
+      const current = this.state.byTerminal(request.record.terminalId);
+      if (
+        !this.retry(lifecycle, {
+          ...retryState,
+          reason: SNAPSHOT,
+          request: () => ({
+            ...retryRequest,
+            record: current ?? request.record,
+          }),
+        }) &&
+        current &&
+        activityTask(current.activity) === task &&
+        activityAttemptId(current.activity) === retryState.attemptId
+      )
+        this.failReconciliation(
+          lifecycle,
+          current,
+          "the settlement snapshot remained unavailable"
+        );
     } finally {
       this.reporting.delete(key);
       const pending = this.pendingBlocked.get(key);
@@ -354,11 +398,11 @@ export class SettlementReporter {
 
   private retry(
     lifecycle: SettlementLifecycle,
-    request: SettlementRequest,
     retry: SettlementRetry
   ): boolean {
     const delay = SETTLEMENT_RETRY_DELAYS_MS[retry.count];
     if (delay === undefined) return false;
+    const request = retry.request();
     const current = this.state.byTerminal(request.record.terminalId);
     if (
       !lifecycle.isCurrent() ||
@@ -374,22 +418,10 @@ export class SettlementReporter {
     const timer = setTimeout(() => {
       this.retries.delete(key);
       if (!lifecycle.isCurrent()) return;
-      const current = this.state.byTerminal(request.record.terminalId);
-      if (!current) return;
-      const currentOwnsAttempt =
-        activityAttemptId(current.activity) === retry.attemptId &&
-        activityTask(current.activity) ===
-          (request.task ?? activityTask(request.record.activity));
-      void this.report(
-        lifecycle,
-        {
-          ...request,
-          record: currentOwnsAttempt
-            ? current
-            : { ...current, activity: request.record.activity },
-        },
-        { ...retry, count: retry.count + 1 }
-      );
+      void this.report(lifecycle, retry.request(), {
+        ...retry,
+        count: retry.count + 1,
+      });
     }, delay);
     this.retries.set(key, { terminalId: request.record.terminalId, timer });
     timer.unref();
@@ -406,7 +438,11 @@ export class SettlementReporter {
     const message = `${record.name ?? record.paneId} settled, but ${
       reason
     } after ${SETTLEMENT_RETRY_WINDOW_SECONDS} seconds`;
-    if (attemptId) this.delivery.releaseAttempt(attemptId, new Error(message));
+    if (attemptId)
+      this.delivery.releaseAttempt(
+        attemptId,
+        new SettlementTimeoutError(0, "stall", message)
+      );
     if (
       this.failedAttempts.has(record.terminalId) &&
       this.failedAttempts.get(record.terminalId) === attemptId

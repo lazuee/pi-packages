@@ -19,6 +19,7 @@ export interface WorkAttempt {
 }
 
 interface CompletionCandidate {
+  onStall?: (window: string) => void;
   record: MonitoredAgent;
   requireNewReply: boolean;
   status: SettledAgentStatus;
@@ -172,6 +173,25 @@ export class MonitorState {
       },
     });
     return attempt;
+  }
+
+  /** Records the input watermark after submission started, keeping the phase. */
+  expectUser(attempt: WorkAttempt, after: string | null): boolean {
+    const record = this.byTerminal(attempt.terminalId);
+    const activity = record?.activity;
+    if (
+      !record ||
+      !activity ||
+      (activity.phase !== "submitting" && activity.phase !== "working") ||
+      activity.attemptId !== attempt.attemptId ||
+      activity.expectedUserAfter === after
+    )
+      return false;
+    this.agents.set(record.terminalId, {
+      ...record,
+      activity: { ...activity, expectedUserAfter: after },
+    });
+    return true;
   }
 
   noteMessage(paneId: string, message: string): boolean {

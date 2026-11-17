@@ -28,6 +28,10 @@ export async function replyAgent(
     result = await runtime.client.replyExtension(panel, reply);
   };
   if (!pending?.blocking) {
+    if (params.timeout_ms !== undefined)
+      throw new Error(
+        "timeout_ms needs a blocking extension message; this one replies without waiting"
+      );
     await send();
     return toolResult({
       machine: runtime.machine,
@@ -37,7 +41,7 @@ export async function replyAgent(
       result,
     });
   }
-  const { warning } = await dispatchAgentWork(
+  const { warning, detach, detail } = await dispatchAgentWork(
     runtime,
     panel,
     `Reply to ${reply.extension}`,
@@ -45,7 +49,7 @@ export async function replyAgent(
     signal,
     onUpdate,
     send,
-    { replyingTo: reply }
+    { replyingTo: reply, timeoutMs: params.timeout_ms }
   );
   return toolResult(
     {
@@ -54,6 +58,12 @@ export async function replyAgent(
       extension: reply.extension,
       id: reply.id,
       result,
+      ...(detach
+        ? {
+            detached: detach,
+            next: `Resumed work still runs; its result arrives automatically without another call.${detail ? ` ${detail}` : ""}`,
+          }
+        : {}),
     },
     warning
   );

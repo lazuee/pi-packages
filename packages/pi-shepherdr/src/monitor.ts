@@ -205,12 +205,17 @@ export class AgentMonitor {
   claimWork(
     attempt: WorkAttempt,
     signal: AbortSignal,
-    replyingTo?: ExtensionReply
+    replyingTo?: ExtensionReply,
+    timeoutMs?: number
   ): Promise<ClaimedSettlement> | undefined {
-    return this.settlements.claim(attempt, signal, replyingTo);
+    return this.settlements.claim(attempt, signal, replyingTo, timeoutMs);
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.settlements.observeReply(attempt, reply);
+  }
+
+  expectUser(attempt: WorkAttempt, after: string | null): void {
+    if (this.state.expectUser(attempt, after)) this.persist();
   }
 
   noteMessage(paneId: string, message: string): void {
@@ -305,7 +310,15 @@ export class AgentMonitor {
         /* empty */
       });
     for (const completion of completions) {
-      void this.report(completion);
+      void this.report(
+        completion,
+        completion.onStall
+          ? (window) =>
+              completion.onStall!(
+                `${completion.record.name ?? completion.record.paneId} stopped on a question; collecting it for up to ${window}. It arrives automatically, so do not resend`
+              )
+          : undefined
+      );
     }
   }
 
@@ -343,7 +356,10 @@ export class AgentMonitor {
     });
   }
 
-  private report(request: SettlementRequest): Promise<void> {
+  private report(
+    request: SettlementRequest,
+    onStall?: (window: string) => void
+  ): Promise<void> {
     const generation = this.activationGeneration;
     const { context } = this;
     if (!context) return Promise.resolve();
@@ -354,7 +370,7 @@ export class AgentMonitor {
         isCurrent: () =>
           generation === this.activationGeneration && context === this.context,
       },
-      request
+      onStall ? { ...request, onStall } : request
     );
   }
 }

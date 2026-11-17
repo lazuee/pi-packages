@@ -77,7 +77,7 @@ Call `agents` with `{}` before first use, alone, then send flat request objects 
 | `watch` | Push future settlement from an existing Pi agent |
 | `unwatch` | Stop reporting an agent |
 
-`spawn` and `assign` return once the task is submitted by default, so consecutive calls can dispatch work to several agents without waiting for the first task to finish. Task completion and blockage arrive automatically. Set `blocking: true` when the call must wait for its result. A profile's `blocking` setting still overrides the call for `spawn`.
+`spawn` and `assign` return once the task is submitted by default, so consecutive calls can dispatch work to several agents without waiting for the first task to finish. Task completion and blockage arrive automatically. Set `blocking: true` when the call must wait for its result. A profile's `blocking` setting still overrides the call for `spawn`. An agent that stops on a question resolves the wait at once; `reply` needs no second wait. `timeout_ms` bounds a blocking `spawn`, `assign` or `reply`: on expiry the wait detaches like a cancellation, the work keeps running and its report still arrives. A wait also detaches rather than hangs when its result cannot be collected, when a follow-up `assign` takes the work over, and when monitoring for that session ends. Every detach reports why.
 
 Blocking calls can run in parallel. In Code or Notebook, use `await Promise.allSettled([...])` to start independent calls together and wait for every result, including failures. Keep blocking enabled when the controller must wait, such as for parallel reviews. Consecutive `await` calls still run one after another; `Promise.all` can exit early on failure.
 

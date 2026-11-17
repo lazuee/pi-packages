@@ -19,15 +19,51 @@ export interface ClaimedSettlement extends CollectedSettlement {
   record: MonitoredAgent;
 }
 
+/** A blocking call's deadline passed; the worker and its report continue. */
+export class SettlementTimeoutError extends Error {
+  readonly detail?: string;
+  readonly timeoutMs: number;
+  readonly source: "result" | "session" | "stall";
+
+  constructor(
+    timeoutMs: number,
+    source: "result" | "session" | "stall",
+    detail?: string
+  ) {
+    super(
+      detail ??
+        (source === "result"
+          ? `no result within ${timeoutMs}ms`
+          : `monitoring ended after ${timeoutMs}ms`)
+    );
+    this.name = "SettlementTimeoutError";
+    this.timeoutMs = timeoutMs;
+    this.source = source;
+    this.detail = detail;
+  }
+}
+
 interface SettlementWaiter {
   cleanup(): void;
   reject(error: Error): void;
   resolve(settlement: ClaimedSettlement): void;
 }
 
-type SettlementClaim =
-  | { replyingTo: ExtensionReply; waiter?: SettlementWaiter }
-  | { replyingTo?: ExtensionReply; waiter: SettlementWaiter };
+interface SettlementClaim {
+  ceiling: ReturnType<typeof setTimeout>;
+  deadline?: ReturnType<typeof setTimeout>;
+  replyingTo?: ExtensionReply;
+  waiter?: SettlementWaiter;
+}
+
+function clearClaim(claim: SettlementClaim | undefined): void {
+  if (!claim) return;
+  clearTimeout(claim.ceiling);
+  if (claim.deadline) clearTimeout(claim.deadline);
+}
+
+/** Backstop for a wait nothing else can discharge, such as a stalled activation. */
+const SESSION_CEILING_MS = 30 * 60_000;
 
 /** Claims are per-attempt capabilities; delivery chooses exactly one waiter or controller. */
 export class SettlementDelivery {
@@ -50,22 +86,29 @@ export class SettlementDelivery {
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     const claim = this.claims.get(attempt.attemptId);
+    if (!claim) return;
     this.claims.set(attempt.attemptId, {
-      ...(claim?.waiter ? { waiter: claim.waiter } : {}),
+      ...claim,
       replyingTo: reply,
     });
   }
+  /** Detaches live waiters; their agent stays supervised and still reports. */
   stop() {
     for (const claim of this.claims.values()) {
-      claim.waiter?.cleanup();
-      claim.waiter?.reject(new Error("Shepherdr monitor stopped"));
+      if (!claim.waiter) continue;
+      clearClaim(claim);
+      claim.waiter.cleanup();
+      claim.waiter.reject(
+        new SettlementTimeoutError(SESSION_CEILING_MS, "session")
+      );
     }
     this.claims.clear();
   }
   claim(
     attempt: WorkAttempt,
     signal: AbortSignal,
-    replyingTo?: ExtensionReply
+    replyingTo?: ExtensionReply,
+    timeoutMs?: number
   ): Promise<ClaimedSettlement> | undefined {
     signal.throwIfAborted();
     // Updates share the worker's current settlement, without stealing its waiter.
@@ -77,6 +120,7 @@ export class SettlementDelivery {
         const claim = this.claims.get(attempt.attemptId);
         if (!claim) return;
         this.claims.delete(attempt.attemptId);
+        clearClaim(claim);
         claim.waiter?.cleanup();
         reject(
           signal.reason instanceof Error
@@ -84,7 +128,33 @@ export class SettlementDelivery {
             : new Error("Shepherdr wait aborted")
         );
       };
+      // A deadline detaches exactly like cancellation and keeps the claim
+      // transient, so a later delivery goes to the controller instead.
+      const deadline = timeoutMs
+        ? setTimeout(() => {
+            const claim = this.claims.get(attempt.attemptId);
+            if (!claim?.waiter) return;
+            this.claims.delete(attempt.attemptId);
+            clearClaim(claim);
+            claim.waiter.cleanup();
+            reject(new SettlementTimeoutError(timeoutMs, "result"));
+          }, timeoutMs)
+        : undefined;
+      deadline?.unref();
+      // Without a caller budget, stop() would hold the call forever when no
+      // monitor survives to deliver. An ended session cannot resume it.
+      const ceiling = setTimeout(() => {
+        const claim = this.claims.get(attempt.attemptId);
+        if (!claim?.waiter) return;
+        this.claims.delete(attempt.attemptId);
+        clearClaim(claim);
+        claim.waiter.cleanup();
+        reject(new SettlementTimeoutError(SESSION_CEILING_MS, "session"));
+      }, SESSION_CEILING_MS);
+      ceiling.unref();
       const claim: SettlementClaim = {
+        ceiling,
+        ...(deadline ? { deadline } : {}),
         ...(reply ? { replyingTo: reply } : {}),
         waiter: {
           cleanup: () => signal.removeEventListener("abort", abort),
@@ -107,10 +177,22 @@ export class SettlementDelivery {
     if (attemptId) this.releaseAttempt(attemptId, error);
   }
 
+  /** Drops a waiter whose attempt already settled into a reported result. */
+  retireAttempt(attemptId: string | undefined): void {
+    if (!attemptId) return;
+    const claim = this.claims.get(attemptId);
+    if (!claim?.waiter) return;
+    this.claims.delete(attemptId);
+    clearClaim(claim);
+    claim.waiter.cleanup();
+    claim.waiter.reject(new Error("Settlement was reported separately"));
+  }
+
   releaseAttempt(attemptId: string, error: unknown): void {
     const claim = this.claims.get(attemptId);
     if (!claim) return;
     this.claims.delete(attemptId);
+    clearClaim(claim);
     claim.waiter?.cleanup();
     claim.waiter?.reject(
       error instanceof Error ? error : new Error(String(error))
@@ -128,6 +210,7 @@ export class SettlementDelivery {
     const claim = attemptId ? this.claims.get(attemptId) : undefined;
     if (claim && attemptId) {
       this.claims.delete(attemptId);
+      clearClaim(claim);
     }
     if (claim?.waiter) {
       claim.waiter.cleanup();
