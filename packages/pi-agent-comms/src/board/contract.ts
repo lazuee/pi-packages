@@ -119,6 +119,28 @@ const requiredFields: Partial<Record<BoardAction, string[]>> = {
 };
 const requestValidator = compile(Request);
 
+/** Whole-number fields; some harnesses hand these over as text. */
+const NUMERIC_FIELDS = [
+  "limit",
+  "max_chars_per_post",
+  "limit_chars",
+  "offset_chars",
+] as const;
+
+/**
+ * Copies a request, reading numeric fields given as decimal strings (`"5"`) as
+ * numbers. Only whole strings are taken, so `"5x"` still fails validation.
+ */
+function coerceNumbers(value: object): Record<string, unknown> {
+  const request = { ...(value as Record<string, unknown>) };
+  for (const field of NUMERIC_FIELDS) {
+    const raw = request[field];
+    if (typeof raw !== "string" || !/^\d+$/u.test(raw)) continue;
+    request[field] = Number(raw);
+  }
+  return request;
+}
+
 export function parseBoardRequest(value: unknown): BoardParams {
   if (
     value === undefined ||
@@ -128,6 +150,9 @@ export function parseBoardRequest(value: unknown): BoardParams {
       Object.keys(value).length === 0)
   )
     return { action: "help" };
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("Invalid board request; call board help");
+  value = coerceNumbers(value);
   if (!requestValidator.check(value))
     throw new Error("Invalid board request; call board help");
   const request = { ...(value as BoardParams) };
