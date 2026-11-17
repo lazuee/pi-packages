@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import {
 	cp,
 	mkdir,
@@ -11,7 +12,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { PROFILE_FLAG, WRITES_FLAG } from "./worker-role.js";
 
@@ -20,7 +21,10 @@ const AGENT_DIRECTORY = process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".
 const PROFILES_ROOT = join(AGENT_DIRECTORY, "shepherdr");
 const PROFILES_DIRECTORY = join(PROFILES_ROOT, "profiles");
 const PROFILE_INSTALL_MARKER = join(PROFILES_ROOT, ".profiles-initialized");
-const BUNDLED_PROFILES_DIRECTORY = fileURLToPath(new URL("../profiles", import.meta.url));
+const BUNDLED_PROFILES_DIRECTORY =
+	process.env["PI_SHEPHERDR_PROFILES"] ?? fileURLToPath(new URL("../profiles", import.meta.url));
+/** Bundled digests from the last install, so shipped profile edits can be rolled forward. */
+const PROFILE_MANIFEST = join(PROFILES_ROOT, "profiles-installed.json");
 
 export interface AgentProfile {
 	accepts: string[];
@@ -193,10 +197,14 @@ async function exists(path: string): Promise<boolean> {
 async function installProfile(name: string): Promise<void> {
 	const target = join(PROFILES_DIRECTORY, name);
 	if (await exists(target)) return;
+	await copyProfile(join(BUNDLED_PROFILES_DIRECTORY, name), target, name);
+}
+
+async function copyProfile(bundled: string, target: string, name: string): Promise<void> {
 	const stagingRoot = await mkdtemp(join(PROFILES_ROOT, `.${name}-`));
 	const staging = join(stagingRoot, name);
 	try {
-		await cp(join(BUNDLED_PROFILES_DIRECTORY, name), staging, {
+		await cp(bundled, staging, {
 			errorOnExist: true,
 			force: false,
 			recursive: true,
@@ -223,27 +231,108 @@ async function installProfile(name: string): Promise<void> {
 	}
 }
 
-export async function installAgentProfiles(): Promise<void> {
-	if (await exists(PROFILE_INSTALL_MARKER)) return;
-	await mkdir(PROFILES_DIRECTORY, { mode: 0o700, recursive: true });
-	const entries = await readdir(BUNDLED_PROFILES_DIRECTORY, {
-		withFileTypes: true,
-	});
-	for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-		if (!entry.isDirectory()) continue;
-		if (!PROFILE_NAME.test(entry.name)) {
-			throw new Error(`invalid bundled agent profile: ${entry.name}`);
+function digest(content: Buffer): string {
+	return createHash("sha256").update(content).digest("hex");
+}
+
+async function profileFiles(directory: string): Promise<string[]> {
+	const entries = await readdir(directory, { withFileTypes: true });
+	return entries
+		.filter((entry) => entry.isFile())
+		.map((entry) => entry.name)
+		.sort();
+}
+
+/** Bundled digests per profile file, keyed `profile/file`. */
+async function bundledDigests(): Promise<Map<string, string>> {
+	const digests = new Map<string, string>();
+	for (const name of (await readdir(BUNDLED_PROFILES_DIRECTORY)).sort()) {
+		if (!PROFILE_NAME.test(name)) continue;
+		for (const file of await profileFiles(join(BUNDLED_PROFILES_DIRECTORY, name))) {
+			digests.set(
+				`${name}/${file}`,
+				digest(await readFile(join(BUNDLED_PROFILES_DIRECTORY, name, file))),
+			);
 		}
-		await installProfile(entry.name);
 	}
+	return digests;
+}
+
+async function readManifest(): Promise<Map<string, string>> {
 	try {
-		await writeFile(PROFILE_INSTALL_MARKER, "1\n", {
-			flag: "wx",
-			mode: 0o600,
-		});
-	} catch (error) {
-		if (!hasCode(error, "EEXIST")) throw error;
+		const parsed = JSON.parse(await readFile(PROFILE_MANIFEST, "utf8")) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return new Map();
+		return new Map(
+			Object.entries(parsed).filter(
+				(entry): entry is [string, string] => typeof entry[1] === "string",
+			),
+		);
+	} catch {
+		return new Map();
 	}
+}
+
+async function writeManifest(digests: Map<string, string>): Promise<void> {
+	const ordered = Object.fromEntries(
+		[...digests].sort(([left], [right]) => left.localeCompare(right)),
+	);
+	await writeFile(PROFILE_MANIFEST, `${JSON.stringify(ordered, null, "\t")}\n`, {
+		mode: 0o600,
+	});
+}
+
+/**
+ * Copy a shipped profile file over the installed one, but only when the installed
+ * copy still matches the bundled version it replaced. A locally edited file wins.
+ */
+async function upgradeProfileFile(key: string, previous: string): Promise<boolean> {
+	const target = join(PROFILES_DIRECTORY, key);
+	let installed: Buffer;
+	try {
+		installed = await readFile(target);
+	} catch (error) {
+		if (!hasCode(error, "ENOENT")) throw error;
+		// A file added by a newer bundle arrives as long as its profile directory exists.
+		if (!(await exists(join(PROFILES_DIRECTORY, key.split("/")[0]!)))) return false;
+		await mkdir(dirname(target), { recursive: true });
+		await writeFile(target, await readFile(join(BUNDLED_PROFILES_DIRECTORY, key)));
+		return true;
+	}
+	if (digest(installed) === previous) {
+		await writeFile(target, await readFile(join(BUNDLED_PROFILES_DIRECTORY, key)));
+		return true;
+	}
+	return false;
+}
+
+export async function installAgentProfiles(): Promise<void> {
+	await mkdir(PROFILES_DIRECTORY, { mode: 0o700, recursive: true });
+	const bundled = await bundledDigests();
+	if (await exists(PROFILE_INSTALL_MARKER)) {
+		const previous = await readManifest();
+		for (const [key, hash] of bundled) {
+			const wasShipped = previous.get(key);
+			if (wasShipped === undefined || wasShipped === hash) continue;
+			await upgradeProfileFile(key, wasShipped);
+		}
+	} else {
+		for (const name of (await readdir(BUNDLED_PROFILES_DIRECTORY)).sort()) {
+			if (!(await stat(join(BUNDLED_PROFILES_DIRECTORY, name))).isDirectory()) continue;
+			if (!PROFILE_NAME.test(name)) {
+				throw new Error(`invalid bundled agent profile: ${name}`);
+			}
+			await installProfile(name);
+		}
+		try {
+			await writeFile(PROFILE_INSTALL_MARKER, "1\n", {
+				flag: "wx",
+				mode: 0o600,
+			});
+		} catch (error) {
+			if (!hasCode(error, "EEXIST")) throw error;
+		}
+	}
+	await writeManifest(bundled);
 }
 
 export async function loadAgentProfiles(): Promise<Map<string, AgentProfile>> {
