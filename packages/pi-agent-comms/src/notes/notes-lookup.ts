@@ -33,6 +33,7 @@ export async function lookupNotes(
   );
   let state = responses.length ? "cache" : "unavailable";
   let lookupFailed = false;
+  let lookupFailure: string | undefined;
   const { bridge } = lifecycle;
   if (bridge?.lookup) {
     let fetched: readonly CachedResponse[] | undefined;
@@ -40,6 +41,7 @@ export async function lookupNotes(
       fetched = await bridge.lookup(query, ctx, signal);
     } catch (error) {
       if (signal?.aborted) throw error;
+      lookupFailure = error instanceof Error ? error.message : String(error);
       lookupFailed = true;
     }
     if (signal?.aborted) throw new Error("Lookup cancelled");
@@ -80,7 +82,7 @@ export async function lookupNotes(
     );
   else if (lookupFailed)
     warnings.push(
-      "Remote notes could not be checked. Local results are shown; retry to check for remote-only notes."
+      `Remote notes could not be checked${lookupFailure ? ` (${lookupFailure})` : ""}. Local results are shown; retry to check for remote-only notes.`
     );
   if (responses.length && canProject && replacementsInScope)
     warnings.push(
