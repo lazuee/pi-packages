@@ -7,6 +7,22 @@ const REGISTRATION_KEY = Symbol.for("@howaboua/pi-better-skills-tool.registered"
 const CODE_MODE_PACKAGE = "@howaboua/pi-codex-conversion";
 const CODE_MODE_MODULE = `${CODE_MODE_PACKAGE}/code-mode`;
 
+/**
+ * Names plus trigger lines, no locations: enough to match a task without the full catalog.
+ * Fenced so it stays adjacent to the other prompt sections instead of reading as user text.
+ */
+function skillIndex(skills: readonly Skill[]): string | undefined {
+	const visible = skills.filter((skill) => !skill.disableModelInvocation);
+	if (visible.length === 0) return undefined;
+	const lines = visible.map((skill) => `- ${skill.name}: ${skill.description}`);
+	return [
+		"<skill_index>",
+		"Read a matching skill with the `skills` tool before starting that work.",
+		...lines,
+		"</skill_index>",
+	].join("\n");
+}
+
 export default async function skillsExtension(pi: ExtensionAPI): Promise<void> {
 	const sharedState = pi.events as typeof pi.events & {
 		[REGISTRATION_KEY]?: object;
@@ -20,15 +36,19 @@ export default async function skillsExtension(pi: ExtensionAPI): Promise<void> {
 		const options = event.systemPromptOptions;
 		loadedSkills = [...options.skills];
 		// Native /skill: expansion uses Pi's loader, not these prompt fields.
+		// Names alone keep the catalog compact while still giving the model a trigger to match.
+		const index = skillIndex(loadedSkills);
 		options.skills = [];
 		delete options.sections["skills"];
 		delete options.sections["skill_catalog"];
+		if (index) options.sections["skills"] = index;
 		if (options.forceSystemPrompt !== undefined) {
-			// Full-prompt overrides bypass sections. Preserve text outside catalog containers.
-			options.forceSystemPrompt = options.forceSystemPrompt.replace(
-				/<(skills|skill_catalog)>[\s\S]*?<\/\1>/g,
-				"",
-			);
+			// Full-prompt overrides bypass sections. Preserve text outside catalog containers,
+			// and drop any index a chained handler already injected so it is not duplicated.
+			options.forceSystemPrompt = options.forceSystemPrompt
+				.replace(/<(skills|skill_catalog)>[\s\S]*?<\/\1>/g, "")
+				.replace(/\n*<skill_index>[\s\S]*?<\/skill_index>/g, "");
+			if (index) options.forceSystemPrompt += `\n\n${index}`;
 		}
 	});
 	let gpt = false;
@@ -44,7 +64,7 @@ export default async function skillsExtension(pi: ExtensionAPI): Promise<void> {
 			gpt = active;
 			if (active)
 				tool.promptGuidelines = [
-					"skills: List once/session start; before work read always-applicable+task-relevant skills",
+					'skills: read matching skill before work (tools.skills("list") to discover)',
 				];
 			else if (ordinaryGuidelines) tool.promptGuidelines = ordinaryGuidelines;
 			else delete tool.promptGuidelines;

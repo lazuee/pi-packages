@@ -28,14 +28,17 @@ export function prepareSkillsCodeModeInput(input: unknown): SkillsParameters {
 	return { command: input };
 }
 
+/** The prompt only carries a names index, so the guideline states the trigger rather than a cron-style reminder. */
+function guideline() {
+	return "skills: Before work, run `skills` and read any skill matching the task; re-check before changing direction";
+}
+
 export function createSkillsTool(options: SkillsToolOptions = {}) {
 	return defineTool({
 		name: "skills",
 		label: "Skills",
 		description: "Load skill instructions and references",
-		promptGuidelines: [
-			"skills: List once at session start; read always-applicable and task-relevant skills before work",
-		],
+		promptGuidelines: [guideline()],
 		parameters: SkillsParameters,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!checkParameters(params))
