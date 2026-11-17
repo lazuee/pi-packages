@@ -32,6 +32,30 @@ const PRESENTATION: Record<string, readonly string[]> = {
   "history:read": ["limit_chars", "offset_chars"],
 };
 
+/** Fields whose schema is a whole number; some harnesses hand these over as text. */
+const NUMERIC = [
+  "limit",
+  "max_results",
+  "max_files",
+  "max_matches_per_file",
+  "limit_chars",
+  "max_chars_per_item",
+  "offset_chars",
+] as const;
+
+/**
+ * Coerces numeric fields given as decimal strings (`"5"`), leaving anything
+ * else for the validators to reject. Only whole strings are taken so `"5x"`
+ * still fails rather than becoming `NaN`.
+ */
+function coerceNumbers(params: Record<string, unknown>) {
+  for (const field of NUMERIC) {
+    const value = params[field];
+    if (typeof value !== "string" || !/^\d+$/u.test(value)) continue;
+    params[field] = Number(value);
+  }
+}
+
 function alias(params: Record<string, unknown>, from: string, to: string) {
   if (!(from in params)) return;
   if (to in params && params[to] !== params[from])
@@ -85,6 +109,8 @@ export function normalizeQueryInput(
   } else if (["list", "search", "list_windows"].includes(String(action))) {
     alias(params, "max_results", "limit");
   }
+  // After the aliases, so an aliased `"5"` is coerced under its canonical name.
+  coerceNumbers(params);
   const used = PRESENTATION[`${namespace}:${String(action)}`] ?? [];
   if (namespace === "history" && action !== "read")
     delete params["offset_chars"];
