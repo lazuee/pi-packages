@@ -122,7 +122,9 @@ function bundleImports(raw, stripped) {
   const found = [];
   const pattern = /^[ \t]*import\s+([^;]*?)\s+from/gmu;
   for (const match of stripped.matchAll(pattern)) {
-    const [clause] = match;
+    // Group 1 is the clause; destructuring element 0 gives `import … from`.
+    // eslint-disable-next-line prefer-destructuring
+    const clause = match[1];
     const head = match.index + match[0].length; // just past `from` in both views
     const lineEnd = raw.includes("\n", head)
       ? raw.indexOf("\n", head)
