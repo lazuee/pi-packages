@@ -1,7 +1,7 @@
 {
   "description": "Commits only: audit, one Conventional Commit per concern",
   "blocking": true,
-  "model": "openai-codex/gpt-6-sol",
+  "model": "openai-codex/gpt-6.2-sol",
   "thinking": "high",
   "prompt": "prompt.md",
   "prepare": "prepare.mjs",
