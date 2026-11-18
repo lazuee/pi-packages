@@ -143,6 +143,12 @@ async function sessionView(file, size, cached) {
   let assistant;
   let assistantSeen = false;
   let assistantPending = false;
+  /** The newest assistant head is a tool call: the turn continues past it. */
+  let assistantToolUse = false;
+  /** The newest entry is a record of the input itself. */
+  let inputAtHead = false;
+  /** The tool call is the whole view: nothing follows it yet. */
+  let toolHead = false;
   /** @type {number | undefined} */
   let assistantDepth;
   /** @type {import("../types.js").ExtensionMessage[]} */
@@ -156,10 +162,20 @@ async function sessionView(file, size, cached) {
   const result = () => ({
     ...(assistant ? { assistant } : {}),
     ...(assistantPending ? { assistantPending: true } : {}),
+    // Without a reply, a later tool call cannot produce one until it returns.
+    ...(assistantToolUse ? { assistantToolUse: true } : {}),
+    ...(toolHead ? { toolHead: true } : {}),
     ...(extensionMessages.length ? { extensionMessages } : {}),
     ...(input ? { input } : {}),
+    // A head input is definitely this turn's, whatever the cached prefix said.
+    ...(inputAtHead ? { inputAtHead: true } : {}),
     ...(assistantDepth !== undefined && inputDepth !== undefined
       ? { assistantAfterInput: assistantDepth < inputDepth }
+      : {}),
+    // A cached prefix can hold the previous turn's head, so only a lower depth
+    // (a newer record) proves the reply came after the input.
+    ...(assistantDepth !== undefined && inputDepth !== undefined
+      ? { replyAfterInput: assistantDepth < inputDepth }
       : {}),
   });
   /** Only retain semantic records, never image/tool payloads or the whole transcript.
@@ -172,6 +188,8 @@ async function sessionView(file, size, cached) {
     let keep = false;
     const currentDepth = depth;
     depth += 1;
+    if (currentDepth === 0 && entry["type"] === "custom_message")
+      inputAtHead = true;
     if (
       entry["type"] === "custom" &&
       entry["customType"] === "shepherdr-extension-message"
@@ -224,6 +242,10 @@ async function sessionView(file, size, cached) {
         if (message["stopReason"] === "toolUse") {
           assistantSeen = true;
           assistantPending = !assistant;
+          if (!assistant) {
+            assistantToolUse = true;
+            toolHead = true;
+          }
           retained["message"] = { role: "assistant", stopReason: "toolUse" };
           keep = true;
         } else {
@@ -239,6 +261,7 @@ async function sessionView(file, size, cached) {
             candidate?.stopReason !== "stop"
           ) {
             assistant = candidate;
+            toolHead = candidate?.stopReason === "toolUse";
             if (assistant) assistantDepth = currentDepth;
             keep = true;
           }

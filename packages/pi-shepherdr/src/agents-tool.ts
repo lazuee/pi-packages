@@ -288,6 +288,7 @@ export function createAgentsTool(
                   status: "working",
                 },
               }),
+            requireTurn: true,
           }
         );
         if (params.action === "send")

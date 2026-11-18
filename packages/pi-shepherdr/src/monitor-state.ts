@@ -19,6 +19,9 @@ export interface WorkAttempt {
 }
 
 interface CompletionCandidate {
+  /** A tool still waits on this attempt. */
+  claim?: boolean;
+  /** Set for a blocked completion; the monitor owns the wording. */
   onStall?: (window: string) => void;
   record: MonitoredAgent;
   requireNewReply: boolean;
@@ -318,6 +321,8 @@ export class MonitorState {
           phase: "working",
         };
         completion = {
+          claim: true,
+          onStall: () => undefined,
           requireNewReply: false,
           status: panel.agent_status,
         };
@@ -327,6 +332,10 @@ export class MonitorState {
       ) {
         const task = activityTask(activity);
         completion = {
+          claim: Boolean(
+            activity.phase === "submitting" ||
+            (activity.phase === "working" && activity.attemptId)
+          ),
           requireNewReply: activity.phase === "submitting",
           status: panel.agent_status,
           ...(task ? { task } : {}),

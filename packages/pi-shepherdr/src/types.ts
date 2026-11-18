@@ -175,5 +175,13 @@ export interface SessionView {
   assistant?: LatestAssistant;
   assistantPending?: boolean;
   assistantAfterInput?: boolean;
+  /** False only when the reply is known to precede the input. */
+  replyAfterInput?: boolean;
+  /** An earlier tool call from this turn is the newest assistant record. */
+  assistantToolUse?: boolean;
+  /** The newest assistant record alone is a tool call. */
+  toolHead?: boolean;
   input?: LatestInput;
+  /** The view's newest record is the input itself. */
+  inputAtHead?: boolean;
 }

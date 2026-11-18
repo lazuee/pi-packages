@@ -206,9 +206,16 @@ export class AgentMonitor {
     attempt: WorkAttempt,
     signal: AbortSignal,
     replyingTo?: ExtensionReply,
-    timeoutMs?: number
+    timeoutMs?: number,
+    onStall?: (window: string) => void
   ): Promise<ClaimedSettlement> | undefined {
-    return this.settlements.claim(attempt, signal, replyingTo, timeoutMs);
+    return this.settlements.claim(
+      attempt,
+      signal,
+      replyingTo,
+      timeoutMs,
+      onStall
+    );
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.settlements.observeReply(attempt, reply);
@@ -310,15 +317,16 @@ export class AgentMonitor {
         /* empty */
       });
     for (const completion of completions) {
-      void this.report(
-        completion,
-        completion.onStall
-          ? (window) =>
-              completion.onStall!(
-                `${completion.record.name ?? completion.record.paneId} stopped on a question; collecting it for up to ${window}. It arrives automatically, so do not resend`
-              )
-          : undefined
-      );
+      const stalled = completion.onStall
+        ? (window: string) =>
+            completion.onStall!(
+              `${completion.record.name ?? completion.record.paneId} stopped on a question; collecting it for up to ${window}. It arrives automatically, so do not resend`
+            )
+        : undefined;
+      // A claimed attempt means a tool is still waiting; otherwise publish.
+      void (completion.claim
+        ? this.waitReport(completion, completion.onStall ? stalled : undefined)
+        : this.report(completion, stalled));
     }
   }
 
@@ -372,5 +380,17 @@ export class AgentMonitor {
       },
       onStall ? { ...request, onStall } : request
     );
+  }
+
+  requireTurn(attempt: WorkAttempt | undefined): void {
+    this.settlements.requireTurn(attempt?.attemptId);
+  }
+
+  /** A call that already claimed waits for its own turn to persist. */
+  private waitReport(
+    request: SettlementRequest,
+    onStall?: (window: string) => void
+  ): Promise<void> {
+    return this.report({ ...request, requireTurn: true }, onStall);
   }
 }

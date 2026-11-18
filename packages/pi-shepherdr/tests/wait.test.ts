@@ -258,3 +258,235 @@ describe("dispatch", () => {
     expect(state.byTerminal("t1")!.activity.phase).toBe("working");
   });
 });
+
+describe("turn ownership", () => {
+  const reporter = async () => {
+    const { SettlementReporter } = await import("../src/settlement/index.js");
+    const state = new MonitorState();
+    return {
+      reporter: new SettlementReporter(
+        {} as never,
+        {} as never,
+        state,
+        () => undefined,
+        {} as never,
+        { machine: "local", label: () => "local", operatorPrefix: "hc" },
+        async () => undefined
+      ),
+      state,
+    };
+  };
+
+  /** Previous turn's reply is still what the bounded reader sees. */
+  const stale = {
+    session: {
+      assistant: { id: "m-old", stopReason: "stop", text: "s300" } as never,
+      assistantAfterInput: true,
+      input: { id: "in-new", text: "new task" },
+      replyAfterInput: false,
+    },
+  };
+
+  test("a tool wait retries an echoed previous reply", async () => {
+    const { reporter: instance } = await reporter();
+    const own = instance as unknown as {
+      turnOwned: (
+        settlement: unknown,
+        expected: unknown,
+        request: unknown
+      ) => boolean;
+    };
+    const expected = { after: "in-old" };
+    const unbounded = {
+      session: { ...stale.session, replyAfterInput: undefined },
+    };
+    // A release may complete on the echo; a tool wait may not.
+    expect(own.turnOwned(unbounded.session, expected, {})).toBe(true);
+    expect(
+      own.turnOwned(unbounded.session, expected, { requireTurn: true })
+    ).toBe(false);
+    // A bounded view does not need the fallback at all.
+    expect(own.turnOwned(stale.session, expected, { requireTurn: true })).toBe(
+      false
+    );
+  });
+
+  test("the head itself is never owned", async () => {
+    const { reporter: instance } = await reporter();
+    const own = instance as unknown as {
+      turnOwned: (
+        settlement: unknown,
+        expected: unknown,
+        request: unknown
+      ) => boolean;
+    };
+    const head = { session: { ...stale.session, input: { id: "in-old" } } };
+    expect(
+      own.turnOwned(head.session, { after: "in-old" }, { requireTurn: true })
+    ).toBe(false);
+  });
+
+  test("a newer reply than the input is owned", async () => {
+    const { reporter: instance } = await reporter();
+    const own = instance as unknown as {
+      turnOwned: (
+        settlement: unknown,
+        expected: unknown,
+        request: unknown
+      ) => boolean;
+    };
+    const fresh = { session: { ...stale.session, replyAfterInput: true } };
+    expect(
+      own.turnOwned(fresh.session, { after: "in-old" }, { requireTurn: true })
+    ).toBe(true);
+  });
+});
+
+describe("tool turns", () => {
+  const owned = async () => {
+    const { SettlementReporter } = await import("../src/settlement/index.js");
+    const instance = new SettlementReporter(
+      {} as never,
+      {} as never,
+      new MonitorState(),
+      () => undefined,
+      {} as never,
+      { machine: "local", label: () => "local", operatorPrefix: "hc" },
+      async () => undefined
+    ) as unknown as {
+      turnOwned: (v: unknown, e: unknown, r: unknown) => boolean;
+    };
+    return instance.turnOwned.bind(instance);
+  };
+  const view = {
+    assistant: { id: "x", stopReason: "toolUse", text: "" },
+    assistantAfterInput: true,
+    input: { id: "in-new" },
+    replyAfterInput: true,
+  };
+
+  test("a trailing tool call is not an answer", async () => {
+    const turnOwned = await owned();
+    expect(
+      turnOwned(
+        { ...view, toolHead: true },
+        { after: "in-old" },
+        { requireTurn: true }
+      )
+    ).toBe(false);
+  });
+
+  test("an earlier tool call with a later reply is an answer", async () => {
+    const turnOwned = await owned();
+    expect(
+      turnOwned(
+        {
+          ...view,
+          assistantToolUse: true,
+          assistant: { id: "y", stopReason: "stop", text: "ok" },
+        },
+        { after: "in-old" },
+        { requireTurn: true }
+      )
+    ).toBe(true);
+  });
+});
+
+describe("no baseline visible", () => {
+  const owned = async () => {
+    const { SettlementReporter } = await import("../src/settlement/index.js");
+    const i = new SettlementReporter(
+      {} as never,
+      {} as never,
+      new MonitorState(),
+      () => undefined,
+      {} as never,
+      { machine: "local", label: () => "local", operatorPrefix: "hc" },
+      async () => undefined
+    ) as unknown as {
+      turnOwned: (v: unknown, e: unknown, r: unknown) => boolean;
+    };
+    return i.turnOwned.bind(i);
+  };
+  const view = {
+    assistant: { id: "x", stopReason: "stop", text: "old" },
+    assistantAfterInput: true,
+    replyAfterInput: false,
+  };
+
+  test("a null watermark defers to a bounded reader", async () => {
+    const turnOwned = await owned();
+    expect(
+      turnOwned(
+        { ...view, replyAfterInput: true },
+        { after: null },
+        { requireTurn: true }
+      )
+    ).toBe(true);
+  });
+
+  test("a null watermark never trusts an unbounded echo", async () => {
+    const turnOwned = await owned();
+    expect(
+      turnOwned(
+        { ...view, replyAfterInput: undefined },
+        { after: null },
+        { requireTurn: true }
+      )
+    ).toBe(false);
+  });
+});
+
+describe("own input", () => {
+  const owned = async () => {
+    const { SettlementReporter } = await import("../src/settlement/index.js");
+    const i = new SettlementReporter(
+      {} as never,
+      {} as never,
+      new MonitorState(),
+      () => undefined,
+      {} as never,
+      { machine: "local", label: () => "local", operatorPrefix: "hc" },
+      async () => undefined
+    ) as unknown as {
+      turnOwned: (v: unknown, e: unknown, r: unknown) => boolean;
+    };
+    return i.turnOwned.bind(i);
+  };
+  const view = {
+    assistant: { id: "y", stopReason: "stop", text: "new" },
+    assistantAfterInput: true,
+    input: { id: "in-new" },
+    replyAfterInput: true,
+  };
+
+  test("the task text primed as watermark still owns a newer head", async () => {
+    const turnOwned = await owned();
+    expect(
+      turnOwned(
+        { ...view, inputAtHead: true },
+        { after: "the task text" },
+        { requireTurn: true }
+      )
+    ).toBe(true);
+  });
+
+  test("a newer head alone already owns the turn", async () => {
+    const turnOwned = await owned();
+    expect(
+      turnOwned(view, { after: "the task text" }, { requireTurn: true })
+    ).toBe(true);
+  });
+
+  test("the alias is only trusted by position, never as the head", async () => {
+    const turnOwned = await owned();
+    // The index still says the reply precedes the input and the head is unknown.
+    expect(
+      turnOwned(
+        { ...view, input: { id: "the task text" }, replyAfterInput: false },
+        { after: "the task text" },
+        { requireTurn: true }
+      )
+    ).toBe(false);
+  });
+});

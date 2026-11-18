@@ -20,6 +20,7 @@ import type {
   SettledAgentStatus,
 } from "../types.js";
 import { blockedSettlement, SettlementCollector } from "./collector.js";
+import type { CollectedSettlementWithSession } from "./collector.js";
 import { SettlementDelivery, SettlementTimeoutError } from "./delivery.js";
 
 export { SettlementCollector } from "./collector.js";
@@ -35,7 +36,10 @@ interface SettlementRetry {
   request: () => SettlementRequest;
 }
 
-const SETTLEMENT_RETRY_DELAYS_MS = [250, 500, 1000, 2000, 4000] as const;
+const SETTLEMENT_RETRY_DELAYS_MS = [
+  500, 1000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000,
+  2000, 2000,
+] as const;
 const SETTLEMENT_RETRY_WINDOW_SECONDS = Math.ceil(
   SETTLEMENT_RETRY_DELAYS_MS.reduce((total, delay) => total + delay, 0) / 1000
 );
@@ -44,6 +48,7 @@ const FINAL_REPLY = "the final assistant reply was not persisted";
 const EXTENSION_REPLY = "the worker remained blocked after its extension reply";
 const INPUT_PERSISTED = "the submitted input and reply were not persisted";
 const NEW_REPLY = "the new assistant reply was not persisted";
+const TURN_PERSISTED = "the worker's own turn was not persisted";
 const SNAPSHOT = "the settlement snapshot remained unavailable";
 
 function attemptKey(terminalId: string, attemptId: string | undefined): string {
@@ -52,6 +57,12 @@ function attemptKey(terminalId: string, attemptId: string | undefined): string {
 
 export interface SettlementRequest {
   blockedMessage?: string;
+  /**
+   * A tool may only complete once its own input head has persisted. A working
+   * worker can still hold the previous turn's reply, and herdr's done arrives a
+   * status tick ahead of the write.
+   */
+  requireTurn?: boolean;
   /** Reports that the blocked result is still being collected. */
   onStall?: (window: string) => void;
   record: MonitoredAgent;
@@ -123,17 +134,31 @@ export class SettlementReporter {
     attempt: WorkAttempt,
     signal: AbortSignal,
     replyingTo?: ExtensionReply,
-    timeoutMs?: number
+    timeoutMs?: number,
+    onStall?: (window: string) => void
   ) {
-    return this.delivery.claim(attempt, signal, replyingTo, timeoutMs);
+    const pending = this.delivery.claim(attempt, signal, replyingTo, timeoutMs);
+    if (pending && onStall) this.stalls.set(attempt.attemptId, onStall);
+    return pending;
   }
+  /** Registered at claim time so a stalled first pass can be reported. */
+  private readonly stalls = new Map<string, (window: string) => void>();
+  /** Marks a live claim as a tool wait, which must see its own turn. */
+  requireTurn(attemptId: string | undefined): void {
+    if (attemptId) this.turns.add(attemptId);
+  }
+  private readonly turns = new Set<string>();
   retireAttempt(attemptId: string | undefined): void {
+    this.turns.delete(attemptId ?? "");
+    this.stalls.delete(attemptId ?? "");
     this.delivery.retireAttempt(attemptId);
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.delivery.observeReply(attempt, reply);
   }
   releaseClaim(attempt: WorkAttempt | undefined, error: unknown) {
+    this.stalls.delete(attempt?.attemptId ?? "");
+    this.turns.delete(attempt?.attemptId ?? "");
     this.delivery.releaseClaim(attempt, error);
   }
   releaseAgentClaim(record: MonitoredAgent, error: unknown) {
@@ -151,9 +176,10 @@ export class SettlementReporter {
   }
   async report(
     lifecycle: SettlementLifecycle,
-    request: SettlementRequest,
+    initial: SettlementRequest,
     retry?: SettlementRetry
   ): Promise<void> {
+    let request = initial;
     const task = request.task ?? activityTask(request.record.activity);
     const retryState: SettlementRetry = retry ?? {
       attemptId: activityAttemptId(request.record.activity),
@@ -172,19 +198,32 @@ export class SettlementReporter {
           request,
           ...(retry ? { retry } : {}),
         });
+      } else if (
+        this.pendingBlocked.has(key) &&
+        this.pendingBlocked.get(key)!.request.status === "blocked"
+      ) {
+        // A blocked pass is already queued and replays after this one.
+      } else {
+        // Another pass owns the key. Queue instead of dropping: the in-flight
+        // pass may be a stale idle report that will retire this waiter.
+        this.pendingBlocked.set(key, {
+          lifecycle,
+          request,
+          ...(retry ? { retry } : {}),
+        });
       }
       return;
     }
     this.reporting.set(key, request.status);
+    if (retryState.attemptId && this.turns.has(retryState.attemptId))
+      request = { ...request, requireTurn: true };
+    const onStall =
+      request.onStall ?? this.stalls.get(retryState.attemptId ?? "");
     const retryRequest = task ? { ...request, task } : request;
     // A pending blocked report supersedes the visible attempt; a stall in the
     // first pass would otherwise leave the caller silent until the window ends.
-    if (
-      retryState.count === 0 &&
-      request.status === "blocked" &&
-      request.onStall
-    )
-      request.onStall(`${SETTLEMENT_RETRY_WINDOW_SECONDS}s`);
+    if (retryState.count === 0 && request.status === "blocked" && onStall)
+      onStall(`${SETTLEMENT_RETRY_WINDOW_SECONDS}s`);
     // Later passes carry the live record: its settled activity no longer holds
     // the attempt id, so a retry must not be re-stamped with a stale task.
     const retryLive = (reason: string, record: MonitoredAgent) => ({
@@ -221,6 +260,7 @@ export class SettlementReporter {
           return;
         }
         this.clearRetry(request.record.terminalId, retryState.attemptId);
+        this.stalls.delete(retryState.attemptId ?? "");
         this.delivery.deliverSettlement(
           lifecycle,
           request.record,
@@ -233,6 +273,15 @@ export class SettlementReporter {
       }
       const expectedUser = activityExpectedUser(current.activity);
       const blocked = settlement.status === "blocked";
+      if (
+        !blocked &&
+        !this.turnOwned(settlement.session, expectedUser, request)
+      ) {
+        if (!this.retry(lifecycle, retryLive(TURN_PERSISTED, current))) {
+          this.failReconciliation(lifecycle, current, TURN_PERSISTED);
+        }
+        return;
+      }
       // Status and session writes arrive separately. A tool call is not a reply,
       // even if done arrives before the final message is visible on disk.
       if (!blocked && settlement.session.assistantPending) {
@@ -290,7 +339,13 @@ export class SettlementReporter {
         !blocked && settlement.reply?.id !== current.lastAssistantId
           ? settlement.reply
           : undefined;
-      if (!blocked && request.requireNewReply && !newReply) {
+      // A tool call is not a reply, but it also means another turn is coming.
+      if (
+        !blocked &&
+        request.requireNewReply &&
+        !newReply &&
+        !settlement.session.assistantToolUse
+      ) {
         if (!this.retry(lifecycle, retryLive(NEW_REPLY, current))) {
           this.failReconciliation(
             lifecycle,
@@ -316,6 +371,7 @@ export class SettlementReporter {
         this.clearRetry(current.terminalId, retryState.attemptId);
         this.failedAttempts.delete(current.terminalId);
         this.persist();
+        this.stalls.delete(retryState.attemptId ?? "");
         this.delivery.deliverSettlement(
           lifecycle,
           current,
@@ -341,6 +397,7 @@ export class SettlementReporter {
           ) {
             this.persist();
           }
+          this.stalls.delete(retryState.attemptId ?? "");
           this.delivery.deliverSettlement(
             lifecycle,
             currentOwnsAttempt ? current : request.record,
@@ -387,6 +444,33 @@ export class SettlementReporter {
         void this.report(pending.lifecycle, pending.request, pending.retry);
       }
     }
+  }
+
+  private turnOwned(
+    view: CollectedSettlementWithSession["session"],
+    expected: ReturnType<typeof activityExpectedUser>,
+    request: SettlementRequest
+  ): boolean {
+    // No recorded watermark means nothing to match; known readers bound it.
+    if (
+      !expected ||
+      (expected.after === null && view.replyAfterInput !== undefined)
+    )
+      return true;
+    const id = view.input?.id;
+    if (!id || id === expected.after) return false;
+    // herdr settles a tool-calling turn before the follow-up request runs. Such
+    // a turn has no assistant reply yet, only the call, and will get one.
+    if (view.toolHead) return false;
+    if (view.assistantAfterInput !== true) return false;
+    // Only a bounded view proves where the reply sits. Otherwise answering
+    // depends on the session cache first noticing the new head, and an echo of
+    // the previous reply is expected: fine for a release, not for a tool wait.
+    // Unbounded readers cannot place the reply; a tool wait then keeps retrying
+    // instead of trusting an echo it cannot rule out.
+    return view.replyAfterInput === undefined
+      ? request.requireTurn !== true
+      : view.replyAfterInput;
   }
 
   private clearRetry(terminalId: string, attemptId: string | undefined): void {

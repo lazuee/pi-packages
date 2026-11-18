@@ -48,9 +48,6 @@ function slugify(value: string): string {
 
 const startingNames = new WeakMap<CoreConnection, Set<string>>();
 
-/** Human reading of the settlement retry window. */
-const SETTLEMENT_WINDOW = "7.75s";
-
 export async function reserveAgentName(
   runtime: ConnectedMachine,
   label: string,
@@ -145,6 +142,8 @@ export async function dispatchAgentWork(
     timeoutMs?: number;
     /** Called once when a blocked result is still being collected. */
     onStall?: (window: string) => void;
+    /** A tool's own wait: its turn must persist before completing. */
+    requireTurn?: boolean;
   } = {}
 ): Promise<{
   /** Why the wait ended early; the work itself continues in every case. */
@@ -176,7 +175,8 @@ export async function dispatchAgentWork(
           attempt,
           signal,
           options.replyingTo,
-          options.timeoutMs
+          options.timeoutMs,
+          options.onStall
         )
       : undefined;
     if (!blocking && options.replyingTo) {
@@ -188,8 +188,9 @@ export async function dispatchAgentWork(
     // first, so read it immediately before submitting.
     if (options.expectUserMessage) {
       const baseline = await runtime.monitor.view(panel, signal);
-      if (baseline.input?.id)
-        runtime.monitor.expectUser(attempt, baseline.input.id);
+      // Even without a visible input the attempt must prove a new turn, or a
+      // previous reply satisfies it.
+      runtime.monitor.expectUser(attempt, baseline.input?.id ?? null);
     }
     sendStarted = true;
     receipt = (await send()) ?? undefined;
@@ -234,6 +235,9 @@ export async function dispatchAgentWork(
     } else {
       runtime.monitor.acceptWork(attempt);
       runtime.monitor.noteMessage(panel.pane_id, task);
+      // The worker may persist the input before the reader notices it; its own
+      // copy of this task is then the head and proves the turn like the view.
+      runtime.monitor.expectUser(attempt, task);
       options.onAccepted?.();
     }
     await runtime.monitor.reconcileNow();
@@ -262,19 +266,6 @@ export async function dispatchAgentWork(
     });
   };
   progress(`Waiting for ${label}`);
-  if (options.onStall) {
-    const base = settlement;
-    settlement = base.then(
-      (value) => value,
-      (error) => {
-        if (error instanceof SettlementTimeoutError) throw error;
-        options.onStall!(
-          `${label} blocked without a result; still retrying for ${SETTLEMENT_WINDOW}`
-        );
-        return base;
-      }
-    );
-  }
   try {
     return { settlement: await settlement };
   } catch (error) {
