@@ -10,9 +10,14 @@ import type { Thread } from "./github.js";
 export function feedbackMessage(
   thread: Thread,
   snapshot: ThreadSnapshot,
-  conversationChanges: number
+  conversationChanges: number,
+  headChange?: { before: string; after: string }
 ): string {
   const parts = [`GitHub watch: ${thread.url}.`];
+  if (headChange)
+    parts.push(
+      `PR head changed: ${headChange.before} → ${headChange.after}. Read the updated diff with gh pr diff ${thread.number} --repo ${thread.repo}.`
+    );
   const pending = [...snapshot.unresolved.values()];
   if (thread.kind === "pr")
     parts.push(`${pending.length} unresolved review thread(s).`);
