@@ -3,7 +3,8 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-import { closeIdleChildren } from "./close-idle.js";
+import { IdlePicker, machineLabel } from "./close-idle-picker.js";
+import { closeIdleChildren, listIdleChildren } from "./close-idle.js";
 import {
   contextBriefingWindow,
   hasContextRollover,
@@ -119,6 +120,52 @@ export function registerAgentController(
       async () => activeAgentsBriefing(fleet.list(), fleet.statuses())
     );
   });
+  const closeIdle = async (ctx: ExtensionContext) => {
+    const commandSignal = sessionLifetime.signal;
+    const commandSessionId = ctx.sessionManager.getSessionId();
+    const current = () =>
+      !commandSignal.aborted &&
+      ctx.sessionManager.getSessionId() === commandSessionId;
+    const idle =
+      ctx.mode === "tui" ? await listIdleChildren(fleet, ctx, current) : [];
+    // No picker, or nothing to pick: close everything idle and report plainly.
+    if (!idle.length) {
+      const result = await closeIdleChildren(fleet, ctx, current);
+      if (current()) ctx.ui.notify(result, "info");
+      return;
+    }
+    const machines = fleet.statuses();
+    const picked = await ctx.ui.custom<string[] | undefined>(
+      (tui, theme, _keybindings, done) =>
+        new IdlePicker(
+          idle.map(({ child, name }) => ({
+            label: name ?? child.pane,
+            machine: child.machine,
+            terminal: child.terminal,
+          })),
+          theme,
+          tui,
+          done,
+          (machine) => machineLabel(machines, machine)
+        ),
+      { overlay: true }
+    );
+    if (!picked?.length) {
+      if (current()) ctx.ui.notify("No idle subagents quit.", "info");
+      return;
+    }
+    const result = await closeIdleChildren(
+      fleet,
+      ctx,
+      current,
+      new Set(picked)
+    );
+    if (current()) ctx.ui.notify(result, "info");
+  };
+  pi.registerCommand("close-idle", {
+    description: "Quit this session's idle spawned subagents",
+    handler: async (_args, ctx) => closeIdle(ctx),
+  });
   pi.registerCommand("herdr", {
     description: "Shepherdr settings, status, SSH setup and close-idle",
     handler: async (args, ctx) => {
@@ -129,8 +176,7 @@ export function registerAgentController(
         !commandSignal.aborted &&
         ctx.sessionManager.getSessionId() === commandSessionId;
       if (args.trim() === "close-idle") {
-        const result = await closeIdleChildren(fleet, ctx, current);
-        if (current()) ctx.ui.notify(result, "info");
+        await closeIdle(ctx);
         return;
       }
       if (args.trim()) {
