@@ -48,8 +48,15 @@ const FINAL_REPLY = "the final assistant reply was not persisted";
 const EXTENSION_REPLY = "the worker remained blocked after its extension reply";
 const INPUT_PERSISTED = "the submitted input and reply were not persisted";
 const NEW_REPLY = "the new assistant reply was not persisted";
+// A missing turn is either a slow write or a worker still running its tool.
 const TURN_PERSISTED = "the worker's own turn was not persisted";
+const TURN_RUNNING = "the worker was still running the submitted turn";
 const SNAPSHOT = "the settlement snapshot remained unavailable";
+
+/** A turn is either still running its tool or never landed on disk. */
+export function turnReason(view: { toolHead?: boolean }): string {
+  return view.toolHead ? TURN_RUNNING : TURN_PERSISTED;
+}
 
 function attemptKey(terminalId: string, attemptId: string | undefined): string {
   return JSON.stringify([terminalId, attemptId ?? null]);
@@ -277,8 +284,11 @@ export class SettlementReporter {
         !blocked &&
         !this.turnOwned(settlement.session, expectedUser, request)
       ) {
-        if (!this.retry(lifecycle, retryLive(TURN_PERSISTED, current))) {
-          this.failReconciliation(lifecycle, current, TURN_PERSISTED);
+        const reason = settlement.session.toolHead
+          ? TURN_RUNNING
+          : TURN_PERSISTED;
+        if (!this.retry(lifecycle, retryLive(reason, current))) {
+          this.failReconciliation(lifecycle, current, reason);
         }
         return;
       }
@@ -350,7 +360,9 @@ export class SettlementReporter {
           this.failReconciliation(
             lifecycle,
             current,
-            "the new assistant reply was not persisted"
+            settlement.session.assistantPending
+              ? "the new assistant reply was still being written"
+              : "the new assistant reply was not persisted"
           );
         }
         return;

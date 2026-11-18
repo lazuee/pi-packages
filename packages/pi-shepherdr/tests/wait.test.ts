@@ -490,3 +490,11 @@ describe("own input", () => {
     ).toBe(false);
   });
 });
+
+describe("stall reason", () => {
+  test("names the tool still running, not a lost write", async () => {
+    const { turnReason } = await import("../src/settlement/index.js");
+    expect(turnReason({ toolHead: true })).toContain("still running");
+    expect(turnReason({})).toContain("not persisted");
+  });
+});

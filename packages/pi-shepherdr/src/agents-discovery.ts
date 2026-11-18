@@ -105,8 +105,8 @@ export async function agentsHelp(
         ? "spawn/assign default false→dispatch then return; true→wait for result; profile overrides spawn. Parallel blocking calls: await Promise.allSettled. Background reports automatic→do other work/end turn, NO poll or await timers/extra Promises"
         : "spawn/assign return after dispatch by default. Set blocking:true to wait for the result; profile blocking overrides spawn. Use await Promise.allSettled for parallel blocking calls, including failures. Background reports arrive automatically: do other work or end this turn, never poll or await timers or extra Promises for reports",
       timeout_ms: gpt
-        ? "Blocking wait budget; expiry detaches, report still arrives"
-        : "Budget for a blocking wait; expiry detaches it and the report still arrives later",
+        ? "Blocking wait budget; expiry detaches, report still arrives. Long tool→set it"
+        : "Budget for a blocking wait; expiry detaches it and the report still arrives later. Set it when the task runs a long tool",
       share_context: gpt
         ? "Profile false→isolated notes/history; otherwise→controller sharing setting"
         : "Profile false isolates notes/history; otherwise follows controller sharing setting",
