@@ -57,7 +57,7 @@
         "unicode-case-folding": "1.1.2",
       },
       "devDependencies": {
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "@types/better-sqlite3": "9.6.0",
         "typescript": "^7.0.2",
       },
@@ -66,7 +66,7 @@
         "@earendil-works/pi-ai": ">=1.1.0",
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.1.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -82,14 +82,14 @@
         "@earendil-works/pi-ai": "1.5.2",
         "@earendil-works/pi-coding-agent": "1.5.2",
         "@earendil-works/pi-tui": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@earendil-works/pi-ai": ">=1.0.0",
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -100,13 +100,13 @@
       "version": "0.0.1",
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -121,14 +121,14 @@
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "1.5.2",
         "@earendil-works/pi-tui": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "@types/node": "^26.6.6",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -193,7 +193,7 @@
       "devDependencies": {
         "@earendil-works/pi-ai": "1.5.2",
         "@earendil-works/pi-coding-agent": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "@types/node": "^26.6.6",
         "typescript": "^7.0.2",
       },
@@ -201,7 +201,7 @@
         "@earendil-works/pi-ai": ">=1.2.0",
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -217,7 +217,7 @@
         "@earendil-works/pi-ai": "1.5.2",
         "@earendil-works/pi-coding-agent": "1.5.2",
         "@earendil-works/pi-tui": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "@lazuee/pi-agent-comms": "0.0.1",
         "@types/node": "^26.6.6",
         "typescript": "^7.0.2",
@@ -226,7 +226,7 @@
         "@earendil-works/pi-ai": ">=1.1.0",
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.1.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
         "@lazuee/pi-agent-comms": "^0.0.1",
       },
       "optionalPeers": [
@@ -262,7 +262,7 @@
       "devDependencies": {
         "@earendil-works/pi-ai": "1.5.2",
         "@earendil-works/pi-coding-agent": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "@types/node": "^26.6.6",
         "typescript": "^7.0.2",
       },
@@ -270,7 +270,7 @@
         "@earendil-works/pi-ai": ">=1.0.0",
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -305,14 +305,14 @@
       "version": "0.0.1",
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "1.5.2",
-        "@howaboua/pi-codex-conversion": "5.0.0",
+        "@howaboua/pi-codex-conversion": "5.0.1",
         "@types/node": "^26.6.6",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": ">=1.5.0",
         "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.0",
+        "@howaboua/pi-codex-conversion": ">=5.0.1",
       },
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
@@ -409,7 +409,7 @@
 
     "@howaboua/pi-browser": ["@howaboua/pi-browser@0.0.13", "", { "peerDependencies": { "@earendil-works/pi-ai": ">=1.0.0", "@earendil-works/pi-coding-agent": ">=1.0.0", "@earendil-works/pi-tui": ">=1.0.0", "@howaboua/pi-codex-conversion": ">=4.0.7", "typebox": "*" }, "optionalPeers": ["@howaboua/pi-codex-conversion"], "bin": { "pi-browser-worker": "dist/remote-worker.js" } }, "sha512-icIPvuz24nRLV3FYlOBDy3DYR15/ocaaybwUAimbjQZQPZmklU/uL0ezTr2Q+N5/iksmOfxfXEJShU/A5FR0gg=="],
 
-    "@howaboua/pi-codex-conversion": ["@howaboua/pi-codex-conversion@5.0.0", "", { "dependencies": { "@earendil-works/pi-schema": "1.5.2", "@howaboua/pi-browser": "^0.0.13", "openai": "7.55.0", "proxy-from-env": "2.1.0", "selfsigned": "^5.5.0", "smol-toml": "^1.9.1", "undici": "8.12.4", "web-tree-sitter": "^0.27.2", "ws": "^8.22.2" }, "peerDependencies": { "@earendil-works/pi-ai": ">=1.5.0", "@earendil-works/pi-coding-agent": ">=1.5.0", "@earendil-works/pi-tui": ">=1.0.0" } }, "sha512-Pn9fBbCn2KykDscfbabKfAYM7TmonGmF1uDsqFkvD5MmyKDR/EeaenEtEl+bGUwIzjD3mrACEh4mTZ2Fk7tJkg=="],
+    "@howaboua/pi-codex-conversion": ["@howaboua/pi-codex-conversion@5.0.1", "", { "dependencies": { "@earendil-works/pi-schema": "1.5.2", "@howaboua/pi-browser": "^0.0.13", "acorn": "8.15.0", "openai": "7.55.0", "proxy-from-env": "2.1.0", "selfsigned": "^5.5.0", "smol-toml": "^1.9.1", "undici": "8.12.4", "web-tree-sitter": "^0.27.2", "ws": "^8.22.2" }, "peerDependencies": { "@earendil-works/pi-ai": ">=1.5.0", "@earendil-works/pi-coding-agent": ">=1.5.0", "@earendil-works/pi-tui": ">=1.0.0" } }, "sha512-yENsp4CbGJ6rKqg61dVPb8H7h3bpYtYTdfYoqLx4ZvN2y0QK4r61B35KrmqXUxHW0YyOLadh54WpvFgF48cxAw=="],
 
     "@humanfs/core": ["@humanfs/core@0.19.2", "", { "dependencies": { "@humanfs/types": "^0.15.0" } }, "sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA=="],
 
@@ -743,7 +743,7 @@
 
     "@typescript/typescript-win32-x64": ["@typescript/typescript-win32-x64@7.0.2", "", { "os": "win32", "cpu": "x64" }, "sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g=="],
 
-    "acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
+    "acorn": ["acorn@8.15.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg=="],
 
     "acorn-jsx": ["acorn-jsx@5.3.2", "", { "peerDependencies": { "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ=="],
 
@@ -1486,6 +1486,8 @@
     "eslint-plugin-sonarjs/minimatch": ["minimatch@10.2.6", "", { "dependencies": { "brace-expansion": "^5.0.8" } }, "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A=="],
 
     "eslint-plugin-sonarjs/yaml": ["yaml@2.9.1", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw=="],
+
+    "espree/acorn": ["acorn@8.19.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw=="],
 
     "espree/eslint-visitor-keys": ["eslint-visitor-keys@4.2.1", "", {}, "sha512-Uhdk5sfqcee/9H/rCOJikYz67o0a2Tw2hGRPOG2Y1R2dg7brRe1uG0yaNQDHu+TO/uQPF/5eCapvYSmHUjt7JQ=="],
 
