@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@lazuee/pi-agent-comms": "0.0.1",
+    "@lazuee/pi-agent-desktop": "0.0.1",
     "@lazuee/pi-ask": "0.0.1",
     "@lazuee/pi-auto-trees": "0.0.1",
     "@lazuee/pi-better-skills-tool": "0.0.1",
@@ -31,6 +32,7 @@
     "@earendil-works/pi-coding-agent": "1.5.2",
     "@lazuee/config": "github:lazuee/config",
     "@lazuee/pi-agent-comms": "workspace:*",
+    "@lazuee/pi-agent-desktop": "workspace:*",
     "@lazuee/pi-ask": "workspace:*",
     "@lazuee/pi-auto-trees": "workspace:*",
     "@lazuee/pi-better-skills-tool": "workspace:*",

@@ -2,6 +2,8 @@ import core from "@lazuee/config/oxlint/core";
 import jsPlugins from "@lazuee/config/oxlint/js-plugins";
 import { defineConfig } from "oxlint";
 
+import { ignores } from "./oxignores.config.ts";
+
 /**
  * No React here, so `core` + `js-plugins` only.
  *
@@ -13,7 +15,7 @@ import { defineConfig } from "oxlint";
  */
 export default defineConfig({
   extends: [core, jsPlugins],
-  ignorePatterns: core.ignorePatterns,
+  ignorePatterns: [...core.ignorePatterns, ...ignores],
   jsPlugins: jsPlugins.jsPlugins,
   env: { node: true },
   overrides: [

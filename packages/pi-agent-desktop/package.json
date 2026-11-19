@@ -1,0 +1,72 @@
+{
+  "name": "@lazuee/pi-agent-desktop",
+  "version": "0.0.1",
+  "description": "A Pi package that drives desktop apps by their native accessibility trees, on top of the agent-desktop CLI",
+  "keywords": [
+    "accessibility",
+    "coding-agent",
+    "computer-use",
+    "desktop-automation",
+    "pi-coding-agent",
+    "pi-extension",
+    "pi-package"
+  ],
+  "homepage": "https://github.com/lazuee/pi-packages/tree/main/packages/pi-agent-desktop#readme",
+  "bugs": {
+    "url": "https://github.com/lazuee/pi-packages/issues"
+  },
+  "license": "MIT",
+  "author": "lazuee",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazuee/pi-packages.git",
+    "directory": "packages/pi-agent-desktop"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "tsconfig.json",
+    "CHANGELOG.md",
+    "tests/setup.ts",
+    "bunfig.toml"
+  ],
+  "type": "module",
+  "main": "src/extension.ts",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "exports": "./src/extension.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "tsgo --noEmit && bun test",
+    "link:cli": "node scripts/link-cli.mjs",
+    "pack:dry": "npm pack --dry-run",
+    "prepublishOnly": "bun run check && bun run pack:dry"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "1.5.2",
+    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=1.5.0",
+    "@earendil-works/pi-coding-agent": ">=1.5.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}

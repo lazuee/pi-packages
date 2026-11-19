@@ -6,6 +6,7 @@
       "name": "pi-packages",
       "dependencies": {
         "@lazuee/pi-agent-comms": "0.0.1",
+        "@lazuee/pi-agent-desktop": "0.0.1",
         "@lazuee/pi-ask": "0.0.1",
         "@lazuee/pi-auto-trees": "0.0.1",
         "@lazuee/pi-better-skills-tool": "0.0.1",
@@ -22,6 +23,7 @@
         "@earendil-works/pi-coding-agent": "1.5.2",
         "@lazuee/config": "github:lazuee/config",
         "@lazuee/pi-agent-comms": "workspace:*",
+        "@lazuee/pi-agent-desktop": "workspace:*",
         "@lazuee/pi-ask": "workspace:*",
         "@lazuee/pi-auto-trees": "workspace:*",
         "@lazuee/pi-better-skills-tool": "workspace:*",
@@ -59,6 +61,7 @@
       "devDependencies": {
         "@howaboua/pi-codex-conversion": "5.0.1",
         "@types/better-sqlite3": "9.6.0",
+        "@types/node": "^26.6.6",
         "typescript": "^7.0.2",
       },
       "peerDependencies": {
@@ -71,6 +74,20 @@
       "optionalPeers": [
         "@howaboua/pi-codex-conversion",
       ],
+    },
+    "packages/pi-agent-desktop": {
+      "name": "@lazuee/pi-agent-desktop",
+      "version": "0.0.1",
+      "devDependencies": {
+        "@earendil-works/pi-ai": "1.5.2",
+        "@earendil-works/pi-coding-agent": "1.5.2",
+        "@types/node": "^26.6.6",
+        "typescript": "^7.0.2",
+      },
+      "peerDependencies": {
+        "@earendil-works/pi-ai": ">=1.5.0",
+        "@earendil-works/pi-coding-agent": ">=1.5.0",
+      },
     },
     "packages/pi-ask": {
       "name": "@lazuee/pi-ask",
@@ -151,6 +168,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@lazuee/pi-agent-comms": "0.0.1",
+        "@lazuee/pi-agent-desktop": "0.0.1",
         "@lazuee/pi-ask": "0.0.1",
         "@lazuee/pi-auto-trees": "0.0.1",
         "@lazuee/pi-better-skills-tool": "0.0.1",
@@ -166,6 +184,7 @@
       "devDependencies": {
         "@earendil-works/pi-coding-agent": "1.5.2",
         "@lazuee/pi-agent-comms": "workspace:*",
+        "@lazuee/pi-agent-desktop": "workspace:*",
         "@lazuee/pi-ask": "workspace:*",
         "@lazuee/pi-auto-trees": "workspace:*",
         "@lazuee/pi-better-skills-tool": "workspace:*",
@@ -436,6 +455,8 @@
     "@lazuee/config": ["@lazuee/config@github:lazuee/config#8770a99", { "peerDependencies": { "eslint-plugin-github": ">= 6", "eslint-plugin-sonarjs": ">= 4.2.2", "oxfmt": ">= 0.71.0", "oxlint": ">= 1.86.0", "oxlint-plugin-react-doctor": ">= 0.9.14", "oxlint-tailwindcss": ">= 1.14.0", "typescript": ">= 7" }, "optionalPeers": ["eslint-plugin-github", "eslint-plugin-sonarjs", "oxfmt", "oxlint", "oxlint-plugin-react-doctor", "oxlint-tailwindcss"], "hasInstallScript": true }, "lazuee-config-8770a99", "sha512-O68Padc+I8N8pfKRsh5RgxJmQs8CeAv3fpQYh0Jt3KDZX1FIbygNuqOWDIVUgsEcaNY0qV3yJhqogGteColrGg=="],
 
     "@lazuee/pi-agent-comms": ["@lazuee/pi-agent-comms@workspace:packages/pi-agent-comms"],
+
+    "@lazuee/pi-agent-desktop": ["@lazuee/pi-agent-desktop@workspace:packages/pi-agent-desktop"],
 
     "@lazuee/pi-ask": ["@lazuee/pi-ask@workspace:packages/pi-ask"],
 
@@ -1428,6 +1449,8 @@
     "@howaboua/pi-codex-conversion/undici": ["undici@8.12.4", "", {}, "sha512-8Mx+uNKKER2bA4AdtedkqRbwUCIJFr2nJckXRe5yrDqzePqwLP7VNcctN8/XdmDSbF7mS+jJKIszlL+vbam1VA=="],
 
     "@lazuee/pi-agent-comms/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
+
+    "@lazuee/pi-agent-desktop/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "@lazuee/pi-ask/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 

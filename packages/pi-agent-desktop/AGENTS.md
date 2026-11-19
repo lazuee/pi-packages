@@ -1,0 +1,11 @@
+- The tool is one action enum over the whole `agent-desktop` CLI; keep a new action on the enum rather than a second tool, and map it in `buildArgs` with the CLI's dashed spelling.
+- Refs are snapshot-scoped. Any read that could renumber them belongs before the act, and every act must answer with a fresh snapshot rather than the CLI's bare "Done".
+- The optional fields in `parameters` are not optional per action: validate the required ones and name the missing one, so a bad call does not reach clap as `INVALID_ARGS`.
+- Send `window_id` only to `snapshot`, `screenshot` and `press`; a ref carries its own window and the ref commands reject the flag.
+- Headless is the default and `headed` is per call, so never force the pointer for an action that has a semantic path.
+- `render` is the whole agent-facing contract: a value is clamped there, a tree node leads with its ref, and a CLI failure is lifted out of JSON into its message and suggestion. Keep it plain text.
+- Discovery must probe for an answer, not an executable: the checkout is a launcher that dies on a missing native binary, so trust a candidate only after `list-apps` returns 0.
+- A sandbox name is lowercase, digits and hyphens, so it is passed bare — a `--` there would end flag parsing before the options that follow and clap would reject them.
+- Tests run under plain `bun test`, not vitest: `#src` resolves through the package `imports` map, `expect.poll` is a local helper, and a module with state is re-imported under a cache-busting query instead of `vi.resetModules`.
+- `tests/cli-contract.test.ts` parses every action through the built binary and is what catches a wrong flag. `npm run link:cli` builds it with `cargo build` in `upstream/` when it is missing and copies `target/debug/agent-desktop` to `upstream/npm/bin/agent-desktop-darwin-arm64` (the launcher looks for it there).
+- Run `npm run link:cli` once on a fresh checkout: it builds the CLI and copies it, plus the macOS helper, into `upstream/npm/bin`. Upstream's `wrapper.test.js` treats that directory as scratch and leaves it empty, so `tests/setup.ts` is registered as a `bunfig.toml` preload and restores both files in an `afterAll`. `bun test` runs no npm `pretest`, which is why it is a preload rather than a script.

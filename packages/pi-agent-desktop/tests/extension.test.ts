@@ -1,0 +1,1250 @@
+import { describe, expect, it } from "bun:test";
+
+import start, {
+  afterSnapshot,
+  buildArgs,
+  cliError,
+  render,
+  shotContent,
+  windowLanded,
+} from "#src/extension";
+
+// The CLI's own spellings are the contract here, and every case below was
+// measured against the real binary plus `--help`, not inferred. Three defects
+// shipped once because the tests and the builder shared an author: --app on the
+// ref commands, a ref positional on press, and scroll sent to the wheel.
+describe("buildArgs", () => {
+  it("maps the tool's action names onto the CLI's dashed commands", () => {
+    expect(buildArgs({ action: "set_value" })[0]).toBe("set-value");
+    expect(buildArgs({ action: "list_apps" })[0]).toBe("list-apps");
+    // scroll is a command of its own, not the wheel.
+    expect(buildArgs({ action: "scroll" })[0]).toBe("scroll");
+  });
+
+  it("sends no --app to a ref command, which carries its window in the ref", () => {
+    for (const action of ["click", "type", "set_value", "select"]) {
+      expect(
+        buildArgs({ action, app: "Notes", ref: "@s1:e3" }).some((a) =>
+          a.startsWith("--app")
+        )
+      ).toBe(false);
+    }
+  });
+
+  it("passes the ref positionally, before the text", () => {
+    expect(
+      buildArgs({ action: "type", app: "Notes", ref: "@s1:e3", text: "hi" })
+    ).toEqual(["type", "@s1:e3", "--", "hi"]);
+  });
+
+  it("keeps a multi-line text in one argument", () => {
+    const args = buildArgs({
+      action: "type",
+      app: "Notes",
+      ref: "@s1:e3",
+      text: "a\nb",
+    });
+    expect(args.at(-1)).toBe("a\nb");
+    expect(args.filter((a) => a === "a\nb")).toHaveLength(1);
+  });
+
+  it("passes set_value's value positionally, not as --value", () => {
+    const args = buildArgs({
+      action: "set_value",
+      app: "Notes",
+      ref: "@s1:e3",
+      value: "v",
+    });
+    expect(args).toContain("v");
+    expect(args).not.toContain("--value");
+  });
+
+  it("gives press the combo as its only positional, and scopes it by --app", () => {
+    expect(buildArgs({ action: "press", app: "Notes", key: "cmd+s" })).toEqual([
+      "press",
+      "--app=Notes",
+      "--",
+      "cmd+s",
+    ]);
+  });
+
+  it("drops the ref press cannot take", () => {
+    expect(
+      buildArgs({ action: "press", app: "Notes", ref: "@s1:e3", key: "cmd+s" })
+    ).toEqual(["press", "--app=Notes", "--", "cmd+s"]);
+  });
+
+  it("scrolls a ref by direction and amount, not by wheel coordinates", () => {
+    expect(
+      buildArgs({ action: "scroll", app: "Notes", ref: "@s1:e3", amount: 5 })
+    ).toEqual(["scroll", "@s1:e3", "--amount=5"]);
+
+    const up = buildArgs({
+      action: "scroll",
+      app: "Notes",
+      ref: "@s1:e3",
+      direction: "up",
+    });
+    expect(up).toContain("--direction=up");
+    expect(up).not.toContain("--dy");
+  });
+
+  it("joins coordinates and stays headless unless asked", () => {
+    expect(
+      buildArgs({ action: "hover", app: "Notes", x: 5, y: 9 })
+    ).not.toContain("--headed");
+    expect(buildArgs({ action: "hover", app: "Notes", x: 5, y: 9 })).toContain(
+      "--xy=5,9"
+    );
+
+    const drag = buildArgs({
+      action: "drag",
+      app: "Notes",
+      from_x: 1,
+      from_y: 2,
+      to_x: 3,
+      to_y: 4,
+    });
+    expect(drag).toEqual(
+      expect.arrayContaining(["--from-xy=1,2", "--to-xy=3,4"])
+    );
+  });
+
+  it("opts the pointer in only when headed is set", () => {
+    expect(
+      buildArgs({ action: "hover", app: "Notes", x: 5, y: 9, headed: true })
+    ).toContain("--headed");
+    expect(
+      buildArgs({ action: "drag", app: "Notes", ref: "@s1:e3", headed: true })
+    ).toContain("--headed");
+    // Also honoured on click: the CLI refuses instead of falling back
+    // physically, and which elements lack semantic delivery cannot be known
+    // before the call.
+    expect(
+      buildArgs({ action: "click", app: "Notes", ref: "@s1:e3", headed: true })
+    ).toEqual(["click", "--headed", "@s1:e3"]);
+    expect(
+      buildArgs({ action: "click", app: "Notes", ref: "@s1:e3" })
+    ).not.toContain("--headed");
+  });
+
+  it("hovers by ref as a positional, so the pointer travels less", () => {
+    expect(buildArgs({ action: "hover", app: "Notes", ref: "@s1:e3" })).toEqual(
+      ["hover", "@s1:e3"]
+    );
+  });
+
+  it("drags between refs, falling back to coordinates per endpoint", () => {
+    expect(
+      buildArgs({
+        action: "drag",
+        app: "Notes",
+        ref: "@s1:e3",
+        to_ref: "@s1:e7",
+      })
+    ).toEqual(["drag", "--from", "@s1:e3", "--to", "@s1:e7"]);
+
+    // A ref start with a coordinate end still works, and sends no --from-xy.
+    const mixed = buildArgs({
+      action: "drag",
+      app: "Notes",
+      ref: "@s1:e3",
+      to_x: 3,
+      to_y: 4,
+    });
+    expect(mixed).toEqual(
+      expect.arrayContaining(["--from", "@s1:e3", "--to-xy=3,4"])
+    );
+    expect(mixed).not.toContain("--from-xy");
+  });
+
+  it("sends no --app to hover or drag, which are pointer-scoped", () => {
+    expect(
+      buildArgs({ action: "hover", app: "Notes", x: 1, y: 2 })
+    ).not.toContain("--app=Notes");
+    expect(
+      buildArgs({ action: "drag", app: "Notes", from_x: 1, from_y: 2 })
+    ).not.toContain("--app=Notes");
+  });
+
+  it("scopes the read commands by --app", () => {
+    expect(buildArgs({ action: "snapshot", app: "Notes" })).toEqual([
+      "snapshot",
+      "--app=Notes",
+    ]);
+    expect(buildArgs({ action: "list_windows", app: "Notes" })).toEqual([
+      "list-windows",
+      "--app=Notes",
+    ]);
+  });
+
+  it("stops after list_apps, which takes no other flags", () => {
+    expect(buildArgs({ action: "list_apps", app: "Notes" })).toEqual([
+      "list-apps",
+    ]);
+  });
+
+  it("escapes a hyphen-leading value so clap does not read it as a flag", () => {
+    expect(
+      buildArgs({
+        action: "type",
+        app: "Notes",
+        ref: "@s1:e3",
+        text: "--headed",
+      })
+    ).toEqual(["type", "@s1:e3", "--", "--headed"]);
+    expect(
+      buildArgs({
+        action: "set_value",
+        app: "Notes",
+        ref: "@s1:e3",
+        value: "--x",
+      })
+    ).toContain("--x");
+    // A flag stays ahead of the terminator, or `--` would swallow it.
+    const scoped = buildArgs({ action: "press", app: "Notes", key: "--5" });
+    expect(scoped).toEqual(["press", "--app=Notes", "--", "--5"]);
+    expect(scoped.indexOf("--app=Notes")).toBeLessThan(scoped.indexOf("--"));
+  });
+
+  it("uses the equals form for a negative coordinate", () => {
+    // A negative x is a left-hand display, where a bare `--xy -100,50` is read
+    // as a flag and rejected.
+    expect(
+      buildArgs({ action: "hover", app: "Notes", x: -100, y: 50 })
+    ).toContain("--xy=-100,50");
+    expect(
+      buildArgs({
+        action: "drag",
+        app: "Notes",
+        from_x: -100,
+        from_y: 50,
+        to_x: -5,
+        to_y: 9,
+      })
+    ).toEqual(expect.arrayContaining(["--from-xy=-100,50", "--to-xy=-5,9"]));
+  });
+
+  it("targets one window when an app name is ambiguous", () => {
+    expect(
+      buildArgs({ action: "snapshot", app: "Notes", window_id: "w-1" })
+    ).toEqual(["snapshot", "--window-id", "w-1", "--app=Notes"]);
+  });
+
+  // Only three commands take the flag; a ref command rejects it, so passing
+  // window_id alongside a ref must not reach argv.
+  it("clicks at coordinates, always headed", () => {
+    expect(buildArgs({ action: "mouse_click", x: 5, y: 9 })).toEqual([
+      "mouse-click",
+      "--xy=5,9",
+      "--headed",
+    ]);
+    // A negative x keeps the `=` form so clap does not read it as a flag.
+    expect(buildArgs({ action: "mouse_click", x: -5, y: 9 })).toContain(
+      "--xy=-5,9"
+    );
+    // A ref alongside names the app the point came from and is not sent: the
+    // CLI takes the point alone.
+    expect(
+      buildArgs({ action: "mouse_click", x: 5, y: 9, ref: "@s1:e4" })
+    ).toEqual(["mouse-click", "--xy=5,9", "--headed"]);
+  });
+
+  // These take one positional ref and nothing else; the two dashed CLI names
+  // have to come out dashed.
+  it("builds the single-ref actions", () => {
+    for (const action of [
+      "clear",
+      "collapse",
+      "expand",
+      "focus",
+      "toggle",
+      "check",
+      "uncheck",
+    ])
+      expect(buildArgs({ action, ref: "@1:e1" })).toEqual([action, "@1:e1"]);
+    expect(buildArgs({ action: "right_click", ref: "@1:e1" })).toEqual([
+      "right-click",
+      "@1:e1",
+    ]);
+    expect(buildArgs({ action: "scroll_to", ref: "@1:e1" })).toEqual([
+      "scroll-to",
+      "@1:e1",
+    ]);
+    // A double click is physical, so it is always headed.
+    expect(buildArgs({ action: "double_click", ref: "@1:e1" })).toEqual([
+      "double-click",
+      "@1:e1",
+      "--headed",
+    ]);
+  });
+
+  it("never passes --headed twice to an action that forces it", () => {
+    // clap takes the flag once, so asking for headed on an action that already
+    // needs the pointer must not duplicate it. Every such action is listed.
+    const forced: [string, Record<string, unknown>][] = [
+      ["mouse_click", { x: 1, y: 2 }],
+      ["mouse_move", { x: 1, y: 2 }],
+      ["mouse_wheel", { dy: -3 }],
+      ["double_click", { ref: "@1:e1" }],
+      ["triple_click", { ref: "@1:e1" }],
+      ["dismiss_notification", { index: 1 }],
+      ["notification_action", { index: 1, option: "Open" }],
+      ["dismiss_all_notifications", {}],
+    ];
+    for (const [action, extra] of forced) {
+      for (const heads of [true, undefined]) {
+        const args = buildArgs({ action, ...extra, headed: heads });
+        expect(args.filter((a) => a === "--headed")).toHaveLength(1);
+      }
+    }
+  });
+
+  it("builds the app lifecycle, and waits for a window on launch", () => {
+    // --activate so the next snapshot has a window to read.
+    expect(buildArgs({ action: "launch", app: "Notes" })).toEqual([
+      "launch",
+      "--activate",
+      "--",
+      "Notes",
+    ]);
+    expect(buildArgs({ action: "close_app", app: "Notes" })).toEqual([
+      "close-app",
+      "--",
+      "Notes",
+    ]);
+    expect(buildArgs({ action: "focus_window", window_id: "w-1" })).toEqual([
+      "focus-window",
+      "--window-id",
+      "w-1",
+    ]);
+    expect(buildArgs({ action: "triple_click", ref: "@1:e1" })).toEqual([
+      "triple-click",
+      "@1:e1",
+      "--headed",
+    ]);
+  });
+
+  it("scopes window geometry by window, and passes the size", () => {
+    expect(buildArgs({ action: "maximize", window_id: "w-1" })).toEqual([
+      "maximize",
+      "--window-id",
+      "w-1",
+    ]);
+    expect(buildArgs({ action: "restore", app: "Notes" })).toEqual([
+      "restore",
+      "--app=Notes",
+    ]);
+    expect(
+      buildArgs({ action: "move_window", window_id: "w-1", x: 4, y: 9 })
+    ).toEqual(["move-window", "--window-id", "w-1", "--x", "4", "--y", "9"]);
+    expect(
+      buildArgs({
+        action: "resize_window",
+        window_id: "w-1",
+        width: 400,
+        height: 300,
+      })
+    ).toEqual([
+      "resize-window",
+      "--window-id",
+      "w-1",
+      "--width",
+      "400",
+      "--height",
+      "300",
+    ]);
+  });
+
+  it("builds the clipboard and the surface list", () => {
+    expect(buildArgs({ action: "clipboard_get" })).toEqual(["clipboard-get"]);
+    expect(buildArgs({ action: "clipboard_clear" })).toEqual([
+      "clipboard-clear",
+    ]);
+    expect(buildArgs({ action: "clipboard_set", text: "hi" })).toEqual([
+      "clipboard-set",
+      "--",
+      "hi",
+    ]);
+    // A pasted value can itself start with a hyphen.
+    expect(buildArgs({ action: "clipboard_set", text: "--5" })).toContain(
+      "--5"
+    );
+    expect(buildArgs({ action: "list_surfaces", app: "Notes" })).toEqual([
+      "list-surfaces",
+      "--app=Notes",
+    ]);
+  });
+
+  it("builds find and wait, and bounds the wait", () => {
+    expect(buildArgs({ action: "find", app: "Notes", query: "OK" })).toEqual([
+      "find",
+      "--app=Notes",
+      "--text=OK",
+    ]);
+    expect(buildArgs({ action: "find", app: "Notes", role: "button" })).toEqual(
+      ["find", "--app=Notes", "--role=button"]
+    );
+    expect(
+      buildArgs({ action: "wait", app: "Notes", wait_text: "Saved" })
+    ).toEqual(["wait", "--app=Notes", "--text=Saved"]);
+    expect(buildArgs({ action: "wait", wait_ms: 250 })).toEqual([
+      "wait",
+      "250",
+    ]);
+    expect(
+      buildArgs({
+        action: "wait",
+        app: "Notes",
+        wait_text: "x",
+        timeout_ms: 900,
+      })
+    ).toContain("--timeout");
+  });
+
+  it("forwards the snapshot shaping flags, and only on snapshot", () => {
+    expect(
+      buildArgs({
+        action: "snapshot",
+        app: "Notes",
+        skeleton: true,
+        compact: true,
+        interactive_only: true,
+        root: "@1:e1",
+      })
+    ).toEqual([
+      "snapshot",
+      "--app=Notes",
+      "--skeleton",
+      "--compact",
+      "--interactive-only",
+      "--root",
+      "@1:e1",
+    ]);
+    expect(buildArgs({ action: "snapshot", app: "Notes" })).toEqual([
+      "snapshot",
+      "--app=Notes",
+    ]);
+  });
+
+  it("asks for bounds only on snapshot, and only when told to", () => {
+    expect(
+      buildArgs({ action: "snapshot", app: "Notes", include_bounds: true })
+    ).toContain("--include-bounds");
+    expect(buildArgs({ action: "snapshot", app: "Notes" })).not.toContain(
+      "--include-bounds"
+    );
+    expect(
+      buildArgs({ action: "list_apps", include_bounds: true })
+    ).not.toContain("--include-bounds");
+  });
+
+  it("drops window_id for the commands that reject it", () => {
+    const args = buildArgs({
+      action: "click",
+      ref: "@1:e1",
+      window_id: "w-1",
+    });
+    expect(args).not.toContain("--window-id");
+    expect(args).toContain("@1:e1");
+    expect(
+      buildArgs({
+        action: "press",
+        app: "Notes",
+        key: "Return",
+        window_id: "w-1",
+      })
+    ).toContain("--window-id");
+  });
+
+  // The follow-up snapshot repeats the action's window; without it the read is
+  // the app only, which two windows refuse, and a working action looks broken.
+  it("judges a window action by the window itself", () => {
+    const shown = { bounds: { height: 400, width: 500 }, visible: true };
+    const hidden = { bounds: { height: 400, width: 500 }, visible: false };
+    const grown = { bounds: { height: 765, width: 1312 }, visible: true };
+
+    // Visibility is the signal for the Dock pair.
+    expect(windowLanded("minimize", shown, hidden)).toBe(true);
+    expect(windowLanded("minimize", shown, shown)).toBe(false);
+    expect(windowLanded("restore", hidden, shown)).toBe(true);
+    // Restoring an already-visible window is a no-op that still succeeded.
+    expect(windowLanded("restore", shown, shown)).toBe(true);
+    // A maximize shows up only as new bounds.
+    expect(windowLanded("maximize", shown, grown)).toBe(true);
+    expect(windowLanded("maximize", shown, shown)).toBe(false);
+    // A window that went away, or came back unreadable, is not a landing.
+    expect(windowLanded("maximize", shown, undefined)).toBe(false);
+    expect(windowLanded("maximize", {}, grown)).toBe(false);
+  });
+
+  it("snapshots the same window the action was pinned to", () => {
+    expect(
+      afterSnapshot({ action: "click", app: "Notes", window_id: "w-1" })
+    ).toEqual([
+      "snapshot",
+      "--app",
+      "Notes",
+      "--window-id",
+      "w-1",
+      "--timeout-ms",
+      "10000",
+    ]);
+    expect(afterSnapshot({ action: "click", app: "Notes" })).toEqual([
+      "snapshot",
+      "--app",
+      "Notes",
+      "--timeout-ms",
+      "10000",
+    ]);
+  });
+
+  it("sends no --app when the call was ref-only", () => {
+    // A ref names its own window, so a click by ref carries no `app`. Sent as
+    // `String(undefined)` the CLI matched an application named "undefined".
+    const args = afterSnapshot({ action: "click", ref: "@1:e1" });
+    expect(args).not.toContain("undefined");
+    expect(args).toEqual(["snapshot", "--timeout-ms", "10000"]);
+  });
+
+  it("gives the verification read a deadline past a repaint", () => {
+    // The action has just changed the window, so the CLI's 3s default was
+    // expiring mid-settle and reporting a failure for a read that works.
+    const args = afterSnapshot({ app: "Notes" });
+    expect(args[args.indexOf("--timeout-ms") + 1]).toBe("10000");
+  });
+
+  it("omits empty strings so clap does not see a blank value", () => {
+    const args = buildArgs({ action: "click", app: "Notes", ref: "" });
+    expect(args).toEqual(["click"]);
+  });
+});
+
+// The CLI answers a pathless screenshot with base64 JSON. Left as text the model
+// gets bytes it cannot see, so it becomes ImageContent; the size stays in text
+// because a pixel click needs it and the image does not carry it.
+describe("shotContent", () => {
+  // The CLI wraps every result as { command, data, ok, version }: the payload is
+  // one level down, and reading the top level is what silently found nothing.
+  const shot = (over: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      command: "screenshot",
+      data: {
+        data: "iVBORw0KGgo=",
+        format: "png",
+        width: 2496,
+        height: 1064,
+        scale_factor: 2,
+        ...over,
+      },
+      ok: true,
+      version: "2.5",
+    });
+
+  it("returns the pixels as an image beside their size at the real scale", () => {
+    expect(shotContent(shot())).toEqual([
+      {
+        type: "text",
+        text: "Screenshot 2496x1064 px at 2x: divide a pixel by 2 for a point.",
+      },
+      { type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" },
+    ]);
+  });
+
+  // The image is device pixels; click/hover x/y are accessibility points.
+  it("names no ratio at 1x, where the pixels are already points", () => {
+    const text = shotContent(shot({ scale_factor: 1 }))[0] as { text: string };
+    expect(text.text).toBe("Screenshot 2496x1064 px.");
+  });
+
+  it("falls back to the raw text when the payload or format is unknown", () => {
+    const raw = "Not JSON";
+    expect(shotContent(raw)).toEqual([{ type: "text", text: raw }]);
+    const tiff = shot({ format: "tiff" });
+    expect(shotContent(tiff)).toEqual([{ type: "text", text: tiff }]);
+    const empty = JSON.stringify({ command: "screenshot", data: {}, ok: true });
+    expect(shotContent(empty)).toEqual([{ type: "text", text: empty }]);
+  });
+
+  it("keeps the text when the CLI reports a saved path instead of data", () => {
+    const saved = shot({ data: undefined, path: "/tmp/a.png" });
+    expect(shotContent(saved)).toEqual([{ type: "text", text: saved }]);
+  });
+});
+
+// A failure arrives as the CLI's own JSON envelope. Thrown whole it is a wall of
+// braces; the message and the suggestion are the two parts worth keeping.
+describe("cliError", () => {
+  const fail = (error: unknown) =>
+    JSON.stringify({ command: "screenshot", error, ok: false, version: "2.5" });
+
+  it("keeps the message and the suggestion, without the envelope", () => {
+    const out = fail({
+      code: "AMBIGUOUS_TARGET",
+      message: "Multiple windows matched the selected process instance",
+      suggestion: "Run 'list-windows' and retry with --window-id <id>.",
+    });
+    expect(cliError(out, "screenshot", 1)).toBe(
+      "Multiple windows matched the selected process instance\nRun 'list-windows' and retry with --window-id <id>."
+    );
+  });
+
+  it("passes through what it cannot read, and a bare message", () => {
+    expect(cliError("boom", "click", 3)).toBe("boom");
+    expect(cliError("", "click", 3)).toBe(
+      "agent-desktop click failed with exit 3"
+    );
+    const bare = fail({ code: "TIMEOUT", message: "No answer" });
+    expect(cliError(bare, "click", 1)).toBe("No answer");
+  });
+
+  // The ids that would disambiguate the target are in `details`, so the agent
+  // does not have to go looking for what the error already knew.
+  it("names the candidates an ambiguous target offers", () => {
+    const out = fail({
+      code: "AMBIGUOUS_TARGET",
+      details: { candidate_pids: [611], candidates: [{ id: "w-1" }] },
+      message: "2 windows matched",
+      suggestion: "Pass --window-id",
+    });
+    expect(cliError(out, "snapshot", 1)).toBe(
+      "2 windows matched\nPass --window-id\nCandidates: w-1"
+    );
+  });
+});
+
+// Every command answers `{ command, ok, data }`. Handing that to the agent as
+// JSON costs it a parse, so `data` is written as text instead. The payloads below
+// are what the real binary returns, sampled with --property, list-displays and
+// find --count.
+describe("render", () => {
+  const ok = (data: unknown) =>
+    JSON.stringify({ command: "get", data, ok: true, version: "2.6" });
+
+  // The legend is printed only on a big tree, so tests that count lines drop it
+  // rather than assume an offset.
+  const below = (text: string) =>
+    text.split("\n").filter((l) => !l.startsWith("Elements read"));
+
+  it("writes bounds as a rectangle, and flags a stale one", () => {
+    const at = { height: 1027, width: 656, x: 152, y: -537 };
+    expect(render(ok({ live: true, property: "bounds", value: at }))).toBe(
+      "bounds: 152,-537 656x1027"
+    );
+    // Docs: when live is false the rectangle came from the snapshot.
+    expect(render(ok({ live: false, property: "bounds", value: at }))).toBe(
+      "bounds: 152,-537 656x1027\n(from the snapshot, not live — re-read before a click)"
+    );
+  });
+
+  it("writes a list one entry per line", () => {
+    const displays = JSON.stringify({
+      command: "list-displays",
+      data: [{ bounds: { height: 982, width: 1512, x: 0, y: 0 }, id: "1" }],
+      ok: true,
+    });
+    expect(render(displays)).toBe(
+      [
+        "#1 bounds:",
+        "  height: 982",
+        "  width: 1512",
+        "  x: 0",
+        "  y: 0",
+        " id: 1",
+      ].join("\n")
+    );
+  });
+
+  // A node leads with the ref, because the ref is what gets acted on. An unnamed
+  // node carries its content in `value`, so that stays the identity.
+  it("writes a node as ref, role, name and value, with state and actions", () => {
+    const tree = JSON.stringify({
+      command: "snapshot",
+      data: {
+        tree: {
+          children: [
+            {
+              available_actions: ["Click"],
+              name: "Close",
+              ref_id: "@s1:e10",
+              role: "button",
+              states: ["disabled"],
+            },
+          ],
+        },
+      },
+      ok: true,
+    });
+    expect(below(render(tree))).toEqual([
+      "tree:",
+      " children:",
+      "  #1 @s1:e10 button Close",
+      "    states: disabled",
+      "    acts: Click",
+    ]);
+  });
+
+  it("keeps a clamped long value and marks the cut", () => {
+    const long = "x".repeat(400);
+    const tree = JSON.stringify({
+      command: "snapshot",
+      data: { tree: { ref_id: "@s1:e1", role: "textfield", value: long } },
+      ok: true,
+    });
+    const line = below(render(tree))[1]!;
+    expect(line).toContain("@s1:e1 textfield xxxx");
+    expect(line.endsWith("…")).toBe(true);
+  });
+
+  // A skeleton marks what depth cut, so the ref appears with its count.
+  it("shows a drill marker on a cut container", () => {
+    const tree = JSON.stringify({
+      command: "snapshot",
+      data: { tree: { children_count: 2, ref_id: "@s1:e1", role: "group" } },
+      ok: true,
+    });
+    expect(below(render(tree))).toEqual(["tree:", " @s1:e1 group", "  +2"]);
+  });
+
+  // RightClick/ScrollTo/SetFocus do not earn a ref on their own, so on a ref-less
+  // node they advertised an action no ref could address. A primary action still
+  // prints, because it is what makes the node worth looking at.
+  it("drops only situational actions on a ref-less node", () => {
+    const bare = JSON.stringify({
+      command: "snapshot",
+      data: {
+        tree: {
+          available_actions: ["RightClick", "ScrollTo", "SetFocus"],
+          children: [],
+          role: "group",
+        },
+      },
+      ok: true,
+    });
+    expect(below(render(bare))).toEqual(["tree:", " group"]);
+
+    const kept = JSON.stringify({
+      command: "snapshot",
+      data: {
+        tree: {
+          available_actions: ["Expand", "ScrollTo", "SetFocus"],
+          children: [],
+          role: "disclosure",
+        },
+      },
+      ok: true,
+    });
+    expect(render(kept)).toContain("acts: Expand, ScrollTo, SetFocus");
+  });
+
+  // The live CLI omits `children` on a leaf, so a leaf has to be recognised by
+  // the fields it does carry, or its actions print as a numbered list.
+  // The legend is a fixed ~360 chars, so it is only worth printing on a tree big
+  // enough to pay for it; a drilled region of one or two nodes reads shorter
+  // without, and that is the common follow-up to a skeleton.
+  it("prints the legend only on a tree big enough to pay for it", () => {
+    const leaf = (i: number) => ({ ref_id: `@s1:e${i}`, role: "button" });
+    const tree = (n: number) =>
+      JSON.stringify({
+        command: "snapshot",
+        data: {
+          tree: {
+            children: Array.from({ length: n }, (_, i) => leaf(i)),
+            role: "window",
+          },
+        },
+        ok: true,
+      });
+    expect(render(tree(1))).not.toContain("Elements read");
+    expect(render(tree(30))).toContain("Elements read");
+    // The gate flips exactly here (17 children is 19 lines, 18 is 21), so a
+    // loosened or removed constant shows up as one of these two failing.
+    expect(render(tree(17))).not.toContain("Elements read");
+    expect(render(tree(18))).toContain("Elements read");
+    // Both sides stay shorter than the JSON they came from.
+    expect(render(tree(1)).length).toBeLessThan(tree(1).length);
+    expect(render(tree(30)).length).toBeLessThan(tree(30).length);
+  });
+
+  it("reads a leaf with no children array as a node", () => {
+    const leaf = JSON.stringify({
+      command: "snapshot",
+      data: {
+        tree: {
+          available_actions: ["Click", "RightClick"],
+          role: "button",
+        },
+      },
+      ok: true,
+    });
+    const lines = render(leaf).split("\n");
+    expect(lines).toContain("  acts: Click, RightClick");
+    expect(lines.join("\n")).not.toContain("available_actions");
+  });
+
+  // A bare `{ role }` is the least a leaf can be: no ref, no children, no
+  // actions. It still has to read as a node line, not as `role: group`.
+  it("reads a bare role object as a node", () => {
+    const tree = JSON.stringify({
+      command: "snapshot",
+      data: { tree: { children: [{ role: "group" }], role: "window" } },
+      ok: true,
+    });
+    expect(below(render(tree))).toContain("  #1 group");
+  });
+
+  // A scrollbar's name is a float position; the tail is noise on every call.
+  it("rounds a float name", () => {
+    const tree = JSON.stringify({
+      command: "snapshot",
+      data: {
+        tree: {
+          ref_id: "@s1:e1",
+          role: "scrollbar",
+          value: "0.18518517911434174",
+        },
+      },
+      ok: true,
+    });
+    expect(below(render(tree))).toContain(" @s1:e1 scrollbar 0.1852");
+    expect(below(render(tree)).join(" ")).not.toContain("0.18518");
+  });
+
+  it("writes a count and a bare scalar as themselves", () => {
+    expect(render(ok({ count: 7 }))).toBe("count: 7");
+    expect(render(ok("textfield"))).toBe("textfield");
+  });
+
+  // A false result on a text field is not "unchecked", it is not checkable; the
+  // plain unwrap guessed and said `false`.
+  it("says an inapplicable state instead of a false result", () => {
+    const na = ok({ applicable: false, property: "checked", result: false });
+    expect(render(na)).toBe("checked: not applicable to this element");
+    const yes = ok({ applicable: true, property: "visible", result: true });
+    expect(render(yes)).toBe("visible: true");
+  });
+
+  // `get` is the way to read whole what a snapshot line clamps, so it must not
+  // clamp too; the property name stays on the line so a one-word answer says
+  // which question it answers.
+  it("writes a get whole, under its property name", () => {
+    const long = "y".repeat(300);
+    expect(render(ok({ property: "text", value: long }))).toBe(`text: ${long}`);
+    expect(render(ok({ property: "states", value: ["expanded"] }))).toBe(
+      "states: expanded"
+    );
+    // An empty list is a real answer and would otherwise print a bare label.
+    expect(render(ok({ property: "states", value: [] }))).toBe(
+      "states: (none)"
+    );
+    // A null value is the answer here, not an absent key, so it is not dropped.
+    expect(render(ok({ property: "text", value: null }))).toBe("text: (none)");
+  });
+
+  it("passes through what it cannot unwrap, and never returns empty", () => {
+    expect(render("plain words")).toBe("plain words");
+    expect(render("")).toBe("Nothing on screen.");
+    expect(render(JSON.stringify({ data: null }))).toBe("Nothing on screen.");
+  });
+});
+
+// The nested groups and the batch payload are the calls a wrong spelling makes
+// silently useless: a `--` in the wrong place, or an option under the wrong key.
+describe("the calls that carry an argument shape", () => {
+  it("puts the subcommand before its flags", () => {
+    expect(buildArgs({ action: "session", sub: "start", name: "x" })).toEqual([
+      "session",
+      "start",
+      "--name=x",
+    ]);
+    expect(buildArgs({ action: "trace", sub: "show", limit: 3 })).toEqual([
+      "trace",
+      "show",
+      "--limit",
+      "3",
+    ]);
+    // `trace export` is the one child promoted to an action; sub is implied.
+    expect(buildArgs({ action: "trace_export", path: "/tmp/a.html" })).toEqual([
+      "trace",
+      "export",
+      "--out=/tmp/a.html",
+    ]);
+  });
+
+  it("sends the wheel point as --x/--y, not the --xy the other chats use", () => {
+    expect(
+      buildArgs({ action: "mouse_wheel", x: 400, y: 300, dy: -2 })
+    ).toEqual([
+      "mouse-wheel",
+      "--x",
+      "400",
+      "--y",
+      "300",
+      "--dy",
+      "-2",
+      "--headed",
+    ]);
+  });
+
+  it("keeps the notification option after every flag", () => {
+    expect(
+      buildArgs({
+        action: "notification_action",
+        index: 2,
+        app: "Mail",
+        option: "Reply",
+      })
+    ).toEqual([
+      "notification-action",
+      "2",
+      "--expected-app=Mail",
+      "--headed",
+      "--",
+      "Reply",
+    ]);
+  });
+
+  it("drops an absent batch args key rather than send an empty array", () => {
+    expect(
+      JSON.parse(
+        buildArgs({ action: "batch", steps: [{ command: "version" }] })[2]!
+      )
+    ).toEqual([{ command: "version" }]);
+  });
+});
+
+describe("the answers that have no tree to show", () => {
+  it("states the version rather than listing its keys", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: { os: "macos", target: "aarch64", version: "1.2.0" },
+        })
+      )
+    ).toBe("agent-desktop 1.2.0 on macos (aarch64)");
+  });
+
+  it("says an empty notification queue is empty, and explains one", () => {
+    expect(render(JSON.stringify({ data: { notifications: [] } }))).toBe(
+      "No notifications.\n If one is expected, the center's rows are not in the accessibility tree; see the macOS note in the README."
+    );
+  });
+
+  it("numbers a notification with the index the dismiss takes", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            notifications: [
+              { index: 3, app_name: "Mail", title: "Hi", actions: ["Reply"] },
+            ],
+          },
+        })
+      )
+    ).toBe("#3 Mail — Hi\n actions: Reply");
+  });
+
+  it("marks an open and an ended session apart", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            sessions: [
+              { session_id: "run-1", name: "probe" },
+              { session_id: "run-0", ended_at: 1 },
+            ],
+          },
+        })
+      )
+    ).toBe("run-1 open — probe\nrun-0 ended");
+  });
+
+  it("counts a batch and gives each entry its own verdict", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            completed_entries: 2,
+            elapsed_ms: 5,
+            not_started_entries: 0,
+            total_entries: 2,
+            results: [
+              { command: "version", index: 0, ok: true, data: {} },
+              {
+                command: "click",
+                index: 1,
+                ok: false,
+                error: { message: "stale" },
+              },
+            ],
+          },
+        })
+      )
+    ).toBe(
+      "2 of 2 ran, 5 ms, sequential and not atomic\n#1 version ok\n#2 click failed: stale"
+    );
+  });
+});
+
+// A command the platform/build cannot do refuses with PLATFORM_NOT_SUPPORTED.
+// Treating that as a throw hides the suggestion, and treating it as an action
+// takes a snapshot that can only repeat the last one.
+describe("execute on an unsupported command", () => {
+  it("answers the refusal, with no throw and no follow-up snapshot", async () => {
+    let tool: { execute: (...a: unknown[]) => Promise<{ content: unknown }> };
+    const execs: string[][] = [];
+    const refused = {
+      ok: false,
+      command: "open-system-surface",
+      error: {
+        code: "PLATFORM_NOT_SUPPORTED",
+        message: "open_system_surface is not supported on this platform",
+        suggestion: "Use a platform/build that advertises this capability",
+      },
+    };
+    start({
+      registerTool: (t: typeof tool) => {
+        tool = t;
+      },
+      on: () => {},
+      exec: async (_bin: string, args: string[]) => {
+        execs.push(args);
+        if (args[0] === "list-apps")
+          return { code: 0, stdout: "{}", stderr: "" };
+        return {
+          code: args[0] === "open-system-surface" ? 1 : 0,
+          stdout:
+            args[0] === "open-system-surface"
+              ? JSON.stringify(refused)
+              : '{"data":{}}',
+          stderr: "",
+        };
+      },
+    } as never);
+    await new Promise((r) => setTimeout(r, 50));
+    const out = await tool!.execute(
+      "1",
+      { action: "open_system_surface", surface: "dock" },
+      undefined,
+      () => {},
+      {}
+    );
+    expect(JSON.stringify(out.content)).toContain("not supported on this");
+    expect(execs.map((a) => a[0])).not.toContain("snapshot");
+  });
+});
+
+describe("a follow-up that reads a different app", () => {
+  it("says so, since a tree off the wrong app is worse than none", async () => {
+    let tool: { execute: (...a: unknown[]) => Promise<{ content: unknown }> };
+    start({
+      registerTool: (t: typeof tool) => {
+        tool = t;
+      },
+      on: () => {},
+      exec: async (_bin: string, args: string[]) => {
+        if (args[0] === "list-apps")
+          return { code: 0, stdout: "{}", stderr: "" };
+        if (args[0] === "snapshot") {
+          // The follow-up carries no --app, and the frontmost app is Herdr.
+          // `--app` is sent as one `--app=Finder` argument, not two.
+          const app = args.some((a) => a.endsWith("Finder"))
+            ? "Finder"
+            : "Herdr";
+          // A snapshot id per app, as the CLI mints one per snapshot.
+          const id = app === "Finder" ? "s1" : "s2";
+          return {
+            code: 0,
+            stdout: JSON.stringify({
+              data: {
+                app,
+                snapshot_id: id,
+                tree: { ref_id: `@${id}:e1`, role: "window" },
+              },
+            }),
+            stderr: "",
+          };
+        }
+        return { code: 0, stdout: '{"data":{}}', stderr: "" };
+      },
+    } as never);
+    await new Promise((r) => setTimeout(r, 50));
+    // A Finder snapshot gives the ref its app; the ref is qualified with the
+    // snapshot id, so that binding survives whatever runs next.
+    const snap = await tool!.execute(
+      "1",
+      { action: "snapshot", app: "Finder" },
+      undefined,
+      () => {},
+      {}
+    );
+    const [ref] = /@s1:e\d+/.exec(JSON.stringify(snap.content))!;
+    // An intervening snapshot of another app rebinds "the newest one".
+    await tool!.execute(
+      "1",
+      { action: "snapshot", app: "Herdr" },
+      undefined,
+      () => {},
+      {}
+    );
+    const out = await tool!.execute(
+      "1",
+      { action: "click", ref },
+      undefined,
+      () => {},
+      {}
+    );
+    const text = JSON.stringify(out.content);
+    expect(text).toContain("but of Herdr");
+    expect(text).toContain("not Finder");
+    // Once named explicitly, a match is not drift and gets no prefix.
+    const same = await tool!.execute(
+      "1",
+      { action: "click", app: "Herdr", ref },
+      undefined,
+      () => {},
+      {}
+    );
+    expect(JSON.stringify(same.content)).toContain("Ran click. New state:");
+  });
+
+  it("does it for a point click too, when its ref names the app", async () => {
+    let tool: { execute: (...a: unknown[]) => Promise<{ content: unknown }> };
+    start({
+      registerTool: (t: typeof tool) => {
+        tool = t;
+      },
+      on: () => {},
+      exec: async (_bin: string, args: string[]) => {
+        if (args[0] === "list-apps")
+          return { code: 0, stdout: "{}", stderr: "" };
+        if (args[0] === "snapshot") {
+          const app = args.some((a) => a.endsWith("Finder"))
+            ? "Finder"
+            : "Herdr";
+          const id = app === "Finder" ? "s1" : "s2";
+          return {
+            code: 0,
+            stdout: JSON.stringify({
+              data: { app, snapshot_id: id, tree: { role: "window" } },
+            }),
+            stderr: "",
+          };
+        }
+        return { code: 0, stdout: '{"data":{}}', stderr: "" };
+      },
+    } as never);
+    await new Promise((r) => setTimeout(r, 50));
+    await tool!.execute(
+      "1",
+      { action: "snapshot", app: "Finder" },
+      undefined,
+      () => {},
+      {}
+    );
+    // A point carries no app of its own, so any ref given alongside is the only
+    // thing that can name one. Without it the warning could never fire here.
+    const out = await tool!.execute(
+      "1",
+      { action: "mouse_click", x: 5, y: 9, ref: "@s1:e4", headed: true },
+      undefined,
+      () => {},
+      {}
+    );
+    expect(JSON.stringify(out.content)).toContain("but of Herdr");
+  });
+});
+
+describe("a failed follow-up snapshot", () => {
+  it("reports why it failed instead of only saying to re-snapshot", async () => {
+    let tool: { execute: (...a: unknown[]) => Promise<{ content: unknown }> };
+    start({
+      registerTool: (t: typeof tool) => {
+        tool = t;
+      },
+      on: () => {},
+      exec: async (_bin: string, args: string[]) => {
+        if (args[0] === "list-apps")
+          return { code: 0, stdout: "{}", stderr: "" };
+        if (args[0] === "snapshot")
+          return {
+            code: 1,
+            stdout: JSON.stringify({
+              error: {
+                code: "TIMEOUT",
+                message: "the window did not settle",
+                suggestion: "raise --timeout-ms",
+              },
+            }),
+            stderr: "",
+          };
+        return { code: 0, stdout: '{"data":{}}', stderr: "" };
+      },
+    } as never);
+    await new Promise((r) => setTimeout(r, 50));
+    const out = await tool!.execute(
+      "1",
+      { action: "click", ref: "@1:e1" },
+      undefined,
+      () => {},
+      {}
+    );
+    const text = JSON.stringify(out.content);
+    expect(text).toContain("did not settle");
+    expect(text).toContain("raise --timeout-ms");
+    // The action still shows as done; only the verification read failed.
+    expect(text).toContain("call snapshot before the next action");
+  });
+});
+
+describe("mouse_move", () => {
+  it("sends the point as --xy, always headed", () => {
+    expect(buildArgs({ action: "mouse_move", x: -100, y: 50 })).toEqual([
+      "mouse-move",
+      "--xy=-100,50",
+      "--headed",
+    ]);
+  });
+});
+
+describe("a raw pointer gesture", () => {
+  it("renders as one line, not its step and target framing", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            action: "mouse-move",
+            disposition: { delivery: "delivered_verified", retry: "unsafe" },
+            steps: [
+              {
+                label: "pointer_move",
+                mechanism: "physical_synthetic",
+                outcome: "succeeded",
+                verified: true,
+              },
+            ],
+            target: { kind: "pointer", point: { x: 400, y: 300 } },
+          },
+        })
+      )
+    ).toBe("mouse-move at 400,300\n(the OS confirmed the pointer arrived)");
+  });
+});
+
+describe("a wheel gesture", () => {
+  it("names the scroll distance as well as the point", () => {
+    expect(
+      render(
+        JSON.stringify({
+          data: {
+            action: "mouse-wheel",
+            disposition: { delivery: "delivered_unverified" },
+            dx: 0,
+            dy: -2,
+            target: { kind: "pointer", point: { x: 400, y: 300 } },
+          },
+        })
+      )
+    ).toBe("mouse-wheel 0x-2 lines\n400,300");
+  });
+});

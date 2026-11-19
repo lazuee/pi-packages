@@ -49,6 +49,7 @@
   "devDependencies": {
     "@howaboua/pi-codex-conversion": "5.0.1",
     "@types/better-sqlite3": "9.6.0",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {

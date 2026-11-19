@@ -1,0 +1,4 @@
+[test]
+# Restores the native binary the upstream npm tests wipe, so a run never leaves
+# the checkout's CLI dead for the session beside it.
+preload = ["./tests/setup.ts"]

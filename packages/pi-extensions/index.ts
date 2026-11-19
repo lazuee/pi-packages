@@ -4,6 +4,7 @@
 // enforces it. Skills-only `pi-skill-agent-harness` is wired via root `pi.skills`.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import PiAgentComms from "@lazuee/pi-agent-comms";
+import PiAgentDesktop from "@lazuee/pi-agent-desktop";
 import PiAsk from "@lazuee/pi-ask";
 import PiAutoTrees from "@lazuee/pi-auto-trees";
 import PiBetterSkillsTool from "@lazuee/pi-better-skills-tool";
@@ -18,6 +19,7 @@ import PiUnicodeCharts from "@lazuee/pi-unicode-charts";
 
 export default async function (pi: ExtensionAPI) {
   await PiAgentComms(pi);
+  await PiAgentDesktop(pi);
   await PiAsk(pi);
   await PiAutoTrees(pi);
   await PiBetterSkillsTool(pi);
