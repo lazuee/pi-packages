@@ -1,4 +1,4 @@
 [submodule "packages/pi-agent-desktop/upstream"]
 	path = packages/pi-agent-desktop/upstream
-	url = https://github.com/vercel-labs/agent-desktop
+	url = https://github.com/lazuee/agent-desktop
 	branch = main
