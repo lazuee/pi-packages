@@ -31,7 +31,8 @@
     "tsconfig.json",
     "CHANGELOG.md",
     "tests/setup.ts",
-    "bunfig.toml"
+    "bunfig.toml",
+    "prebuilt"
   ],
   "type": "module",
   "main": "src/extension.ts",
@@ -45,6 +46,7 @@
   "scripts": {
     "check": "tsgo --noEmit && bun test",
     "link:cli": "node scripts/link-cli.mjs",
+    "link:cli:build": "node scripts/link-cli.mjs --build",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "bun run check && bun run pack:dry"
   },

@@ -7,8 +7,9 @@ import { buildArgs, startArgs } from "#src/extension";
 
 // The unit tests assert buildArgs against itself, so they cannot catch a shape
 // change -- three defects shipped that way. This runs the real binary over every
-// action instead. It needs a checkout built (cargo build in upstream/) and is
-// skipped without one; CI has no submodule, so CI never runs it.
+// action instead. It needs the binary installed beside the launcher, which the
+// `tests/setup.ts` preload does from `prebuilt/` before any test runs, and is
+// skipped in a tree with no checkout to launch from.
 //
 // A parse is the whole assertion, and clap separates the two outcomes for us: a
 // rejected argument exits 2, while a runtime refusal (a stale ref, a missing
@@ -16,8 +17,10 @@ import { buildArgs, startArgs } from "#src/extension";
 // needs no window, permission or snapshot.
 const PARSE_FAILURE = 2;
 
+// The launcher, not the binary: it is what resolves the platform name, so this
+// exercises the same path a call does.
 const BIN = fileURLToPath(
-  new URL("../upstream/target/debug/agent-desktop", import.meta.url)
+  new URL("../upstream/npm/bin/agent-desktop", import.meta.url)
 );
 
 /** Everything a well-formed call of each action needs to be parseable. */

@@ -1,16 +1,14 @@
 // Put the native binary where the launcher looks for it.
 //
-// The checkout's `upstream/npm/bin` is a launcher plus a copied binary, and
-// upstream's own wrapper tests treat that directory as scratch: they unlink the
-// installed binary and never put it back, and the signal test overwrites it with
-// a stub first. Both the binary and the helper are therefore gone after a run,
-// which leaves the CLI dead for every later test in the same run and for a Pi
-// session left open beside it. This restores them, building first when a fresh
-// checkout has no binary to copy.
+// The binary is not built here by default. `prebuilt/` holds the committed ones,
+// so a checkout works with no Rust toolchain and a published package ships a
+// working CLI. `--build` compiles from `upstream/` instead and rewrites
+// `prebuilt/`, which is what to run after moving the submodule: the two are
+// synced by hand, on purpose, rather than one drifting from the other silently.
 //
-// Both come from the same build, so a stale one is replaced rather than kept: a
-// helper from a different build is refused at run time. Only debug builds are
-// used, which is what the contract tests exercise.
+// Nothing is written inside `upstream/` that can be avoided, so `git status`
+// there stays clean. Two things still are, both unavoidable: `npm/bin` is where
+// the launcher looks, and upstream does not track a root package.json.
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
@@ -21,7 +19,10 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 
-const upstream = join(import.meta.dirname, "..", "upstream");
+const build = process.argv.includes("--build");
+const root = join(import.meta.dirname, "..");
+const upstream = join(root, "upstream");
+const prebuilt = join(root, "prebuilt");
 const bin = join(upstream, "npm", "bin");
 
 // The checkout has no root package.json and upstream does not track one, so Node
@@ -34,43 +35,58 @@ writeFileSync(
   `${JSON.stringify({ name: "agent-desktop-upstream", private: true, type: "commonjs" }, null, 2)}\n`
 );
 
-// The build artifact keeps its plain name; only the copy the launcher looks for
-// carries the platform suffix. The macOS helper needs no suffix.
-const link = [
+// The macOS helper needs no platform suffix; the CLI does, and this machine's
+// pair is the only one `prebuilt/` holds.
+const pair = [
   {
-    from: "agent-desktop",
-    to: `agent-desktop-${process.platform}-${process.arch}`,
+    artifact: "agent-desktop",
+    name: `agent-desktop-${process.platform}-${process.arch}`,
   },
 ];
-if (process.platform === "darwin") {
-  link.push({
-    from: "agent-desktop-macos-helper",
-    to: "agent-desktop-macos-helper",
+if (process.platform === "darwin")
+  pair.push({
+    artifact: "agent-desktop-macos-helper",
+    name: "agent-desktop-macos-helper",
   });
-}
 
-const built = (name) => join(upstream, "target", "debug", name);
-
-if (!link.every(({ from }) => existsSync(built(from)))) {
-  const build = spawnSync(
+if (build) {
+  const cargo = spawnSync(
     "cargo",
-    ["build", ...link.flatMap(({ from }) => ["--bin", from])],
+    [
+      "build",
+      "--release",
+      ...pair.flatMap(({ artifact }) => ["--bin", artifact]),
+    ],
     { cwd: upstream, stdio: "inherit" }
   );
-  if (build.status !== 0) {
-    console.error("link-cli: cargo build failed, no binary to link");
-    process.exit(build.status ?? 1);
+  if (cargo.status !== 0) {
+    console.error("link-cli: cargo build failed, nothing to install");
+    process.exit(cargo.status ?? 1);
   }
+  mkdirSync(prebuilt, { recursive: true });
+  for (const { artifact, name } of pair)
+    copyFileSync(
+      join(upstream, "target", "release", artifact),
+      join(prebuilt, name)
+    );
+  console.log(
+    `link-cli: rebuilt prebuilt/${pair.map((p) => p.name).join(", ")}`
+  );
 }
 
 mkdirSync(bin, { recursive: true });
 let copied = 0;
-for (const { from, to } of link) {
-  const source = built(from);
-  const target = join(bin, to);
-  // A copy at least as new as the build is that build's output: skip it, so
-  // this stays cheap enough to run after every test run. The stub a test writes
-  // is smaller and older than the build, so it is always replaced.
+for (const { name } of pair) {
+  const source = join(prebuilt, name);
+  const target = join(bin, name);
+  if (!existsSync(source)) {
+    console.error(
+      `link-cli: prebuilt/${name} is missing for this platform; run with --build on a machine that has the toolchain`
+    );
+    process.exit(1);
+  }
+  // An identical copy is already installed: skip it, so this stays cheap enough
+  // to run either side of a test run. The stub a test writes differs in size.
   if (
     existsSync(target) &&
     statSync(target).mtimeMs >= statSync(source).mtimeMs &&
@@ -81,4 +97,4 @@ for (const { from, to } of link) {
   copied += 1;
 }
 if (copied)
-  console.log(`link-cli: restored ${copied} file(s) in upstream/npm/bin`);
+  console.log(`link-cli: installed ${copied} file(s) into upstream/npm/bin`);

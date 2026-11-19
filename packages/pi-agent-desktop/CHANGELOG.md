@@ -52,6 +52,7 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 
 ### Fixed
 
+- The CLI is now shipped prebuilt under `prebuilt/`, so the extension needs no global `agent-desktop` install and no Rust toolchain to work. The build is committed and synced by hand with `npm run link:cli:build` when the submodule moves.
 - The snapshot taken after an action inherited the CLI's 3s observation deadline, which often expires mid-repaint, so a click that landed reported a failed follow-up. It now gets 10s.
 - That failure also swallowed the CLI's own message; it is now reported, so a repeat failure is diagnosable rather than a sentence to retry blindly.
 - The pid was read from the timestamp field of a `run-<µs>-<pid>-<n>` id, so no session ever looked alive and a live run's record was pruned out from under it — the "pruned N session record(s)" notice at the end of a turn. It reads the pid field now, and the 30s grace it relies on is documented as the real guard.

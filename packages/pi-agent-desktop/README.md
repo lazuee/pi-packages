@@ -12,15 +12,11 @@ A snapshot, a clipboard read, a screenshot, command output and the trace artifac
 
 ## Requirements
 
-The extension is a wrapper: it ships no CLI of its own and needs `agent-desktop` installed once. Without it the tool reports `agent-desktop is not on PATH` and every call fails.
+The package ships its own `agent-desktop` build under `prebuilt/`, so nothing has to be installed first. `prebuilt/` holds two bare binaries; the vendored launcher beside them in `upstream/npm/bin` is what resolves and runs the right one, and `npm run link:cli` copies them into place there.
 
-```bash
-npm install -g agent-desktop
-agent-desktop status        # reports the OS grant; macOS needs Accessibility
-agent-desktop skills get platform
-```
+The pair is a release build of [`upstream/`](upstream), committed rather than compiled on install, so the package stays installable with no Rust toolchain. It is synced by hand with `npm run link:cli:build` when the submodule moves. A global `agent-desktop` install is still the fallback for a machine without the checkout: discovery probes the vendored launcher first and falls through to whatever a global npm, bun, pnpm or yarn install put on `PATH`. Windows has no `sh` to carry the session id, so calls there run bare with `AGENT_DESKTOP_SESSION` in their environment and the lookup is `where.exe`.
 
-A source checkout under `upstream/` is a launcher, not a binary: it works only once npm's postinstall has put the native binary beside it. Discovery probes the checkout first and falls through to the `agent-desktop` a global npm, bun, pnpm or yarn install put on `PATH`, so a local patch is live at once when it answers and a machine without the source still works. Windows has no `sh` to carry the session id, so calls there run bare with `AGENT_DESKTOP_SESSION` in their environment and the lookup is `where.exe`.
+On macOS the first real call needs Accessibility for whichever app pi runs in; `agent-desktop status` reports the grant.
 
 ## Install
 
@@ -89,13 +85,14 @@ Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is 
 
 - `src/extension.ts` — the tool, the CLI invocation, and the session bookkeeping. A start and a `session gc` run unprefixed; everywhere else the session id rides in `AGENT_DESKTOP_SESSION`.
 - `skills/agent-desktop/` — the upstream skill, copied from the checkout so it matches the CLI it documents, plus one local section on how the tool relates to it.
+- `prebuilt/` — the committed release binaries the launcher runs: the CLI under its platform name, and the macOS helper.
 - `upstream/` — git submodule of `vercel-labs/agent-desktop`, Apache-2.0. Not published.
 
 ## License
 
 MIT.
 
-The `upstream/` submodule and the `agent-desktop` binary it builds are [Apache-2.0](https://github.com/vercel-labs/agent-desktop/blob/main/LICENSE), so the CLI and its helper stay under that licence. `upstream/` is not in the published `files`, so a consumer installs the CLI separately and should take the licence from that checkout or the upstream npm package.
+The `agent-desktop` binaries in `prebuilt/`, and the `upstream/` submodule they are built from, are [Apache-2.0](https://github.com/vercel-labs/agent-desktop/blob/main/LICENSE): the CLI and its helper stay under that licence. They are shipped compiled rather than as source, so `prebuilt/` is in the published `files` and carries that build with it.
 
 ## Development
 
