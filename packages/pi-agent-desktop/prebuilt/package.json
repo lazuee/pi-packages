@@ -2,31 +2,37 @@
   "name": "agent-desktop",
   "version": "1.3.1",
   "description": "Reliable computer use for AI agents — observe and operate desktop apps via native accessibility trees",
-  "keywords": [
-    "a11y",
-    "accessibility",
-    "agent",
-    "automation",
-    "cli",
-    "computer-use",
-    "desktop",
-    "linux",
-    "macos",
-    "windows"
-  ],
-  "homepage": "https://github.com/vercel-labs/agent-desktop",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vercel-labs/agent-desktop.git"
   },
+  "homepage": "https://github.com/vercel-labs/agent-desktop",
   "bin": {
     "agent-desktop": "bin/agent-desktop"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
   },
   "files": [
     "bin",
     "lib",
     "scripts"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "computer-use",
+    "desktop",
+    "automation",
+    "accessibility",
+    "cli",
+    "agent",
+    "macos",
+    "windows",
+    "linux",
+    "a11y"
   ],
   "os": [
     "darwin",
@@ -36,11 +42,5 @@
   "cpu": [
     "arm64",
     "x64"
-  ],
-  "scripts": {
-    "postinstall": "node scripts/postinstall.js"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+  ]
 }

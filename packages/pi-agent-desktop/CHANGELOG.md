@@ -60,3 +60,9 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - When the follow-up does read a different app than the action's (a ref-only call has no app to read back, so it gets the frontmost window), the result names the drift instead of presenting the wrong tree as the new state.
 - The drift check only fired for a call that named an `app`, which is the case where it cannot drift. The app of the last snapshot is now remembered, so a ref-only call — the one that actually reads the frontmost window — gets the warning.
 - The drift warning keyed off the newest snapshot, so a `launch` or `focus_window` in between rebound it and a ref from the older window got no warning again. Snapshot ids are now remembered per snapshot, and the ref's own id names the app it belongs to.
+
+### Synced to upstream v1.3.1-7 (c7a1e64)
+
+- The vendored launcher, `lib/` and `package.json` are regenerated from the new submodule, so `prebuilt/` and `upstream/` agree again.
+- Binaries rebuilt from source; the vendored CLI still reports 1.3.1 — these are unpublishable commits on `lazuee/agent-desktop` `main`, not a release (AUTORELEASE puts a `chore: release` commit on `main` just before a release).
+- Carried: macOS cursor overlay no longer hides itself on every headed command; `check`/`uncheck` press a tab button instead of writing `AXValue`, which crashed Chromium on web tabs; permission guide names the app that actually started the process tree under tmux; `sandbox start` can answer `needs_setup`.
