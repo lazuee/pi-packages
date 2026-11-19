@@ -12,11 +12,27 @@
 // helper from a different build is refused at run time. Only debug builds are
 // used, which is what the contract tests exercise.
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 const upstream = join(import.meta.dirname, "..", "upstream");
 const bin = join(upstream, "npm", "bin");
+
+// The checkout has no root package.json and upstream does not track one, so Node
+// resolves upstream/scripts/*.js against this package instead. Without the pin
+// they are read as ESM and every `require` in them fails, taking the release
+// tests with it. A file tree that loses this only regresses silently, so it is
+// written here on every run rather than left to whatever a clone happened to do.
+writeFileSync(
+  join(upstream, "package.json"),
+  `${JSON.stringify({ name: "agent-desktop-upstream", private: true, type: "commonjs" }, null, 2)}\n`
+);
 
 // The build artifact keeps its plain name; only the copy the launcher looks for
 // carries the platform suffix. The macOS helper needs no suffix.
