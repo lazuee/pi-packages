@@ -19,6 +19,7 @@ import {
   readReviewLoopState,
   summarizeReviewLoopIncrement,
 } from "./review-loop.js";
+import { createReviewProgress } from "./review-progress.js";
 import { buildReviewTask } from "./review-task.js";
 import {
   createChildRunDetails,
@@ -38,19 +39,8 @@ export function registerReviewCommand(
       "Run an isolated code-review subagent; in a JJ workspace, pass stack=<ancestor revset> to review a cumulative stack",
     handler: async (args, ctx) => {
       const parsedArgs = parseReviewArgs(args);
-      const setReviewWidget = (message?: string) => {
-        ctx.ui.setWidget(
-          REVIEW_COMMAND,
-          message
-            ? [
-                ctx.ui.theme.fg("accent", "╭─ Review"),
-                `${ctx.ui.theme.fg("muted", "│")} ${message}`,
-                ctx.ui.theme.fg("muted", "╰─ Please wait"),
-              ]
-            : undefined,
-          { placement: "aboveEditor" }
-        );
-      };
+      const progress = createReviewProgress(ctx);
+      const setReviewWidget = progress.setPhase;
 
       if (!ctx.isIdle()) {
         ctx.ui.notify(
@@ -61,11 +51,10 @@ export function registerReviewCommand(
       }
       let review;
       try {
-        review = await detectReviewContext(
-          pi,
-          ctx.cwd,
-          parsedArgs.stackBase ? { stackBase: parsedArgs.stackBase } : {}
-        );
+        review = await detectReviewContext(pi, ctx.cwd, {
+          ...(parsedArgs.stackBase ? { stackBase: parsedArgs.stackBase } : {}),
+          onStage: (stage) => setReviewWidget(stage),
+        });
         if (review.vcs === "jj" && parsedArgs.invalidStackArgument) {
           throw new Error(parsedArgs.invalidStackArgument);
         }
@@ -74,6 +63,7 @@ export function registerReviewCommand(
           error instanceof Error ? error.message : String(error),
           "error"
         );
+        progress.stop();
         return;
       }
 
@@ -83,6 +73,7 @@ export function registerReviewCommand(
       if (!parsedArgs.startLoop) {
         const markerId = readReviewLoopState(ctx)?.markerId;
         if (markerId) {
+          setReviewWidget("Summarizing the review loop increment…");
           reviewConfig = await resolveReviewConfig(pi, ctx);
           if (reviewConfig.summary.source === "current") {
             ctx.ui.notify(
@@ -100,6 +91,7 @@ export function registerReviewCommand(
           );
           if (loopResult === "cancelled") {
             ctx.ui.notify("/review cancelled", "warning");
+            progress.stop();
             return;
           }
         }
@@ -114,6 +106,7 @@ export function registerReviewCommand(
               : "No changes found relative to the selected base branch.",
           "info"
         );
+        progress.stop();
         return;
       }
       sendReviewPreface(
@@ -138,6 +131,8 @@ export function registerReviewCommand(
       }
 
       reviewConfig ??= await resolveReviewConfig(pi, ctx);
+      progress.setScope(review);
+      progress.start();
       let conversationSummary: string | undefined;
       let details = createChildRunDetails("", review.repoRoot, reviewConfig);
       try {
@@ -151,7 +146,9 @@ export function registerReviewCommand(
                 `Configured summary model unavailable; falling back to current session model ${reviewConfig.summary.model}.`,
                 "warning"
               );
-            setReviewWidget("Preparing review context…");
+            setReviewWidget("Summarizing the conversation for the reviewer…", {
+              summaryModel: reviewConfig.summary.model,
+            });
             announceReviewSummaryStarted(pi);
             conversationSummary = await buildReviewConversationSummary(
               ctx,
@@ -171,6 +168,7 @@ export function registerReviewCommand(
           review.vcs === "jj" ? parsedArgs.focus : parsedArgs.rawFocus,
           conversationSummary
         );
+        const spawnedAt = Date.now();
         details = createChildRunDetails(task, review.repoRoot, reviewConfig);
         if (reviewConfig.source === "current") {
           ctx.ui.notify(
@@ -179,7 +177,32 @@ export function registerReviewCommand(
           );
         }
 
-        setReviewWidget("Reviewing changes…");
+        // The reviewer spawns its own process; say so while the child starts up
+        // so the gap before its first turn does not read as a stalled run.
+        setReviewWidget(
+          review.vcs === "jj"
+            ? `Launching the reviewer on revision ${review.changeId}…`
+            : `Launching the reviewer on ${review.scope === "latest-commit" ? `commit ${review.latestCommit ?? "HEAD"}` : `the diff against ${review.baseBranch ?? "the base"}`}…`,
+          {
+            reviewerModel: reviewConfig.model,
+            ...(reviewConfig.source === "current"
+              ? { detail: "configured model unavailable, using current" }
+              : {}),
+          }
+        );
+        const seconds = Math.max(
+          1,
+          Math.round((Date.now() - spawnedAt) / 1000)
+        );
+        setReviewWidget(
+          review.vcs === "jj"
+            ? `Reviewing revision ${review.changeId}…`
+            : `Reviewing ${review.scope === "latest-commit" ? `commit ${review.latestCommit ?? "HEAD"}` : `the diff against ${review.baseBranch ?? "the base"}`}…`,
+          {
+            reviewerModel: reviewConfig.model,
+            detail: `subagent running for ${seconds}s`,
+          }
+        );
         details = await runReviewSubagent(
           task,
           review.repoRoot,
@@ -199,6 +222,7 @@ export function registerReviewCommand(
           finalOutput || "No actionable issues found."
         );
 
+        setReviewWidget("Delivering findings to the main agent…");
         sendReviewFindings(pi, ctx, review, findings);
         announceReviewFindingsReady(pi);
         // An idle session queues findings without a turn, so the follow-up
@@ -222,7 +246,7 @@ export function registerReviewCommand(
         });
         ctx.ui.notify(`/${REVIEW_COMMAND} failed: ${message}`, "error");
       } finally {
-        setReviewWidget();
+        progress.stop();
       }
     },
   });

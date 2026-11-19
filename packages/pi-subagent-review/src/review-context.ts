@@ -87,6 +87,105 @@ async function hasLocalBranch(
   return commitResult.code === 0;
 }
 
+async function countTrackedChangesSince(
+  pi: ExtensionAPI,
+  cwd: string,
+  revision: string
+): Promise<number | undefined> {
+  const result = await runGit(pi, cwd, [
+    "diff",
+    "--name-only",
+    revision,
+    "HEAD",
+  ]);
+  if (result.code !== 0) return undefined;
+  return result.stdout.split("\n").filter(Boolean).length;
+}
+
+async function countUnpushedCommits(
+  pi: ExtensionAPI,
+  cwd: string
+): Promise<number | undefined> {
+  const upstream = await gitStringOrUndefined(pi, cwd, [
+    "rev-parse",
+    "--abbrev-ref",
+    "--symbolic-full-name",
+    "@{upstream}",
+  ]);
+  if (!upstream) return undefined;
+  const result = await runGit(pi, cwd, [
+    "rev-list",
+    "--count",
+    `${upstream}..HEAD`,
+  ]);
+  if (result.code !== 0) return undefined;
+  const count = Math.trunc(Number(result.stdout.trim()));
+  return Number.isFinite(count) ? count : undefined;
+}
+
+interface WorktreeState {
+  staged: number;
+  sinceBase: number | undefined;
+  unpushed: number | undefined;
+  untracked: number;
+  total: number;
+  stagedSample: string[];
+}
+
+const SAMPLE_LIMIT = 4;
+const SAMPLE_TIMEOUT_MS = 2500;
+
+// Reviewers triage commit messages and file names cheaply, so the widget can
+// show what was picked and keep the command visibly busy instead of silent.
+function sampleItems(items: string[]): string[] {
+  const sample = items.slice(0, SAMPLE_LIMIT);
+  if (items.length > SAMPLE_LIMIT)
+    sample.push(`+${items.length - SAMPLE_LIMIT} more`);
+  return sample;
+}
+
+async function readWorktreeState(
+  pi: ExtensionAPI,
+  repoRoot: string,
+  mergeBase: string | undefined
+): Promise<WorktreeState> {
+  const [stagedNames, sinceBase, unpushed, untrackedNames] = await Promise.all([
+    runGit(pi, repoRoot, ["diff", "--cached", "--name-only"]).then((result) =>
+      result.code === 0 ? result.stdout.split("\n").filter(Boolean) : []
+    ),
+    mergeBase ? countTrackedChangesSince(pi, repoRoot, mergeBase) : undefined,
+    countUnpushedCommits(pi, repoRoot),
+    runGit(pi, repoRoot, ["ls-files", "--others", "--exclude-standard"]).then(
+      (result) =>
+        result.code === 0 ? result.stdout.split("\n").filter(Boolean) : []
+    ),
+  ]);
+  const total = (sinceBase ?? 0) + (stagedNames?.length ?? 0);
+  return {
+    staged: stagedNames.length,
+    sinceBase,
+    unpushed,
+    untracked: untrackedNames.length,
+    total: total || stagedNames.length,
+    stagedSample: sampleItems(stagedNames),
+  };
+}
+
+async function readCommitsForReview(
+  pi: ExtensionAPI,
+  repoRoot: string,
+  commitish: string
+): Promise<string[]> {
+  const result = await runGit(
+    pi,
+    repoRoot,
+    ["log", "-n", "5", "--format=%s", commitish],
+    SAMPLE_TIMEOUT_MS
+  );
+  if (result.code !== 0) return [];
+  return sampleItems(result.stdout.split("\n").filter(Boolean));
+}
+
 async function hasTrackedChangesAgainst(
   pi: ExtensionAPI,
   cwd: string,
@@ -303,9 +402,11 @@ async function detectJjReviewContext(
 }
 async function detectGitReviewContext(
   pi: ExtensionAPI,
-  cwd: string
+  cwd: string,
+  onStage?: (stage: string) => void
 ): Promise<ReviewContext> {
   const repoRoot = await gitString(pi, cwd, ["rev-parse", "--show-toplevel"]);
+  onStage?.("checking repository state…");
   const currentBranch = await gitString(pi, repoRoot, [
     "branch",
     "--show-current",
@@ -378,6 +479,7 @@ async function detectGitReviewContext(
     "--short",
     baseBranchRef,
   ]);
+  onStage?.("collecting the diff…");
   const recentBaseCommits = await gitStringOrUndefined(pi, repoRoot, [
     "log",
     "--oneline",
@@ -418,9 +520,19 @@ async function detectGitReviewContext(
       recentBaseCommits,
       hasTrackedChanges,
       hasAnyChanges: true,
+      ...(latestCommit
+        ? {
+            reviewCommits: await readCommitsForReview(
+              pi,
+              repoRoot,
+              latestCommit
+            ),
+          }
+        : {}),
     };
   }
 
+  const worktree = await readWorktreeState(pi, repoRoot, mergeBase);
   return {
     vcs: "git",
     repoRoot,
@@ -434,6 +546,16 @@ async function detectGitReviewContext(
     recentBaseCommits,
     hasTrackedChanges,
     hasAnyChanges: true,
+    ...(worktree.unpushed
+      ? {
+          reviewCommits: await readCommitsForReview(
+            pi,
+            repoRoot,
+            `${mergeBase}..HEAD`
+          ),
+        }
+      : {}),
+    worktree,
   };
 }
 
@@ -449,12 +571,14 @@ async function isDiffEmptyAgainst(
 export async function detectReviewContext(
   pi: ExtensionAPI,
   cwd: string,
-  options: { stackBase?: string } = {}
+  options: { stackBase?: string; onStage?: (stage: string) => void } = {}
 ): Promise<ReviewContext> {
   const jjRoot = await detectJjWorkspace(pi, cwd);
   if (jjRoot) return detectJjReviewContext(pi, jjRoot, options.stackBase);
   try {
-    return await detectGitReviewContext(pi, cwd);
+    return await detectGitReviewContext(pi, cwd, (stage) =>
+      options.onStage?.(stage)
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/not a git repository/i.test(message)) {

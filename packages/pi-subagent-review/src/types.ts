@@ -62,6 +62,19 @@ export interface ChildRunDetails {
   usage: UsageStats;
 }
 
+interface GitWorktreeState {
+  /** Tracked files staged relative to HEAD. */
+  staged: number;
+  /** Tracked files differing from the merge base, staged or not. */
+  sinceBase: number | undefined;
+  /** Commits on the current branch missing from its upstream. */
+  unpushed: number | undefined;
+  untracked: number;
+  /** Files or commits the review covers, capped with a `+N more` tail. */
+  total: number;
+  stagedSample: string[];
+}
+
 interface GitReviewContext {
   vcs: "git";
   repoRoot: string;
@@ -73,6 +86,9 @@ interface GitReviewContext {
   latestCommit?: string | undefined;
   status: string;
   recentBaseCommits?: string | undefined;
+  /** Commit subjects in scope, used to describe the run while it is in flight. */
+  reviewCommits?: string[] | undefined;
+  worktree?: GitWorktreeState | undefined;
   hasTrackedChanges: boolean;
   hasAnyChanges: boolean;
 }

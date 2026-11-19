@@ -10,3 +10,4 @@ Unreleased:
 - Findings survive renderer parsing: the `[level] path:range` tag is fenced instead of being read as an open code span.
 - An idle session says the findings are ready, and triage starts from them.
 - Repositories with no commit yet are reviewed instead of aborting on `HEAD`.
+- `/review` shows live progress instead of one static line: a spinner, the current stage (scope detection, summary model, reviewer launch, delivery), the elapsed time, the files and commits in scope, and the models in use.
