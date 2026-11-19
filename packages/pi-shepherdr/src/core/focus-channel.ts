@@ -109,6 +109,7 @@ export async function openCoreFocusChannel(
     60_000
   );
   function stop(error: Error) {
+    console.error("[shepherdr] focus channel closed", error.message);
     if (ended) return;
     ended = true;
     clearTimeout(timer);
@@ -213,7 +214,8 @@ export async function openCoreFocusChannel(
       socketPath,
       terminal,
       (bytes) => wire?.push(bytes),
-      stop
+      stop,
+      { cols: expected.cols, rows: expected.rows }
     );
     await stream.ready;
     await admission;

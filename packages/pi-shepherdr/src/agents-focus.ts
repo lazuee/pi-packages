@@ -45,6 +45,7 @@ export async function focusAgent(
     target,
     runtime.local ? source.pane_id : ""
   );
+  console.error("[shepherdr] focus panel", JSON.stringify(panel));
   if (
     !sessionPath(panel) ||
     panel.launch_pending ||

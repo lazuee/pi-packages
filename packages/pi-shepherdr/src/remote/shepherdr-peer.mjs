@@ -217,6 +217,14 @@ export async function resolvePeerReceiver(request, expected) {
     (expected.agent_session?.kind === "path" &&
       expected.agent_session.value !== sessionFile)
   ) {
+    console.error(
+      "[shepherdr] focus receiver mismatch",
+      JSON.stringify({
+        terminal: agent.terminal_id,
+        expected: expected.terminal_id,
+        session: sessionFile,
+      })
+    );
     throw deliveryError(
       "Target Pi session changed or is not ready; resolve the target again",
       true

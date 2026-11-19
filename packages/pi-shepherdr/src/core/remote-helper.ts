@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { appendFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
 import {
@@ -328,6 +329,12 @@ export async function openRemoteHelper(
       terminal,
       (bytes) => wire?.push(bytes),
       (error) => {
+        try {
+          appendFileSync(
+            "/tmp/shep-dbg.log",
+            `[stream close] ${error.message}\n`
+          );
+        } catch {}
         resolveClosed();
         if (!ended) failed(error);
       }

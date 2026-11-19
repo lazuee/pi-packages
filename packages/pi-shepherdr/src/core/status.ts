@@ -1,5 +1,21 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+/**
+ * Status word the terminal program reports for itself; `hc` reads it and every
+ * peer, wait and sidebar judges by it.
+ */
+export const STATUS_CHANNEL = "herdr:status";
+
+/**
+ * Work outside an agent run: a command can hold the session for a long stretch
+ * (spawning a reviewer, running a model) without ever starting a turn, which
+ * otherwise left the agent reporting `idle` while it worked.
+ */
+export interface HeldWork {
+  active: boolean;
+  label?: string;
+}
+
 /** Core observes only status reports written by the program in its terminal. */
 export function registerCoreStatus(pi: ExtensionAPI): void {
   if (
@@ -12,6 +28,7 @@ export function registerCoreStatus(pi: ExtensionAPI): void {
   let running = false;
   let failed = false;
   let blocked = 0;
+  let held: string | undefined;
   let last = "";
   const publish = (state: string) => {
     if (!active || state === last) return;
@@ -19,7 +36,7 @@ export function registerCoreStatus(pi: ExtensionAPI): void {
     process.stdout.write(`\u001B]7501;state=${state}:app=pi\u001B\\`);
   };
   const current = () =>
-    publish(blocked ? "blocked" : running ? "working" : "idle");
+    publish(blocked ? "blocked" : running || held ? "working" : "idle");
   pi.events.on("herdr:blocked", (value: unknown) => {
     if (
       !active ||
@@ -32,15 +49,25 @@ export function registerCoreStatus(pi: ExtensionAPI): void {
     blocked = value.active ? blocked + 1 : Math.max(0, blocked - 1);
     current();
   });
+  pi.events.on(STATUS_CHANNEL, (value: unknown) => {
+    if (!active || typeof value !== "object" || value === null) return;
+    const { active: on, label } = value as HeldWork;
+    if (typeof on !== "boolean") return;
+    held = on ? label?.trim() || "working" : undefined;
+    current();
+  });
   pi.on("session_start", (_event, ctx) => {
     active = ctx.mode === "tui";
     blocked = 0;
+    held = undefined;
     running = !ctx.isIdle();
     failed = false;
     last = "";
     current();
   });
+  // A started turn owns the word: whatever held the session is over.
   pi.on("before_agent_start", () => {
+    held = undefined;
     running = true;
     failed = false;
     current();
@@ -57,6 +84,11 @@ export function registerCoreStatus(pi: ExtensionAPI): void {
   });
   pi.on("agent_settled", (event) => {
     running = false;
+    // Work that outlives the turn keeps the session working after it settles.
+    if (held) {
+      current();
+      return;
+    }
     publish(
       blocked ? "blocked" : event.aborted ? "idle" : failed ? "error" : "done"
     );

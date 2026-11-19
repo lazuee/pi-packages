@@ -29,6 +29,10 @@ import {
 import { runReviewSubagent, normalizeReviewMarkup } from "./subagent.js";
 import type { NavigateWithSummaryModel } from "./tree-summary.js";
 
+// Shepherdr's own reporter; the event name is a shared contract, not an import,
+// so /review still works when that package is not loaded.
+const STATUS_CHANNEL = "herdr:status";
+
 export function registerReviewCommand(
   pi: ExtensionAPI,
   navigateWithSummaryModel: NavigateWithSummaryModel,
@@ -41,6 +45,10 @@ export function registerReviewCommand(
       const parsedArgs = parseReviewArgs(args);
       const progress = createReviewProgress(ctx);
       const setReviewWidget = progress.setPhase;
+      // The reviewer runs outside any turn, so the session would report `idle`
+      // to shepherdr, waits and the sidebar for the whole run.
+      const hold = (active: boolean, label?: string) =>
+        pi.events.emit(STATUS_CHANNEL, { active, ...(label ? { label } : {}) });
 
       if (!ctx.isIdle()) {
         ctx.ui.notify(
@@ -133,6 +141,7 @@ export function registerReviewCommand(
       reviewConfig ??= await resolveReviewConfig(pi, ctx);
       progress.setScope(review);
       progress.start();
+      hold(true, `/${REVIEW_COMMAND}`);
       let conversationSummary: string | undefined;
       let details = createChildRunDetails("", review.repoRoot, reviewConfig);
       try {
@@ -246,6 +255,7 @@ export function registerReviewCommand(
         });
         ctx.ui.notify(`/${REVIEW_COMMAND} failed: ${message}`, "error");
       } finally {
+        hold(false);
         progress.stop();
       }
     },

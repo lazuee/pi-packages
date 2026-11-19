@@ -28,6 +28,8 @@ export function terminalPane(value: unknown): PaneInfo {
     terminal_id: address,
     agent: typeof session === "string" && session ? "pi" : null,
     agent_status: agentStatus,
+    ...(typeof terminal["cols"] === "number" ? { cols: terminal["cols"] } : {}),
+    ...(typeof terminal["rows"] === "number" ? { rows: terminal["rows"] } : {}),
     ...(session && labels[CORE_WORKER_LABEL] === session
       ? { worker: true as const }
       : {}),

@@ -76,6 +76,7 @@ export interface PaneInfo {
   worker?: true;
   agent_session?: AgentSessionInfo | null;
   agent_status: AgentStatus;
+  cols?: number;
   cwd?: string | null;
   foreground_cwd?: string | null;
   interactive_ready?: boolean;
@@ -84,6 +85,7 @@ export interface PaneInfo {
   name?: string | null;
   pane_id: string;
   title?: string | null;
+  rows?: number;
   tab_id?: string;
   terminal_id: string;
   workspace_id?: string;

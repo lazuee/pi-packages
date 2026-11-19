@@ -44,18 +44,25 @@ export function terminalPeer(request) {
       !("address" in value) ||
       value.address !== address ||
       !("state" in value)
-    )
+    ) {
+      console.error("[shepherdr] terminal identity failed", address);
       throw new Error("Terminal identity changed; resolve the target again");
+    }
     return value;
   }
   return {
     async terminal(address) {
       const record = await get(address);
       const path = livePiSession(record);
+      const { cols, rows } = /** @type {{cols?:unknown,rows?:unknown}} */ (
+        record
+      );
       return {
         pane_id: address,
         terminal_id: address,
         agent: typeof path === "string" && path ? "pi" : null,
+        ...(typeof cols === "number" ? { cols } : {}),
+        ...(typeof rows === "number" ? { rows } : {}),
         ...(typeof path === "string" && path
           ? {
               agent_session: {

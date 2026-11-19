@@ -1,6 +1,11 @@
 // End-to-end credit keeps Core's terminal repaint fallback out of this stream.
 const LIMIT = 1024 * 1024;
 const CHUNK = 8192;
+// Frames kept in flight before waiting for an acknowledgement. Core allows 256KiB
+// of credit; one 8KiB chunk is ~11KiB once base64-encoded inside its JSON frame,
+// so 16 stays around 171KiB. A single repaint on a wide terminal exceeds four
+// chunks and would otherwise stall for a whole round trip on every burst.
+const WINDOW = 16;
 // PeerChannel's 512KiB JSON plus the transport's data envelope.
 const MAX_MESSAGE = 512 * 1024 + 128;
 /**
@@ -37,8 +42,7 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
       );
   };
   const flush = () => {
-    // Four 8KiB chunks, even after base64 twice, fit below Core's 256KiB credit.
-    while (!ended && queue.length && sent - acknowledged < 4) {
+    while (!ended && queue.length && sent - acknowledged < WINDOW) {
       const frame = queue.shift();
       if (!frame) break;
       queuedBytes -= frame.data.length;
