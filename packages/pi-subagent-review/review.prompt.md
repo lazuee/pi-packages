@@ -16,7 +16,9 @@ Output format:
 
 # Review Findings
 
-- `[high|medium|low] path/to/file:start-end` - issue, why it matters, and the concrete fix
+- [high|medium|low] path/to/file:start-end - issue, why it matters, and the concrete fix
+
+Keep the bracketed level and the file reference bare on the line; one finding per bullet, with why it matters and the fix in the same sentence or two after it.
 
 If there are no actionable issues, output exactly:
 

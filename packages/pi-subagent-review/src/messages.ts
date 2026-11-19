@@ -177,7 +177,9 @@ export function sendReviewFindings(
   findings: string
 ): void {
   const normalizedFindings = findings.trim();
-  const idle = ctx.isIdle();
+  const delivery = ctx.isIdle()
+    ? { triggerTurn: false }
+    : { deliverAs: "followUp" as const };
   pi.sendMessage(
     {
       customType: REVIEW_FINDINGS_MESSAGE_TYPE,
@@ -185,15 +187,12 @@ export function sendReviewFindings(
       display: true,
       details: { repoRoot: review.repoRoot, scope: review.scope },
     },
-    idle ? { triggerTurn: false } : { deliverAs: "followUp" }
+    delivery
   );
   if (
     !normalizedFindings ||
     normalizedFindings === "No actionable issues found."
   )
     return;
-  pi.sendUserMessage(
-    REVIEW_FINDINGS_FOLLOW_UP,
-    idle ? undefined : { deliverAs: "followUp" }
-  );
+  pi.sendUserMessage(REVIEW_FINDINGS_FOLLOW_UP, delivery);
 }

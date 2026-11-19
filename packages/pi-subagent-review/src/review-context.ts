@@ -54,6 +54,16 @@ async function gitStringOrUndefined(
   return result.stdout.trim();
 }
 
+async function hasGitCommit(pi: ExtensionAPI, cwd: string): Promise<boolean> {
+  const result = await runGit(pi, cwd, [
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    "HEAD",
+  ]);
+  return result.code === 0;
+}
+
 async function hasLocalBranch(
   pi: ExtensionAPI,
   cwd: string,
@@ -319,16 +329,20 @@ async function detectGitReviewContext(
   else if (currentBranch === "master" && hasMain) baseBranch = "main";
   else baseBranch = currentBranch as "main" | "master";
 
-  const currentRef =
-    currentBranch ||
-    (await gitString(pi, repoRoot, ["rev-parse", "--short", "HEAD"]));
+  // A repository with no commit yet has no HEAD; every rev-parse below fails
+  // and aborted the whole command instead of reviewing the fresh checkout.
+  const committed = await hasGitCommit(pi, repoRoot);
+  const currentRef = committed
+    ? currentBranch ||
+      (await gitString(pi, repoRoot, ["rev-parse", "--short", "HEAD"]))
+    : currentBranch || "HEAD";
   const status = await gitString(pi, repoRoot, [
     "status",
     "--short",
     "--untracked-files=all",
   ]);
 
-  if (!baseBranch) {
+  if (!baseBranch || !committed) {
     return {
       vcs: "git",
       repoRoot,
@@ -383,22 +397,53 @@ async function detectGitReviewContext(
     "--short",
     "HEAD",
   ]);
-  const scope = hasAnyChanges ? "base-diff" : "latest-commit";
+
+  // Never report "no changes" on the guessed scope alone: a merge base can be
+  // HEAD itself, so verify the diff is really empty before narrowing.
+  if (
+    !hasAnyChanges &&
+    (await isDiffEmptyAgainst(pi, repoRoot, mergeBase)) &&
+    latestCommit
+  ) {
+    return {
+      vcs: "git",
+      repoRoot,
+      currentRef,
+      scope: "latest-commit",
+      baseBranch,
+      mergeBase,
+      baseTip,
+      latestCommit,
+      status,
+      recentBaseCommits,
+      hasTrackedChanges,
+      hasAnyChanges: true,
+    };
+  }
 
   return {
     vcs: "git",
     repoRoot,
     currentRef,
-    scope,
+    scope: "base-diff",
     baseBranch,
     mergeBase,
     baseTip,
-    latestCommit,
+    ...(latestCommit ? { latestCommit } : {}),
     status,
     recentBaseCommits,
     hasTrackedChanges,
-    hasAnyChanges: hasAnyChanges || Boolean(latestCommit),
+    hasAnyChanges: true,
   };
+}
+
+async function isDiffEmptyAgainst(
+  pi: ExtensionAPI,
+  cwd: string,
+  revision: string
+): Promise<boolean> {
+  const result = await runGit(pi, cwd, ["diff", "--quiet", revision]);
+  return result.code === 0;
 }
 
 export async function detectReviewContext(
@@ -408,5 +453,16 @@ export async function detectReviewContext(
 ): Promise<ReviewContext> {
   const jjRoot = await detectJjWorkspace(pi, cwd);
   if (jjRoot) return detectJjReviewContext(pi, jjRoot, options.stackBase);
-  return detectGitReviewContext(pi, cwd);
+  try {
+    return await detectGitReviewContext(pi, cwd);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/not a git repository/i.test(message)) {
+      throw new Error(
+        `${cwd} is neither a JJ workspace nor a Git repository, so there is nothing to review.`,
+        { cause: error }
+      );
+    }
+    throw error;
+  }
 }

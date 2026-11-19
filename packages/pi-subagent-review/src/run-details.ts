@@ -50,9 +50,13 @@ export function getFinalOutput(messages: ChildRunDetails["messages"]): string {
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index];
     if (!message) continue;
-    for (const part of message.content) {
-      if (part.type === "text") return part.text;
-    }
+    const text = message.content
+      .flatMap((part) => (part.type === "text" ? [part.text] : []))
+      .filter((part) => part.trim())
+      .join("\n")
+      .trim();
+    // Keep scanning: a turn that ended on a tool call carries no text of its own.
+    if (text) return text;
   }
   return "";
 }

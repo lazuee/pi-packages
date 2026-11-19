@@ -38,10 +38,14 @@ export async function runReviewSubagent(
     env: { [CHILD_ENV]: "1" },
     model: config.model,
     args: [
+      // A review is read-only and must not write into the user's session store.
       "--no-session",
       "--no-skills",
       "--thinking",
       config.thinking,
+      // RPC children do not inherit the parent's edits; without these the
+      // reviewer carried the parent's own /review registration and spun up a
+      // nested review.
       "--append-system-prompt",
       REVIEW_PROMPT_PATH,
     ],
@@ -81,6 +85,22 @@ export async function runReviewSubagent(
   }
 
   details.stderr = client.getStderr();
-  details.exitCode = 0;
+  // Only requestAssistantMessage records a non-zero exit; reaching here means
+  // the child ran to completion. Its failures travel in stopReason instead.
   return details;
+}
+
+const FENCE = "````";
+
+// The reviewer prompt asks for an inline `path:start-end` tag, which Pi's
+// renderer parses as the start of a code span inside a list item and swallows
+// to the end of the report. Fence it so the line survives rendering.
+export function normalizeReviewMarkup(findings: string): string {
+  return findings
+    .split("\n")
+    .map((line) => {
+      const match = /^(\s*[-*] )`(\[(?:high|medium|low)\][^`]*)`/.exec(line);
+      return match ? `${match[1]}${match[2]} ${FENCE}` : line;
+    })
+    .join("\n");
 }

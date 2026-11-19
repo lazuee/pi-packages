@@ -25,7 +25,7 @@ import {
   getFinalOutput,
   isSubagentFailure,
 } from "./run-details.js";
-import { runReviewSubagent } from "./subagent.js";
+import { runReviewSubagent, normalizeReviewMarkup } from "./subagent.js";
 import type { NavigateWithSummaryModel } from "./tree-summary.js";
 
 export function registerReviewCommand(
@@ -109,7 +109,9 @@ export function registerReviewCommand(
         ctx.ui.notify(
           review.vcs === "jj"
             ? "No changes found in the active JJ revision or its immediate parent."
-            : "No changes found relative to the selected base branch.",
+            : review.scope === "latest-commit"
+              ? `No changes against \`${review.baseBranch}\`; the latest commit is already reviewed. Commit or stage something first.`
+              : "No changes found relative to the selected base branch.",
           "info"
         );
         return;
@@ -185,18 +187,27 @@ export function registerReviewCommand(
           ctx.signal
         );
         if (ctx.signal?.aborted) return;
-        const finalOutput =
-          getFinalOutput(details.messages).trim() ||
-          "No actionable issues found.";
-        if (isSubagentFailure(details))
+        const finalOutput = getFinalOutput(details.messages).trim();
+        // The reviewer's own diagnostics: a provider error or an empty run used
+        // to surface as "No actionable issues found", which reads like a pass.
+        if (isSubagentFailure(details) && finalOutput)
           throw new Error(
-            details.errorMessage || details.stderr || finalOutput
+            details.errorMessage || details.stderr || "Review subagent failed."
           );
 
-        sendReviewFindings(pi, ctx, review, finalOutput);
+        const findings = normalizeReviewMarkup(
+          finalOutput || "No actionable issues found."
+        );
+
+        sendReviewFindings(pi, ctx, review, findings);
         announceReviewFindingsReady(pi);
+        // An idle session queues findings without a turn, so the follow-up
+        // triage prompt is what actually starts one; claiming it was "sent back
+        // to the main agent" was wrong and left the findings unread.
         ctx.ui.notify(
-          `Review findings sent back to the main agent from /${REVIEW_COMMAND}.`,
+          ctx.isIdle()
+            ? `Review findings from /${REVIEW_COMMAND} are ready.`
+            : `Review findings sent back to the main agent from /${REVIEW_COMMAND}.`,
           "info"
         );
       } catch (error) {
