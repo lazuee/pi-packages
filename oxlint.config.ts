@@ -41,6 +41,22 @@ export default defineConfig({
       files: ["packages/pi-agent-comms/src/board/viewer/web/**"],
       rules: { "import/no-absolute-path": "off" },
     },
+    {
+      // The lib under prebuilt/ is vendored upstream CommonJS, run verbatim by
+      // the launcher, so these rules would ask for `node:fs`, ESM and
+      // `replaceAll` in code that has to keep working as the release shipped it.
+      // The launcher beside it is hand-written Node and does conform, so it is
+      // left in scope.
+      files: ["packages/pi-agent-desktop/prebuilt/lib/**"],
+      rules: {
+        "no-empty": "off",
+        "no-implicit-globals": "off",
+        "unicorn/prefer-module": "off",
+        "unicorn/prefer-node-protocol": "off",
+        "unicorn/prefer-string-replace-all": "off",
+        "unicorn/text-encoding-identifier-case": "off",
+      },
+    },
   ],
   rules: {
     /** ── host API shape ─────────────────────────────────────────────────── */
