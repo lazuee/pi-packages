@@ -18,9 +18,10 @@ import { buildArgs, startArgs } from "#src/extension";
 const PARSE_FAILURE = 2;
 
 // The launcher, not the binary: it is what resolves the platform name, so this
-// exercises the same path a call does.
+// exercises the same path a call does. `prebuilt/` is the copy the extension
+// itself runs, so the contract cannot pass against something else.
 const BIN = fileURLToPath(
-  new URL("../upstream/npm/bin/agent-desktop", import.meta.url)
+  new URL("../prebuilt/bin/agent-desktop", import.meta.url)
 );
 
 /** Everything a well-formed call of each action needs to be parseable. */

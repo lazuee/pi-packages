@@ -30,9 +30,9 @@ const fakePi = {
 };
 
 /**
- * A checkout that loads but has no native binary, like a real bare clone: it
- * answers `--version` and fails everything else. `working` names the candidate
- * that answers every call, or undefined for one that answers nothing.
+ * A vendored launcher whose native binary is gone: it answers `--version` and
+ * fails everything else. `working` names the candidate that answers every call,
+ * or undefined for one that answers nothing.
  */
 function execAnswers(working: string | undefined) {
   exec.mockImplementation(async (bin: string, args: string[]) => {
@@ -44,7 +44,7 @@ function execAnswers(working: string | undefined) {
     // The session wrapper is always /bin/sh and names its payload as `$0`, so the
     // real binary is the first argument after the flag, never the command.
     const payload = args[args.indexOf("-c") + 2] ?? bin;
-    const target = payload === ON_PATH ? "path" : "checkout";
+    const target = payload === ON_PATH ? "path" : "shipped";
     if (working === target) return { code: 0, stdout: "", stderr: "" };
     if (args.at(-1) === "--version")
       return { code: 0, stdout: "agent-desktop 1.0.0", stderr: "" };
@@ -78,6 +78,18 @@ async function chosenBin(): Promise<string | undefined> {
   return sessionStart?.[0] as string | undefined;
 }
 
+/**
+ * The bin of the newest start. `chosenBin` finds the first one, which is the
+ * same answer until discovery runs a second time and moves.
+ */
+async function lastStartBin(): Promise<string | undefined> {
+  await handlers.get("agent_start")?.({}, ctx);
+  const starts = exec.mock.calls.filter((c) =>
+    String(c[1]).startsWith("session,start")
+  );
+  return starts.at(-1)?.[0] as string | undefined;
+}
+
 describe("cli discovery", () => {
   beforeEach(() => {
     handlers.clear();
@@ -93,11 +105,11 @@ describe("cli discovery", () => {
     await expect(chosenBin()).resolves.toBe(ON_PATH);
   });
 
-  it("prefers the checkout when it answers, so a local patch is live", async () => {
-    execAnswers("checkout");
+  it("prefers the shipped copy when it answers, over anything on PATH", async () => {
+    execAnswers("shipped");
     await start();
 
-    await expect(chosenBin()).resolves.toContain("upstream/npm/bin");
+    await expect(chosenBin()).resolves.toContain("prebuilt/bin");
   });
 
   it("stays silent when no candidate answers", async () => {
@@ -134,6 +146,29 @@ describe("cli discovery", () => {
     await expect(
       tool_?.execute("id", { action: "list_apps" }, undefined, undefined, ctx)
     ).rejects.toThrow(/not on PATH/);
+  });
+
+  it("drops the shipped copy when its binary disappeared mid-session", async () => {
+    // The shipped copy wins discovery, then a clean takes the native binary out
+    // from under it. The next call has to re-probe and land on the one in PATH
+    // rather than keep handing every call to a dead launcher.
+    execAnswers("shipped");
+    await start();
+    await expect(chosenBin()).resolves.toContain("prebuilt/bin");
+
+    execAnswers("path");
+    await expect(
+      tool_?.execute("id", { action: "list_apps" }, undefined, undefined, ctx)
+    ).rejects.toThrow(/Native binary not found/);
+
+    await tool_?.execute(
+      "id",
+      { action: "list_apps" },
+      undefined,
+      undefined,
+      ctx
+    );
+    await expect(lastStartBin()).resolves.toBe(ON_PATH);
   });
 });
 

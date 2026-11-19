@@ -755,6 +755,11 @@ const cli = defineTool({
       ...sessionEnv(),
     });
     const out = `${r.stdout}${r.stderr}`.trim();
+    // The chosen path can stop working mid-session: the checkout is a launcher
+    // that dies once its binary is gone, and a rebuild or a clean both do that.
+    // Dropping the cache lets the next call re-probe and land on `prebuilt/`,
+    // which is the whole point of having it.
+    if (r.code !== 0 && MISSING_BINARY.test(out)) cmd = undefined;
     // A start has to hand its id on, or the next call is back in the old
     // namespace and the refs this one seeded are unreachable.
     if (start && r.code === 0) adopt(r.stdout);
@@ -893,16 +898,13 @@ const cli = defineTool({
 let api: ExtensionAPI | undefined;
 // Likewise discovery: the tool retries it on a call if session start found no CLI.
 let rediscover: (() => Promise<boolean>) | undefined;
-// Two vendored copies of the same CLI, in this order: the checkout, so a local
-// build of the submodule is live while developing, then `prebuilt/`, a
-// self-contained mirror of the npm package whose launcher resolves the binary
-// beside it and which is all a published install has. `PATH` backs both up, and
-// a copy that cannot answer is skipped rather than trusted.
+// `prebuilt/` is the one local copy: a self-contained mirror of the npm package,
+// its launcher resolving the binary beside it. The checkout is deliberately not a
+// second one — its copy is only what upstream's own tests read, and having two
+// meant each could go stale or dead on its own. `PATH` backs it up, and a copy
+// that cannot answer is skipped rather than trusted.
 const SOURCE_BIN = fileURLToPath(
   new URL("../prebuilt/bin/agent-desktop", import.meta.url)
-);
-const CHECKOUT_BIN = fileURLToPath(
-  new URL("../upstream/npm/bin/agent-desktop", import.meta.url)
 );
 
 // Filled on session_start so a missing binary never breaks factory load.
@@ -1643,6 +1645,10 @@ const NESTED = new Map([
 // exist on this platform or build, and nothing was attempted.
 const RENDER_FAILURE = ["PLATFORM_NOT_SUPPORTED"];
 
+// What the launcher says when the native binary beside it is gone. It exits 1
+// like any other failure, so the text is the only thing that tells them apart.
+const MISSING_BINARY = /Native binary not found/;
+
 // Window geometry commands: each scopes by window_id or app.
 const WINDOW_GEOMETRY = new Set([
   "maximize",
@@ -2260,11 +2266,19 @@ export default function (pi: ExtensionAPI) {
       if (isStart) adopt(r.stdout);
       const ok = r.code === 0;
       markSessionArgs(args, ok);
+      // The chosen path can stop working mid-session: the checkout is a launcher
+      // that dies once its binary is gone, and a rebuild or a clean both do that.
+      // Dropping the cache lets the next call re-probe and land on `prebuilt/`,
+      // which is the whole point of having it.
+
+      if (!ok && MISSING_BINARY.test(`${r.stdout}${r.stderr}`)) cmd = undefined;
       // Only a failure needs saying; the success path stays a boolean.
       return ok
         ? { ok }
         : { ok, why: `${r.stdout}${r.stderr}`.trim().slice(0, 200) };
     } catch (error) {
+      // A spawn failure is the same class: the file is gone, not busy.
+      if ((error as { code?: unknown }).code === "ENOENT") cmd = undefined;
       return {
         ok: false,
         why: (error instanceof Error ? error.message : String(error)).slice(
@@ -2320,7 +2334,7 @@ export default function (pi: ExtensionAPI) {
   async function discover(): Promise<boolean> {
     if (cmd) return true;
     const installed = await onPath((b, a, o) => pi.exec(b, a, o));
-    for (const candidate of [CHECKOUT_BIN, SOURCE_BIN, ...installed]) {
+    for (const candidate of [SOURCE_BIN, ...installed]) {
       // `which` answers with an empty line, so only a real path counts.
       if (!candidate) continue;
       if (await probe(candidate)) {

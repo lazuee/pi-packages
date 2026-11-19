@@ -4,7 +4,8 @@
 - Send `window_id` only to `snapshot`, `screenshot` and `press`; a ref carries its own window and the ref commands reject the flag.
 - Headless is the default and `headed` is per call, so never force the pointer for an action that has a semantic path.
 - `render` is the whole agent-facing contract: a value is clamped there, a tree node leads with its ref, and a CLI failure is lifted out of JSON into its message and suggestion. Keep it plain text.
-- Discovery must probe for an answer, not an executable: the checkout is a launcher that dies on a missing native binary, so trust a candidate only after `list-apps` returns 0.
+- Discovery must probe for an answer, not an executable: the launcher dies on a missing native binary, so trust a candidate only after `list-apps` returns 0.
+- `prebuilt/` is the only local bin discovery uses. `upstream/npm/bin` is where `link:cli` also copies, but for upstream's own tests, not for calls.
 - A sandbox name is lowercase, digits and hyphens, so it is passed bare — a `--` there would end flag parsing before the options that follow and clap would reject them.
 - Tests run under plain `bun test`, not vitest: `#src` resolves through the package `imports` map, `expect.poll` is a local helper, and a module with state is re-imported under a cache-busting query instead of `vi.resetModules`.
 - `tests/cli-contract.test.ts` parses every action through the real launcher and is what catches a wrong flag. `npm run link:cli` copies the `prebuilt/bin/` binaries into `upstream/npm/bin/`, which is where the checkout's launcher looks.

@@ -12,9 +12,9 @@ A snapshot, a clipboard read, a screenshot, command output and the trace artifac
 
 ## Requirements
 
-The package ships its own `agent-desktop` build under `prebuilt/`, so nothing has to be installed first. `prebuilt/` is a self-contained copy of the upstream npm package — its launcher, the lib it loads, and the release binaries — so it resolves with no submodule present; `npm run link:cli` copies the binaries onto the checkout for local development.
+The package ships its own `agent-desktop` build under `prebuilt/`, so nothing has to be installed first. `prebuilt/` is a self-contained copy of the upstream npm package — its launcher, the lib it loads, and the release binaries — so it resolves with no submodule present, and it is the only local bin calls use.
 
-The pair is a release build of [`upstream/`](upstream), committed rather than compiled on install, so the package stays installable with no Rust toolchain. It is synced by hand with `npm run link:cli:build` when the submodule moves. A global `agent-desktop` install is still the fallback for a machine without the checkout: discovery probes the vendored launcher first and falls through to whatever a global npm, bun, pnpm or yarn install put on `PATH`. Windows has no `sh` to carry the session id, so calls there run bare with `AGENT_DESKTOP_SESSION` in their environment and the lookup is `where.exe`.
+The pair is a release build of [`upstream/`](upstream), committed rather than compiled on install, so the package stays installable with no Rust toolchain. It is synced by hand with `npm run link:cli:build` when the submodule moves. A global `agent-desktop` install is still the fallback for a machine without the checkout: discovery probes the shipped launcher first and falls through to whatever a global npm, bun, pnpm or yarn install put on `PATH`. Windows has no `sh` to carry the session id, so calls there run bare with `AGENT_DESKTOP_SESSION` in their environment and the lookup is `where.exe`.
 
 On macOS the first real call needs Accessibility for whichever app pi runs in; `agent-desktop status` reports the grant.
 
@@ -104,7 +104,7 @@ bun test packages/pi-agent-desktop               # behavioural tests
 
 The tests pin the argument contract against the CLI's real spellings — positional refs, `--from-xy x,y`, `--direction`/`--amount`. `tests/cli-contract.test.ts` goes further and parses every action through the built binary, which is what caught three shape defects the unit tests could not. It skips unless `upstream/` is built.
 
-`tests/startup.test.ts` pins discovery in both directions: the checkout is used when it answers, and skipped when it cannot. The checkout is a launcher that needs the native binary beside it, so a bare submodule clone is deliberately not enough.
+`tests/startup.test.ts` pins discovery in both directions: the shipped copy is used when it answers, and skipped when it cannot. It is a launcher that needs the native binary beside it, so a half-copied one is deliberately not enough.
 
 Refresh the bundled skill after a submodule bump. It is upstream's file plus a local "How this package relates to the CLI" section, so save that section and re-append it: a bare `cp -R` copies into the existing directory and loses it.
 

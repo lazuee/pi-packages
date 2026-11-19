@@ -1,7 +1,7 @@
 import { afterAll, beforeAll } from "bun:test";
-// Put the checkout back in a working state before and after a run.
-//
-// Two things upstream's own tests break and never repair:
+// Keep `upstream/` in the state upstream's own tests assume, before and after a
+// run. The extension does not run from there — it runs `prebuilt/` — but the
+// submodule's npm tests do, and two things break it without being repaired:
 //
 // - `upstream/tests/npm/wrapper.test.js` treats `upstream/npm/bin` as scratch:
 //   its signal test overwrites the darwin binary with a stub and its afterEach
