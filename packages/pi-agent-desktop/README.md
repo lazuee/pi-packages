@@ -12,7 +12,7 @@ A snapshot, a clipboard read, a screenshot, command output and the trace artifac
 
 ## Requirements
 
-The package ships its own `agent-desktop` build under `prebuilt/`, so nothing has to be installed first. `prebuilt/` holds two bare binaries; the vendored launcher beside them in `upstream/npm/bin` is what resolves and runs the right one, and `npm run link:cli` copies them into place there.
+The package ships its own `agent-desktop` build under `prebuilt/`, so nothing has to be installed first. `prebuilt/` is a self-contained copy of the upstream npm package — its launcher, the lib it loads, and the release binaries — so it resolves with no submodule present; `npm run link:cli` copies the binaries onto the checkout for local development.
 
 The pair is a release build of [`upstream/`](upstream), committed rather than compiled on install, so the package stays installable with no Rust toolchain. It is synced by hand with `npm run link:cli:build` when the submodule moves. A global `agent-desktop` install is still the fallback for a machine without the checkout: discovery probes the vendored launcher first and falls through to whatever a global npm, bun, pnpm or yarn install put on `PATH`. Windows has no `sh` to carry the session id, so calls there run bare with `AGENT_DESKTOP_SESSION` in their environment and the lookup is `where.exe`.
 
@@ -85,7 +85,7 @@ Use [`@lazuee/pi-macos-harness`](../pi-macos-harness/) instead when the work is 
 
 - `src/extension.ts` — the tool, the CLI invocation, and the session bookkeeping. A start and a `session gc` run unprefixed; everywhere else the session id rides in `AGENT_DESKTOP_SESSION`.
 - `skills/agent-desktop/` — the upstream skill, copied from the checkout so it matches the CLI it documents, plus one local section on how the tool relates to it.
-- `prebuilt/` — the committed release binaries the launcher runs: the CLI under its platform name, and the macOS helper.
+- `prebuilt/` — a self-contained copy of the upstream npm package: `bin/agent-desktop`, its `lib/`, its `package.json`, and the committed release binaries in `bin/`. This is what runs.
 - `upstream/` — git submodule of `vercel-labs/agent-desktop`, Apache-2.0. Not published.
 
 ## License

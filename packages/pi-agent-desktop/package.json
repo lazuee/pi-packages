@@ -32,7 +32,10 @@
     "CHANGELOG.md",
     "tests/setup.ts",
     "bunfig.toml",
-    "prebuilt"
+    "prebuilt/bin",
+    "prebuilt/lib",
+    "prebuilt/package.json",
+    "!prebuilt/bin/.launcher-notice-*"
   ],
   "type": "module",
   "main": "src/extension.ts",

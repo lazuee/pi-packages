@@ -7,4 +7,7 @@ export const ignores = [
   // The vendored agent-desktop checkout: a submodule with its own tooling and a
   // different house style, so the root config only ever reported churn in it.
   "**/upstream",
+  // Its committed release copy, vendored the same way: the launcher, lib and
+  // binaries in pi-agent-desktop/prebuilt are upstream files too.
+  "**/prebuilt",
 ];

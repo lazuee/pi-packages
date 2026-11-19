@@ -1,10 +1,11 @@
 // Put the native binary where the launcher looks for it.
 //
-// The binary is not built here by default. `prebuilt/` holds the committed ones,
-// so a checkout works with no Rust toolchain and a published package ships a
-// working CLI. `--build` compiles from `upstream/` instead and rewrites
-// `prebuilt/`, which is what to run after moving the submodule: the two are
-// synced by hand, on purpose, rather than one drifting from the other silently.
+// Nothing is compiled by default. `prebuilt/` is a self-contained copy of the
+// upstream npm package — its launcher, its lib, the binaries under `bin/` — so a
+// checkout needs no Rust toolchain and a published package ships a working CLI
+// with no submodule. `--build` compiles from `upstream/` and rewrites those
+// binaries, which is what to run after moving the submodule: the two are synced
+// by hand, on purpose, rather than one drifting from the other silently.
 //
 // Nothing is written inside `upstream/` that can be avoided, so `git status`
 // there stays clean. Two things still are, both unavoidable: `npm/bin` is where
@@ -12,6 +13,7 @@
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   statSync,
@@ -22,7 +24,7 @@ import { join } from "node:path";
 const build = process.argv.includes("--build");
 const root = join(import.meta.dirname, "..");
 const upstream = join(root, "upstream");
-const prebuilt = join(root, "prebuilt");
+const prebuilt = join(root, "prebuilt", "bin");
 const bin = join(upstream, "npm", "bin");
 
 // The checkout has no root package.json and upstream does not track one, so Node
@@ -64,13 +66,26 @@ if (build) {
     process.exit(cargo.status ?? 1);
   }
   mkdirSync(prebuilt, { recursive: true });
+  // The launcher, its lib and the npm manifest it reads belong to the same
+  // release as the binaries, so a sync refreshes them too rather than letting a
+  // newer launcher drift onto an older binary.
+  const npm = join(upstream, "npm");
+  copyFileSync(
+    join(npm, "bin", "agent-desktop"),
+    join(prebuilt, "agent-desktop")
+  );
+  copyFileSync(
+    join(npm, "package.json"),
+    join(root, "prebuilt", "package.json")
+  );
+  cpSync(join(npm, "lib"), join(root, "prebuilt", "lib"), { recursive: true });
   for (const { artifact, name } of pair)
     copyFileSync(
       join(upstream, "target", "release", artifact),
       join(prebuilt, name)
     );
   console.log(
-    `link-cli: rebuilt prebuilt/${pair.map((p) => p.name).join(", ")}`
+    `link-cli: rebuilt prebuilt/bin/${pair.map((p) => p.name).join(", ")}`
   );
 }
 
@@ -81,7 +96,7 @@ for (const { name } of pair) {
   const target = join(bin, name);
   if (!existsSync(source)) {
     console.error(
-      `link-cli: prebuilt/${name} is missing for this platform; run with --build on a machine that has the toolchain`
+      `link-cli: prebuilt/bin/${name} is missing for this platform; run with --build on a machine that has the toolchain`
     );
     process.exit(1);
   }

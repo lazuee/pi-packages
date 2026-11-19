@@ -893,9 +893,15 @@ const cli = defineTool({
 let api: ExtensionAPI | undefined;
 // Likewise discovery: the tool retries it on a call if session start found no CLI.
 let rediscover: (() => Promise<boolean>) | undefined;
-// The bundled checkout wins so a local patch is live at once; the installed CLI
-// is the fallback for a machine without the source.
+// Two vendored copies of the same CLI, in this order: the checkout, so a local
+// build of the submodule is live while developing, then `prebuilt/`, a
+// self-contained mirror of the npm package whose launcher resolves the binary
+// beside it and which is all a published install has. `PATH` backs both up, and
+// a copy that cannot answer is skipped rather than trusted.
 const SOURCE_BIN = fileURLToPath(
+  new URL("../prebuilt/bin/agent-desktop", import.meta.url)
+);
+const CHECKOUT_BIN = fileURLToPath(
   new URL("../upstream/npm/bin/agent-desktop", import.meta.url)
 );
 
@@ -2314,7 +2320,7 @@ export default function (pi: ExtensionAPI) {
   async function discover(): Promise<boolean> {
     if (cmd) return true;
     const installed = await onPath((b, a, o) => pi.exec(b, a, o));
-    for (const candidate of [SOURCE_BIN, ...installed]) {
+    for (const candidate of [CHECKOUT_BIN, SOURCE_BIN, ...installed]) {
       // `which` answers with an empty line, so only a real path counts.
       if (!candidate) continue;
       if (await probe(candidate)) {

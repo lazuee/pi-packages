@@ -1,0 +1,4 @@
+# The launcher's "you are not running the compiled binary" nag-once marker. It is
+# runtime state, not part of the build, so it is kept out of git and out of
+# `files` alike: committing or packing it silences the hint for every consumer.
+prebuilt/bin/.launcher-notice-*
