@@ -58,7 +58,8 @@ export async function serve(input, send, fail) {
     const hello = await core.request("hello");
     if (
       hello.core.id !== input.coreId ||
-      (process.env.HC_SESSION ?? "default") !== input.session
+      // An exported-but-empty HC_SESSION names no session; `default` is the absence.
+      (process.env.HC_SESSION || "default") !== input.session
     )
       throw new Error(
         "Remote Core identity changed; refresh machines before retrying"

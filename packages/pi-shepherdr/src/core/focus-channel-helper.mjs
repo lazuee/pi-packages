@@ -54,20 +54,24 @@ const wire = focusWire(
     process.stdout.write(bytes);
   },
   (value) => {
-    if (!value || typeof value !== "object" || !("type" in value))
+    if (!value || typeof value !== "object")
       throw new Error("Invalid remote focus message");
-    if (value.type === "close") return stop();
-    if (value.type === "start" && !started) {
+    const { type } = /** @type {{type?:string}} */ (value);
+    if (type === "close") return stop();
+    if (type === "start" && !started) {
       started = true;
       void admit(
         /** @type {Parameters<typeof admit>[0]} */ (
           object("input" in value ? value.input : undefined)
         )
       ).catch((error) => stop(error));
-    } else if (value.type === "data" && peer && "message" in value)
+    } else if (type === "data" && peer && "message" in value)
       peer.send(value.message);
-    else
-      throw new Error("Remote focus message before admission or out of order");
+    // The owner's own `start`/`close` never come back; anything else it sends is
+    // the peer's, so an unknown kind is not rejected by shape.
+    else if (type === "start" || type === "close") return;
+    else if (peer) peer.send(value);
+    else throw new Error("Remote focus message before admission");
   },
   stop
 );
@@ -91,7 +95,8 @@ async function admit(input) {
   const hello = object(await rpc("hello"));
   if (
     object(hello["core"])["id"] !== input.coreId ||
-    (process.env["HC_SESSION"] ?? "default") !== input.session
+    // An exported-but-empty HC_SESSION names no session; `default` is the absence.
+    (process.env["HC_SESSION"] || "default") !== input.session
   )
     throw new Error(
       "Remote Core identity/session changed; refresh machines before retrying"

@@ -224,6 +224,24 @@ describe("helper bootstrap", () => {
     expect(handled["handled"]).toBe("identity");
     expect(out.seen.some((frame) => frame["type"] === "error")).toBe(false);
   });
+  test("passes an unknown kind to the runtime after admission", async () => {
+    const { out, child } = await start();
+    const helper = moduleUrl(`
+      export async function serve(_input, send) {
+        return {
+          receive: (message) => send({ got: message.type }),
+          close: () => undefined,
+        };
+      }
+    `);
+    send(child, { type: "start", input: { modules: { helper } } });
+    await out.expect("ready");
+    // A kind this build does not know must not be rejected by shape.
+    send(child, { type: "invented" });
+    const got = await out.expectKey("got");
+    expect(got["got"]).toBe("invented");
+    expect(out.seen.some((frame) => frame["type"] === "error")).toBe(false);
+  });
   test("keeps a frame's own type when it reaches the runtime", async () => {
     const { out, child } = await start();
     const helper = moduleUrl(`
