@@ -2,8 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import { focusWire } from "../src/core/focus-channel-wire.mjs";
 
-type Handle = ReturnType<typeof focusWire>;
-
 /** Wire pair over shared buffers; traffic is pumped after send so both ends exist first. */
 function pair(nonce = "nonce") {
   const errors: string[] = [];
@@ -48,7 +46,7 @@ describe("focus wire framing", () => {
     const payload = {
       type: "data",
       message: {
-        text: '\x1b[1mbold\x1b[0m\nline "q" \\ back ! bang\ttab\x00nul',
+        text: '\u001B[1mbold\u001B[0m\nline "q" \\ back ! bang\ttab\u0000nul',
       },
     };
     await send(payload);
@@ -174,6 +172,48 @@ describe("focus wire flow control", () => {
       wire.send({ type: "data", message: { text: "z".repeat(200) } })
     ).toThrow(/size limit/);
     expect(errors[0]).toContain("size limit");
+    wire.close();
+  });
+  test("releases queued bytes once they are acknowledged", async () => {
+    // A limit just over one message must free up again after its acknowledgement.
+    const frames: Buffer[] = [];
+    const errors: string[] = [];
+    const wire = focusWire(
+      "n",
+      (bytes: Buffer) => frames.push(bytes),
+      () => {},
+      (error: Error) => errors.push(error.message),
+      () => {},
+      { maxQueuedBytes: 900 }
+    );
+    const gap = () => new Promise((resolve) => setTimeout(resolve, 20));
+    wire.send({ type: "data", message: { text: "a".repeat(300) } });
+    await gap();
+    wire.push(Buffer.from(`!n!{"ack":1}!\n`));
+    await gap();
+    // Sending again at all proves the first message's bytes came back.
+    wire.send({ type: "data", message: { text: "b".repeat(300) } });
+    await gap();
+    expect(errors).toEqual([]);
+    expect(frames.length).toBe(2);
+    wire.close();
+  });
+  test("refuses a write once the unacknowledged queue is full", () => {
+    // Nothing drains the queue here, as on a link that stopped acknowledging.
+    const errors: string[] = [];
+    const wire = focusWire(
+      "n",
+      () => {},
+      () => {},
+      (error: Error) => errors.push(error.message),
+      () => {},
+      { maxQueuedBytes: 256 }
+    );
+    const message = { type: "data", message: { text: "q".repeat(80) } };
+    expect(() => {
+      for (;;) wire.send(message);
+    }).toThrow(/queued output/);
+    expect(errors.at(-1)).toContain("queued output");
     wire.close();
   });
   test("keeps messages intact across packed and spanning frames", async () => {

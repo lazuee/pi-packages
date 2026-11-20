@@ -14,7 +14,7 @@ function escape(bytes) {
     out +=
       b < 32 || b > 126 || BAD.has(b)
         ? `%${b.toString(16).padStart(2, "0")}`
-        : String.fromCharCode(b);
+        : String.fromCodePoint(b);
   return out;
 }
 /** @param {string} s */
@@ -22,7 +22,8 @@ function unescape(s) {
   const out = Buffer.allocUnsafe(s.length);
   let n = 0;
   for (let i = 0; i < s.length; i += 1) {
-    const c = s.charCodeAt(i);
+    // The loop is bounded by `i < s.length`, and an escape body is ASCII.
+    const c = s.codePointAt(i) ?? 0;
     if (c === PCT) {
       const h = s.slice(i + 1, i + 3);
       if (h.length !== 2 || Number.isNaN(Number.parseInt(h, 16)))
@@ -46,7 +47,7 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
   const maxQueued = limits.maxQueuedBytes ?? LIMIT;
   // Kinds this owner decides for itself. The wire owns data, ack, ping and error;
   // anything else must be named here, so its vocabulary is stated, not inferred.
-  const kinds = new Set(limits.kinds ?? []);
+  const kinds = new Set(limits.kinds);
   const prefix = `!${nonce}!`;
   let buffer = "";
   let ended = false;
@@ -81,7 +82,9 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
       let packed = 0;
       /** @type {number[]} ends, in bytes from the start of the send stream */
       const ends = [];
-      for (let next = queue[0]; next; next = queue[0]) {
+      for (;;) {
+        const [next] = queue;
+        if (!next) break;
         if (data && data.length + next.data.length > CHUNK * 3) break;
         queue.shift();
         queuedBytes -= next.bytes;
@@ -150,6 +153,9 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
         const bytes = Buffer.from(json);
         if (bytes.length > maxMessage)
           throw new Error("Remote message exceeds its size limit");
+        // A link that stopped acknowledging must fail the write, not buffer forever.
+        if (queuedBytes + bytes.length > maxQueued)
+          throw new Error("Remote queued output exceeds its limit");
         // Chunk the raw bytes; the whole frame is escaped on emit. An escaped byte
         // can cost three characters, so keep a chunk under half CHUNK to leave room.
         for (let at = 0; at < bytes.length; at += CHUNK >> 1) {
@@ -157,7 +163,8 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
           queue.push({
             data,
             end: at + (CHUNK >> 1) >= bytes.length,
-            bytes: 0,
+            // The bytes this entry charges against `queuedBytes`, released in flush.
+            bytes: data.length,
           });
         }
         queuedBytes += bytes.length;
@@ -206,8 +213,8 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
           if (frame.type !== undefined) {
             // Kinds this owner decides for itself are its own; the rest are handed
             // up as undecided rather than told apart by shape.
-            if (!kinds.has(frame.type)) receive({ ...frame, undecided: true });
-            else receive(frame);
+            if (kinds.has(frame.type)) receive(frame);
+            else receive({ ...frame, undecided: true });
             continue;
           }
           if (Number.isSafeInteger(frame.ack)) {
