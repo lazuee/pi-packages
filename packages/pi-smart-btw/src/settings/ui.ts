@@ -19,7 +19,7 @@ import {
   resolveProviderModel,
 } from "./models.js";
 
-function replaceSettingsHint(lines: string[]): string[] {
+function replaceSettingsHint(lines: readonly string[]): string[] {
   return lines.map((line) =>
     line.replaceAll(/Esc to cancel/gi, "Esc close (saves)")
   );

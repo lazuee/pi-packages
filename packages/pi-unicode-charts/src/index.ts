@@ -35,10 +35,13 @@ export default async function unicodeCharts(pi: ExtensionAPI): Promise<void> {
   const promptMode = mode?.registerGptPromptMode(pi, () => {
     /* empty */
   });
-  pi.registerMarkdownTransformer((markdown, context) => {
-    if (context.messageType === "assistant-thinking") return markdown;
-    return transformChartMarkdown(markdown, context.availableWidth);
-  });
+  // Only surfaces a model writes charts into: thinking blocks stay raw, and the
+  // summary/changelog surfaces never carry `chart` fences.
+  pi.registerMarkdownTransformer(
+    (markdown, context) =>
+      transformChartMarkdown(markdown, context.availableWidth),
+    { messageTypes: ["user", "assistant", "custom"] }
+  );
 
   pi.on("before_agent_start", (event, ctx) => {
     if (!ctx.hasUI) return;

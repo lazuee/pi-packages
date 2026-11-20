@@ -16,13 +16,18 @@ import type {
   TuiMouseEvent,
 } from "@earendil-works/pi-tui";
 
-type DelegatedEditor = EditorComponent & Partial<CustomEditor>;
+// `Editor` still declares render as returning `string[]`, which the readonly
+// `Component` signature no longer satisfies, so render is stated separately.
+type DelegatedEditor = EditorComponent &
+  Omit<Partial<CustomEditor>, "render"> & {
+    render(width: number): readonly string[];
+  };
 type EditorFactory = NonNullable<
   ReturnType<ExtensionContext["ui"]["getEditorComponent"]>
 >;
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-interface SuggestionState {
+export interface SuggestionState {
   active: boolean;
   prediction: string | undefined;
   onInput: () => void;
@@ -30,7 +35,7 @@ interface SuggestionState {
 }
 
 /** Owns only ghost rendering and input interception; the inner editor owns the draft. */
-class SuggestionEditor implements EditorComponent, Focusable {
+export class SuggestionEditor implements EditorComponent, Focusable {
   private displayed: string | undefined;
   private readonly inner: DelegatedEditor;
   private readonly state: SuggestionState;
@@ -159,15 +164,18 @@ class SuggestionEditor implements EditorComponent, Focusable {
     );
   }
 
-  render(width: number): string[] {
+  render(width: number): readonly string[] {
     this.displayed = undefined;
+    // Copied by every branch that changes a row: the inner render may return a
+    // cached array that must not be written to.
     const lines = this.inner.render(width);
     const { prediction } = this.state;
     if (!prediction || !this.canShow()) return lines;
     // Unknown layouts and menus are left untouched. Require a single empty
     // content row, but preserve any decoration before its cursor.
     if (lines.length !== 3) return lines;
-    const [row] = lines;
+    const rowIndex = 0;
+    const row = lines[rowIndex] ?? "";
     if (row === undefined) return lines;
     const marker = row.indexOf(CURSOR_MARKER);
     if (marker === -1 || lines.join("").split(CURSOR_MARKER).length !== 2)
@@ -199,10 +207,10 @@ class SuggestionEditor implements EditorComponent, Focusable {
       width - column - visibleWidth(ghost)
     );
     const result = [...lines];
-    result[1] = `${before + CURSOR_MARKER}\u001B[2m${renderFakeCursor(
+    result[rowIndex] = `${before + CURSOR_MARKER}\u001B[2m${renderFakeCursor(
       first
     )}${ghost.slice(first.length)}\u001B[22m${tail}`;
-    if (visibleWidth(result[1]) !== width) return lines;
+    if (visibleWidth(result[rowIndex] ?? "") !== width) return lines;
     this.displayed = prediction;
     return result;
   }

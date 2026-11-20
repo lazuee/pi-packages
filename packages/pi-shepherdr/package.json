@@ -46,12 +46,12 @@
     "pack:dry": "npm pack --dry-run"
   },
   "dependencies": {
-    "@earendil-works/pi-schema": "1.5.2"
+    "@earendil-works/pi-schema": "1.6.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "1.5.2",
-    "@earendil-works/pi-coding-agent": "1.5.2",
-    "@earendil-works/pi-tui": "1.5.2",
+    "@earendil-works/pi-ai": "1.6.0",
+    "@earendil-works/pi-coding-agent": "1.6.0",
+    "@earendil-works/pi-tui": "1.6.0",
     "@howaboua/pi-codex-conversion": "5.0.1",
     "@lazuee/pi-agent-comms": "0.0.1",
     "@types/node": "^26.6.6",

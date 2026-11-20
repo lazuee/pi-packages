@@ -40,7 +40,7 @@
     "prepack": "bun run build"
   },
   "dependencies": {
-    "@earendil-works/pi-schema": "1.5.2",
+    "@earendil-works/pi-schema": "1.6.0",
     "better-sqlite3": "13.0.3",
     "dompurify": "3.4.17",
     "marked": "18.2.0",

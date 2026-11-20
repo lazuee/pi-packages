@@ -41,7 +41,7 @@
     "prepublishOnly": "bun run check && bun run pack:dry"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "1.5.2",
+    "@earendil-works/pi-coding-agent": "1.6.0",
     "@howaboua/pi-codex-conversion": "5.0.1",
     "typescript": "^7.0.2"
   },
