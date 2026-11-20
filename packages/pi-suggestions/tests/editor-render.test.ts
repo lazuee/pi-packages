@@ -8,7 +8,7 @@ import {
   visibleWidth,
 } from "@earendil-works/pi-tui";
 
-import { SuggestionEditor } from "../src/editor.ts";
+import { ghostOverRow, SuggestionEditor } from "../src/editor.ts";
 
 const WIDTH = 20;
 
@@ -124,5 +124,109 @@ describe("ghost rendering over pi's own editor", () => {
     for (const line of editor.render(width)) {
       expect(visibleWidth(line)).toBe(width);
     }
+  });
+});
+
+/**
+ * The helper bails rather than guessing, so each guard gets its own case: a
+ * wrong layout must come back as `undefined` and leave the caller's array alone.
+ */
+describe("ghostOverRow bail-outs", () => {
+  const layout = () => emptyLayout();
+
+  test("bails on a layout that is not three rows", () => {
+    expect(ghostOverRow(["only one"], "hello", WIDTH)).toBeUndefined();
+    expect(ghostOverRow([], "hello", WIDTH)).toBeUndefined();
+  });
+
+  test("bails when no row carries the cursor", () => {
+    const lines = layout();
+    lines[1] = " ".repeat(WIDTH);
+    expect(ghostOverRow(lines, "hello", WIDTH)).toBeUndefined();
+  });
+
+  test("bails when more than one row carries the cursor", () => {
+    const lines = layout();
+    lines[0] = `${CURSOR_MARKER}${"─".repeat(WIDTH - visibleWidth(CURSOR_MARKER))}`;
+    expect(ghostOverRow(lines, "hello", WIDTH)).toBeUndefined();
+  });
+
+  test("bails when the cursor row is not at the requested width", () => {
+    const lines = layout();
+    lines[1] = `${CURSOR_MARKER}${renderFakeCursor(" ")}`;
+    expect(ghostOverRow(lines, "hello", WIDTH)).toBeUndefined();
+  });
+
+  test("bails when something already follows the cursor cell", () => {
+    const content = `${CURSOR_MARKER}${renderFakeCursor(" ")}x`;
+    const lines = [
+      "─".repeat(WIDTH),
+      `${content}${" ".repeat(WIDTH - visibleWidth(content))}`,
+      "─".repeat(WIDTH),
+    ];
+    expect(ghostOverRow(lines, "hello", WIDTH)).toBeUndefined();
+  });
+
+  test("bails when the width leaves no room beside the cursor", () => {
+    const lines = layout();
+    // A cursor indented past the halfway mark leaves fewer than two columns.
+    lines[1] = `${" ".repeat(10)}${CURSOR_MARKER}${renderFakeCursor(" ")}${" ".repeat(
+      WIDTH - 10 - visibleWidth(CURSOR_MARKER) - 1
+    )}`;
+    expect(ghostOverRow(lines, "hello", WIDTH)).toBeUndefined();
+  });
+
+  test("leaves the caller's array untouched on every bail-out", () => {
+    const lines = ["only one"];
+    const before = [...lines];
+    ghostOverRow(lines, "hello", WIDTH);
+    expect(lines).toEqual(before);
+  });
+});
+
+describe("ghostOverRow success path", () => {
+  test("dims the ghost, keeps the cursor marker and lands on the cursor row", () => {
+    const lines = emptyLayout();
+
+    const ghosted = ghostOverRow(lines, "hello", WIDTH);
+
+    expect(ghosted).toBeDefined();
+    const row = ghosted?.[1] ?? "";
+    // Dim on, dim off, around the ghost; the border rows are untouched.
+    expect(row).toContain("\u001B[2m");
+    expect(row).toContain("\u001B[22m");
+    expect(row).toContain(CURSOR_MARKER);
+    expect(stripTerminalSequences(row)).toContain("hello");
+    expect(ghosted?.[0]).toBe(lines[0]);
+    expect(ghosted?.[2]).toBe(lines[2]);
+  });
+
+  test("returns a copy, leaving the input array as it was", () => {
+    const lines = emptyLayout();
+    const before = [...lines];
+
+    const ghosted = ghostOverRow(lines, "hello", WIDTH);
+
+    expect(ghosted).not.toBe(lines);
+    expect(lines).toEqual(before);
+  });
+
+  test("keeps every row at the requested width", () => {
+    // Also the only guard on the assembled row: truncation keeps it in range, so
+    // the final width check is a backstop that ordinary layouts rarely reach.
+    const ghosted = ghostOverRow(emptyLayout(), "hello", WIDTH);
+
+    for (const line of ghosted ?? []) expect(visibleWidth(line)).toBe(WIDTH);
+  });
+
+  test("shortens a prediction too long for the space", () => {
+    const long = "a".repeat(200);
+
+    const ghosted = ghostOverRow(emptyLayout(), long, WIDTH);
+
+    expect(ghosted).toBeDefined();
+    const row = stripTerminalSequences(ghosted?.[1] ?? "");
+    expect(row).toContain("…");
+    expect(row.length).toBe(WIDTH);
   });
 });

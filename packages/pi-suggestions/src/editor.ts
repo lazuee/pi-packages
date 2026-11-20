@@ -34,6 +34,63 @@ export interface SuggestionState {
   requestRender: () => void;
 }
 
+/**
+ * Splices a dimmed ghost of `prediction` into the cursor row of `lines`.
+ *
+ * The inner render may return a cached array that must not be written to, so a
+ * changed row always comes back in a copy. Returns `undefined` when the layout
+ * is not one this wrapper understands.
+ */
+export function ghostOverRow(
+  lines: readonly string[],
+  prediction: string,
+  width: number
+): readonly string[] | undefined {
+  // Unknown layouts and menus are left untouched. Require the bordered empty
+  // editor, and keep any decoration before its cursor.
+  if (lines.length !== 3) return undefined;
+  // The cursor sits on a text row, not the top border, so locate it rather
+  // than assuming a row: the single marker is the row worth ghosting.
+  const rowIndex = lines.findIndex((line) => line.includes(CURSOR_MARKER));
+  if (rowIndex === -1 || lines.join("").split(CURSOR_MARKER).length !== 2)
+    return undefined;
+  const row = lines[rowIndex] ?? "";
+  const marker = row.indexOf(CURSOR_MARKER);
+  const before = row.slice(0, marker);
+  const after = row.slice(marker + CURSOR_MARKER.length);
+  const cursor = renderFakeCursor(" ");
+  if (
+    !after.startsWith(cursor) ||
+    !/^[ ]*$/.test(stripTerminalSequences(after)) ||
+    visibleWidth(row) !== width
+  )
+    return undefined;
+  const column = visibleWidth(before);
+  const available = width - column * 2;
+  if (available < 2) return undefined;
+  // The width helper emits ANSI resets on truncation, even for plain input.
+  // Strip those before choosing the fake cursor grapheme and applying dim.
+  const ghost = stripTerminalSequences(
+    truncateToWidth(prediction, available, "…")
+  );
+  if (ghost === "…" && prediction !== ghost) return undefined;
+  const first = graphemes.segment(ghost)[Symbol.iterator]().next()
+    .value?.segment;
+  if (!first || visibleWidth(ghost) === 0) return undefined;
+  const tail = sliceByColumn(
+    after.slice(cursor.length),
+    visibleWidth(ghost) - 1,
+    width - column - visibleWidth(ghost)
+  );
+  const ghostRow = `${before + CURSOR_MARKER}\u001B[2m${renderFakeCursor(
+    first
+  )}${ghost.slice(first.length)}\u001B[22m${tail}`;
+  if (visibleWidth(ghostRow) !== width) return undefined;
+  const result = [...lines];
+  result[rowIndex] = ghostRow;
+  return result;
+}
+
 /** Owns only ghost rendering and input interception; the inner editor owns the draft. */
 export class SuggestionEditor implements EditorComponent, Focusable {
   private displayed: string | undefined;
@@ -166,54 +223,13 @@ export class SuggestionEditor implements EditorComponent, Focusable {
 
   render(width: number): readonly string[] {
     this.displayed = undefined;
-    // Copied by every branch that changes a row: the inner render may return a
-    // cached array that must not be written to.
     const lines = this.inner.render(width);
     const { prediction } = this.state;
     if (!prediction || !this.canShow()) return lines;
-    // Unknown layouts and menus are left untouched. Require the bordered empty
-    // editor, and keep any decoration before its cursor.
-    if (lines.length !== 3) return lines;
-    // The cursor sits on a text row, not the top border, so locate it rather
-    // than assuming a row: the single marker is the row worth ghosting.
-    const rowIndex = lines.findIndex((line) => line.includes(CURSOR_MARKER));
-    if (rowIndex === -1 || lines.join("").split(CURSOR_MARKER).length !== 2)
-      return lines;
-    const row = lines[rowIndex] ?? "";
-    const marker = row.indexOf(CURSOR_MARKER);
-    const before = row.slice(0, marker);
-    const after = row.slice(marker + CURSOR_MARKER.length);
-    const cursor = renderFakeCursor(" ");
-    if (
-      !after.startsWith(cursor) ||
-      !/^[ ]*$/.test(stripTerminalSequences(after)) ||
-      visibleWidth(row) !== width
-    )
-      return lines;
-    const column = visibleWidth(before);
-    const available = width - column * 2;
-    if (available < 2) return lines;
-    // The width helper emits ANSI resets on truncation, even for plain input.
-    // Strip those before choosing the fake cursor grapheme and applying dim.
-    const ghost = stripTerminalSequences(
-      truncateToWidth(prediction, available, "…")
-    );
-    if (ghost === "…" && prediction !== ghost) return lines;
-    const first = graphemes.segment(ghost)[Symbol.iterator]().next()
-      .value?.segment;
-    if (!first || visibleWidth(ghost) === 0) return lines;
-    const tail = sliceByColumn(
-      after.slice(cursor.length),
-      visibleWidth(ghost) - 1,
-      width - column - visibleWidth(ghost)
-    );
-    const result = [...lines];
-    result[rowIndex] = `${before + CURSOR_MARKER}\u001B[2m${renderFakeCursor(
-      first
-    )}${ghost.slice(first.length)}\u001B[22m${tail}`;
-    if (visibleWidth(result[rowIndex] ?? "") !== width) return lines;
+    const ghosted = ghostOverRow(lines, prediction, width);
+    if (!ghosted) return lines;
     this.displayed = prediction;
-    return result;
+    return ghosted;
   }
 
   handleInput(data: string): void {
