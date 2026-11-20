@@ -1,15 +1,17 @@
 import { afterAll, describe, expect, it } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { buildArgs, startArgs } from "#src/extension";
 
+import { cliAnswers } from "./helpers/cli-answers";
+
 // The unit tests assert buildArgs against itself, so they cannot catch a shape
 // change -- three defects shipped that way. This runs the real binary over every
 // action instead. It needs the binary installed beside the launcher, which the
-// `tests/setup.ts` preload does from `prebuilt/` before any test runs, and is
-// skipped in a tree with no checkout to launch from.
+// `tests/setup.ts` preload does from `prebuilt/` before any test runs. That only
+// works on the platform the binaries were built for, so the suites are skipped
+// wherever the launcher cannot answer at all.
 //
 // A parse is the whole assertion, and clap separates the two outcomes for us: a
 // rejected argument exits 2, while a runtime refusal (a stale ref, a missing
@@ -19,7 +21,8 @@ const PARSE_FAILURE = 2;
 
 // The launcher, not the binary: it is what resolves the platform name, so this
 // exercises the same path a call does. `prebuilt/` is the copy the extension
-// itself runs, so the contract cannot pass against something else.
+// itself runs, so the contract cannot pass against something else. Naming it
+// here is not the same as it running — see the gate below.
 const BIN = fileURLToPath(
   new URL("../prebuilt/bin/agent-desktop", import.meta.url)
 );
@@ -291,18 +294,28 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   mouse_move: { action: "mouse_move", x: 400, y: 300 },
 };
 
-const built = existsSync(BIN);
+// The launcher is committed and so exists on every platform, while the native
+// binary beside it is that of the machine that ran the build. Gating on the file
+// therefore let these suites run on CI's Ubuntu against a darwin build, where
+// the launcher dies on load and every JSON parse meets an empty stdout. Gate on
+// an answer instead, and skip where the checkout simply cannot run here.
+const built = cliAnswers();
 
 // Window geometry animates, so those cases outrun the default per-test budget.
 describe.skipIf(!built)("buildArgs against the real CLI", () => {
   // The trace cases resolve a session themselves, so one is started for the
-  // suite rather than each case inventing an id.
-  const started = spawnSync(BIN, ["session", "start"], {
-    encoding: "utf-8",
-  });
-  const sessionId: string = JSON.parse(started.stdout).data.session_id;
+  // suite rather than each case inventing an id. A describing callback's body
+  // runs even when the suite is skipped, so this needs its own guard: without
+  // one, a checkout that cannot run the CLI still parses an empty stdout here.
+  const sessionId = built
+    ? (
+        JSON.parse(
+          spawnSync(BIN, ["session", "start"], { encoding: "utf-8" }).stdout
+        ) as { data: { session_id: string } }
+      ).data.session_id
+    : "";
   afterAll(() => {
-    spawnSync(BIN, ["session", "end", `--session=${sessionId}`]);
+    if (sessionId) spawnSync(BIN, ["session", "end", `--session=${sessionId}`]);
   });
 
   const cases = {

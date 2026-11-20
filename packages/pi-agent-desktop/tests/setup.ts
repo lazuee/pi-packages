@@ -17,12 +17,19 @@ import { afterAll, beforeAll } from "bun:test";
 // the only hook that fires on both sides of a plain `bun test`.
 import { spawnSync } from "node:child_process";
 
+// A missing binary for this platform is not a setup failure any more: the
+// suites that need the CLI gate on it answering and skip, and the unit tests do
+// not touch it. Say so plainly, though, because it is surprising when the whole
+// contract suite silently skips on a machine that never built the binaries.
 const link = () => {
   const run = spawnSync("node", ["scripts/link-cli.mjs"], {
     cwd: new URL("..", import.meta.url).pathname,
     stdio: "ignore",
   });
-  if (run.status !== 0) console.warn("tests/setup: could not restore the CLI");
+  if (run.status !== 0)
+    console.warn(
+      "tests/setup: no CLI for this platform, so the suites that run it will skip (build it with `npm run link:cli:build`)"
+    );
 };
 
 beforeAll(link);

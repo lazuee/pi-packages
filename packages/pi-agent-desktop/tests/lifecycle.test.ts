@@ -5,6 +5,8 @@ import { promisify } from "node:util";
 
 import start, { pidOf } from "#src/extension";
 
+import { cliAnswers } from "./helpers/cli-answers";
+
 /** A handler recorded off the fake `on`, keyed by the event it was bound to. */
 type Handler = (e: unknown, c: unknown) => Promise<void>;
 /**
@@ -62,8 +64,12 @@ async function poll(ok: () => boolean, tries = 40): Promise<boolean> {
 
 const exec = promisify(execFile);
 const HOME = process.env.HOME!;
+// The only test here that reads the real store; the rest assert on a fake exec.
+// That store is the CLI's own, so a checkout with no binary for this platform
+// has nothing to list.
+const answers = cliAnswers();
 
-it("adopts the id the hook's own start mints", async () => {
+it.skipIf(!answers)("adopts the id the hook's own start mints", async () => {
   const h: Handlers = handlers();
   let seen: string | undefined;
   const pi: any = {
