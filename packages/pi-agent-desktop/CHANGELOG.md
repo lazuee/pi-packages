@@ -66,3 +66,11 @@ The extension wraps the `agent-desktop` CLI so the agent can read and act on any
 - The vendored launcher, `lib/` and `package.json` are regenerated from the new submodule, so `prebuilt/` and `upstream/` agree again.
 - Binaries rebuilt from source; the vendored CLI still reports 1.3.1 — these are unpublishable commits on `lazuee/agent-desktop` `main`, not a release (AUTORELEASE puts a `chore: release` commit on `main` just before a release).
 - Carried: macOS cursor overlay no longer hides itself on every headed command; `check`/`uncheck` press a tab button instead of writing `AXValue`, which crashed Chromium on web tabs; permission guide names the app that actually started the process tree under tmux; `sandbox start` can answer `needs_setup`.
+
+### Synced to upstream v1.3.1-8..2bd7ba9 (2bd7ba9)
+
+- The vendored launcher, `lib/` and `package.json` are regenerated from the new submodule, so `prebuilt/` and `upstream/` agree again.
+- Binaries rebuilt from source; the vendored CLI still reports 1.3.1 — these are unpublishable commits on `lazuee/agent-desktop` `main`, not a release (AUTORELEASE puts a `chore: release` commit on `main` just before a release).
+- Carried: `mouse_click` now takes `window_id` with `window_xy` to post a click into a window's own coordinates on macOS without a pointer, so a control with no ref is reachable headless; `screenshot` takes `window_frame` to capture the frame those points are measured against; `wait` takes `surface` to block until a popover, sheet, alert, menu or any surface opens. Upstream also landed the stale-host code-signing fix, the clippy gate and a large reliability merge (Linux/Windows `-live` test moves, macOS cell editors, grid addressing).
+- Upstream now makes headless the rule outright: `--headed` only when the user asked, never as recovery. `headed` is unchanged here and still per call, but `mouse_click` is only headed on its absolute-point form.
+- `window_frame` needs a `screenshot` with a `window_id`, and `window_xy` needs its `window_id` and excludes `x`/`y`; each is named at the call rather than left to clap.

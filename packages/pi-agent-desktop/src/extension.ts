@@ -167,6 +167,7 @@ const cli = defineTool({
     "Check available_actions before choosing an action: click only what advertises Click. A bare text field advertises TypeText, not Click, so clicking it wastes a call in either mode - type into it, or set_value.",
     "Pass window_id from list_windows to pin one window, for snapshot, screenshot and press only. An app with two windows refuses as AMBIGUOUS_TARGET, and even with one visible window a second instance of the app can make an app-only target resolve to the other one.",
     "Headless is the default and never touches the operator's cursor. Pass headed true when an action needs the real pointer: hover and drag always do, and a click does when the element has no semantic delivery.",
+    "A control with no ref on macOS can still be clicked headless: frame the window with screenshot and window_frame, divide image coordinates by scale_factor, then mouse_click with window_xy and that window_id.",
     "Run `agent-desktop skills get desktop` in a shell before a long session; the skills are compiled into the binary, so they always match the installed version.",
     "A node with neither a ref nor an `at` cannot be addressed: snapshot again with include_bounds for x/y, or use its keyboard shortcut.",
     "To find a known word use find, which searches without dumping a tree.",
@@ -257,13 +258,25 @@ const cli = defineTool({
     headed: Type.Optional(
       Type.Boolean({
         description:
-          "Use the real pointer instead of the accessibility path. Off by default; hover and drag need it.",
+          "Use the real pointer instead of the accessibility path. Off by default; hover and drag need it, and a mouse_click without window_id always sets it.",
       })
     ),
     window_id: Type.Optional(
       Type.String({
         description:
-          "Target one window by id from list_windows. Only snapshot, screenshot and press take it.",
+          "Target one window by id from list_windows. Only snapshot, screenshot and press take it, plus mouse_click alongside window_xy.",
+      })
+    ),
+    window_xy: Type.Optional(
+      Type.String({
+        description:
+          "mouse_click only: window-relative points as x,y from the window frame's top-left, with window_id. Clicks in the background on macOS, so no headed. Conflicts with x and y.",
+      })
+    ),
+    window_frame: Type.Optional(
+      Type.Boolean({
+        description:
+          "screenshot only: capture the exact window frame without its drop shadow, the frame window_xy is measured against. Needs window_id.",
       })
     ),
     include_bounds: Type.Optional(
@@ -341,7 +354,7 @@ const cli = defineTool({
     surface: Type.Optional(
       Type.String({
         description:
-          "open_system_surface: the shell panel to open, e.g. dock or menu-bar-extras; status lists the ones this platform supports.",
+          "open_system_surface: the shell panel to open, e.g. dock or menu-bar-extras; status lists the ones this platform supports. wait only: the surface kind to block until it opens - popover, sheet, alert, menu or any; one already open counts.",
       })
     ),
     index: Type.Optional(
@@ -531,7 +544,8 @@ const cli = defineTool({
     ),
     menu: Type.Optional(
       Type.Boolean({
-        description: "wait only: block until a menu surface opens.",
+        description:
+          "wait only: block until a menu surface opens. Opens a menu kind outright; surface menu does the same.",
       })
     ),
     menu_closed: Type.Optional(
@@ -651,10 +665,11 @@ const cli = defineTool({
       !p.wait_element &&
       !p.menu &&
       !p.menu_closed &&
-      !p.notification
+      !p.notification &&
+      !p.surface
     )
       throw new Error(
-        "wait needs one of wait_text, wait_ms, wait_event, wait_element, menu, menu_closed or notification"
+        "wait needs one of wait_text, wait_ms, wait_event, wait_element, menu, menu_closed, notification or surface"
       );
     // Whichever way it is carried, the clipboard write has to bring a payload.
     if (
@@ -667,10 +682,8 @@ const cli = defineTool({
       throw new Error(
         "clipboard_set needs text, stdin_text, image or file_url to put on the clipboard"
       );
-    if (p.action === "mouse_click" && !coords(p.x, p.y))
-      throw new Error(
-        "mouse_click needs x and y; take them from an `at` line, the center being x+width/2, y+height/2"
-      );
+    // A click lands either on absolute screen points or, on macOS, on points
+    // inside one window's frame; the halves are checked where they are built.
     if ((p.action === "get" || p.action === "is") && !p.ref)
       throw new Error(`${p.action} needs a ref from the snapshot, e.g. @e3`);
     if (p.action === "type" && p.text === undefined)
@@ -1685,6 +1698,16 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   const subject = p.name as string | undefined;
   const option = p.option as string | undefined;
 
+  // The flag belongs to one command, and is meaningless without its window.
+  if (p.window_frame && action !== "screenshot")
+    throw new Error(
+      "window_frame is a screenshot flag; set action to screenshot"
+    );
+  if (p.window_frame && !p.window_id)
+    throw new Error(
+      "screenshot with window_frame needs window_id, the window to frame"
+    );
+
   // Scroll is a ref command: a direction and an amount, not a wheel event. Only
   // `mouse-wheel` is coordinate-based, and scroll does not use it.
   if (action === "scroll") {
@@ -1722,8 +1745,30 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   // A point carries no app, so a `ref` given alongside is not sent: it stays
   // for the drift check, which is the only thing that can read an app off it.
   if (action === "mouse_click") {
+    // Points inside a window are posted to the window itself, so the click stays
+    // in the background and takes no pointer. Absolute screen points are a real
+    // pointer event and stay headed whatever the call says. clap wants one or the
+    // other, never both, and the window half only means something with the window.
+    const inside = p.window_xy as string | undefined;
+    if (typeof inside === "string" && inside !== "") {
+      if (!p.window_id)
+        throw new Error(
+          "mouse_click with window_xy needs window_id, the window its points are inside"
+        );
+      if (coords(p.x, p.y))
+        throw new Error(
+          "mouse_click takes x and y or window_xy, not both; drop x and y for a window-relative click"
+        );
+      put(args, "--window-id", p.window_id);
+      putEq(args, "--window-xy", inside);
+      return args;
+    }
     const xy = coords(p.x, p.y);
-    if (xy) putEq(args, "--xy", xy);
+    if (!xy)
+      throw new Error(
+        "mouse_click needs x and y; take them from an `at` line, the center being x+width/2, y+height/2. For a point inside one window instead, pass window_xy with window_id"
+      );
+    putEq(args, "--xy", xy);
     forceHeaded();
     return args;
   }
@@ -1812,7 +1857,11 @@ export function buildArgs(p: Record<string, unknown>): string[] {
   // nothing to snapshot; hover is the element-shaped form of the same move.
   if (action === "mouse_move") {
     const xy = coords(p.x, p.y);
-    if (xy) putEq(args, "--xy", xy);
+    if (!xy)
+      throw new Error(
+        "mouse_move needs x and y; take them from an `at` line, the center being x+width/2, y+height/2"
+      );
+    putEq(args, "--xy", xy);
     forceHeaded();
     return args;
   }
@@ -1874,6 +1923,8 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     // The surface booleans select a mode outright, so they are bare flags.
     if (p.menu) args.push("--menu");
     if (p.menu_closed) args.push("--menu-closed");
+    // A named surface kind is a wait of its own here, and also covers `menu`.
+    putEq(args, "--surface", p.surface);
     if (p.notification) args.push("--notification");
     // Without a bound a text wait spends 30s before saying it did not match.
     put(args, "--timeout", p.timeout_ms);
@@ -2006,6 +2057,9 @@ export function buildArgs(p: Record<string, unknown>): string[] {
     // rather than answer base64; the path is positional.
     if (action === "screenshot") {
       put(args, "--screen", p.screen);
+      // The frame is what a window_xy click is measured against. Its window was
+      // named by the guard above, so it is asked for while framing that window.
+      if (p.window_frame) args.push("--window-frame");
       if (typeof p.path === "string" && p.path) args.push("--", p.path);
     }
     // A leaf the platform will not qualify still needs an address: an `unknown`

@@ -250,6 +250,77 @@ describe("buildArgs", () => {
     ).toEqual(["mouse-click", "--xy=5,9", "--headed"]);
   });
 
+  // Points inside a window are posted to that window, so this is the one click
+  // macOS takes without a pointer and the flag must stay off.
+  it("clicks inside a window in the background when given window_xy", () => {
+    const args = buildArgs({
+      action: "mouse_click",
+      window_id: "w-1",
+      window_xy: "120,95",
+    });
+    expect(args).toEqual([
+      "mouse-click",
+      "--window-id",
+      "w-1",
+      "--window-xy=120,95",
+    ]);
+    expect(args).not.toContain("--headed");
+    // The pair is exclusive, and a caller asking for headed anyway gets one flag.
+    expect(
+      buildArgs({
+        action: "mouse_click",
+        window_id: "w-1",
+        window_xy: "1,2",
+        headed: true,
+      })
+    ).toContain("--headed");
+    // A negative point keeps the `=` form here too.
+    expect(
+      buildArgs({ action: "mouse_click", window_id: "w-1", window_xy: "-5,9" })
+    ).toContain("--window-xy=-5,9");
+  });
+
+  // Both halves of the pair resolve together, and neither half alone is a call.
+  it("refuses a half-given window click and a doubled one", () => {
+    const cases: [string, Record<string, unknown>][] = [
+      ["window_id", { window_xy: "1,2" }],
+      ["window_xy", {}],
+      ["window_id", { window_xy: "1,2", x: 3, y: 4 }],
+    ];
+    for (const [named, extra] of cases) {
+      expect(() => buildArgs({ action: "mouse_click", ...extra })).toThrow(
+        new RegExp(named)
+      );
+    }
+  });
+
+  // The frame is what window_xy is measured against, so it needs the window.
+  it("frames a screenshot only when one window is named", () => {
+    expect(
+      buildArgs({
+        action: "screenshot",
+        app: "Finder",
+        window_id: "w-1",
+        window_frame: true,
+      })
+    ).toEqual([
+      "screenshot",
+      "--window-id",
+      "w-1",
+      "--app=Finder",
+      "--window-frame",
+    ]);
+    expect(buildArgs({ action: "screenshot", app: "Finder" })).not.toContain(
+      "--window-frame"
+    );
+    expect(() =>
+      buildArgs({ action: "screenshot", app: "Finder", window_frame: true })
+    ).toThrow(/window_id/);
+    expect(() =>
+      buildArgs({ action: "snapshot", app: "Finder", window_frame: true })
+    ).toThrow(/screenshot/);
+  });
+
   // These take one positional ref and nothing else; the two dashed CLI names
   // have to come out dashed.
   it("builds the single-ref actions", () => {
@@ -886,6 +957,21 @@ describe("the calls that carry an argument shape", () => {
     ]);
   });
 
+  it("waits on a named surface kind as a value, beside the surface flags", () => {
+    expect(
+      buildArgs({
+        action: "wait",
+        app: "Notes",
+        surface: "popover",
+        timeout_ms: 900,
+      })
+    ).toEqual(["wait", "--app=Notes", "--surface=popover", "--timeout", "900"]);
+    // The menu kind is also its own bare flag, and the two may travel together.
+    expect(
+      buildArgs({ action: "wait", app: "Notes", menu: true, surface: "menu" })
+    ).toEqual(["wait", "--app=Notes", "--menu", "--surface=menu"]);
+  });
+
   it("keeps the notification option after every flag", () => {
     expect(
       buildArgs({
@@ -1204,6 +1290,12 @@ describe("mouse_move", () => {
       "--xy=-100,50",
       "--headed",
     ]);
+  });
+
+  // It shares the coordinate form with mouse_click but not the window one, and a
+  // message naming the wrong action sends the reader to the wrong arguments.
+  it("names itself when the point is missing", () => {
+    expect(() => buildArgs({ action: "mouse_move" })).toThrow(/mouse_move/);
   });
 });
 

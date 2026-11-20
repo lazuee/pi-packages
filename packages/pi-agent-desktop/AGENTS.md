@@ -1,8 +1,9 @@
 - The tool is one action enum over the whole `agent-desktop` CLI; keep a new action on the enum rather than a second tool, and map it in `buildArgs` with the CLI's dashed spelling.
 - Refs are snapshot-scoped. Any read that could renumber them belongs before the act, and every act must answer with a fresh snapshot rather than the CLI's bare "Done".
 - The optional fields in `parameters` are not optional per action: validate the required ones and name the missing one, so a bad call does not reach clap as `INVALID_ARGS`.
-- Send `window_id` only to `snapshot`, `screenshot` and `press`; a ref carries its own window and the ref commands reject the flag.
-- Headless is the default and `headed` is per call, so never force the pointer for an action that has a semantic path.
+- Send `window_id` only to `snapshot`, `screenshot` and `press`; a ref carries its own window and the ref commands reject the flag. `mouse_click` is the exception and takes it only with `window_xy`.
+- A window-relative `mouse_click` is that pair, and each half is useless alone, so both are named at the call. It posts to the window and stays headless; only the absolute `x`/`y` form forces the pointer. The frame to measure against comes from `screenshot --window-frame`, whose pixels are divided by the reported `scale_factor`.
+- Headless is the default and `headed` is per call, so never force the pointer for an action that has a semantic path. Upstream makes this a rule, not a hint: `--headed` is for the user's explicit request, never as recovery from a headless failure.
 - `render` is the whole agent-facing contract: a value is clamped there, a tree node leads with its ref, and a CLI failure is lifted out of JSON into its message and suggestion. Keep it plain text.
 - Discovery must probe for an answer, not an executable: the launcher dies on a missing native binary, so trust a candidate only after `list-apps` returns 0.
 - `prebuilt/` is the only local bin discovery uses. `upstream/npm/bin` is where `link:cli` also copies, but for upstream's own tests, not for calls.

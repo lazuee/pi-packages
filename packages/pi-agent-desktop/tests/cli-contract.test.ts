@@ -64,6 +64,12 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   // A negative coordinate is a left-hand display, and needs the `=` form.
   "hover on negative coordinates": { action: "hover", x: -100, y: 50 },
   "mouse_click a coordinate": { action: "mouse_click", x: 171, y: 50 },
+  // Points inside a window are posted to it, so this click is headless.
+  "mouse_click inside a window": {
+    action: "mouse_click",
+    window_id: "w-1",
+    window_xy: "120,95",
+  },
   "mouse_click a negative coordinate": {
     action: "mouse_click",
     x: -100,
@@ -117,6 +123,13 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
   wait_notification: {
     action: "wait",
     notification: true,
+    timeout_ms: 300,
+  },
+  // A surface wait names the kind it waits for; `any` takes every kind.
+  wait_surface: {
+    action: "wait",
+    surface: "popover",
+    app: "Finder",
     timeout_ms: 300,
   },
   right_click: { action: "right_click", ref: "@1:e1" },
@@ -217,6 +230,12 @@ const EXTRA_CALLS: Record<string, Record<string, unknown>> = {
     action: "screenshot",
     app: "Finder",
     window_id: "w-1",
+  },
+  "screenshot a window frame": {
+    action: "screenshot",
+    app: "Finder",
+    window_id: "w-1",
+    window_frame: true,
   },
   "get with a ref and no window": {
     action: "get",
