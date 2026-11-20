@@ -255,7 +255,6 @@ describe("focus wire flow control", () => {
     expect(received).toContainEqual({
       type: "log",
       message: "helper said",
-      undecided: true,
     });
     expect(received.at(-1)).toEqual({ type: "data", message: { after: true } });
     a.close();
@@ -290,10 +289,37 @@ describe("focus wire flow control", () => {
       type: "log",
       n: 7,
       message: "counted",
-      undecided: true,
     });
     a.close();
     b.close();
+  });
+  test("flags an unnamed kind by argument, leaving the frame's keys intact", async () => {
+    const seen: [unknown, unknown][] = [];
+    const wire = focusWire(
+      "n",
+      () => {},
+      (message: unknown, undecided?: true) => seen.push([message, undecided]),
+      () => {},
+      () => {}
+    );
+    // A peer sending its own `undecided` must not lose it to the flag.
+    wire.push(Buffer.from(`!n!{"type":"start","undecided":"mine"}!\n`));
+    expect(seen).toEqual([[{ type: "start", undecided: "mine" }, true]]);
+    wire.close();
+  });
+  test("does not flag a kind the owner named", async () => {
+    const seen: [unknown, unknown][] = [];
+    const wire = focusWire(
+      "n",
+      () => {},
+      (message: unknown, undecided?: true) => seen.push([message, undecided]),
+      () => {},
+      () => {},
+      { kinds: ["log"] }
+    );
+    wire.push(Buffer.from(`!n!{"type":"log","message":"x"}!\n`));
+    expect(seen).toEqual([[{ type: "log", message: "x" }, undefined]]);
+    wire.close();
   });
   test("rejects a helper error frame through fail", async () => {
     const errors: string[] = [];
@@ -315,13 +341,46 @@ describe("focus wire flow control", () => {
     expect(errors).toEqual(["admission failed"]);
     wire.close();
   });
+  test("hands up a whole request that carries no chunk number", async () => {
+    // Requests are `op`/`id` with no type and no n; only chunks are numbered.
+    const { a, b, received, errors, send } = pair();
+    b.push(Buffer.from(`!nonce!{"op":"identity","id":"7"}!\n`));
+    await send({ type: "data", message: { after: true } });
+    expect(errors).toEqual([]);
+    expect(received).toContainEqual({ op: "identity", id: "7" });
+    a.close();
+    b.close();
+  });
+  test("still refuses a numbered chunk that arrives out of order", async () => {
+    const { a, b, errors } = pair();
+    b.push(Buffer.from(`!nonce!{"n":5,"data":"{}","end":true}!\n`));
+    await settle();
+    expect(errors.join(" ")).toContain("out of order");
+    a.close();
+    b.close();
+  });
+  test("sends what was queued when it closes", async () => {
+    const written: string[] = [];
+    const wire = focusWire(
+      "n",
+      (bytes: Buffer) => written.push(bytes.toString("latin1")),
+      () => {},
+      () => {},
+      () => {}
+    );
+    // Nothing flushes yet: the queue holds it until close.
+    wire.send({ type: "data", message: { last: true } });
+    expect(written).toEqual([]);
+    wire.close();
+    expect(written.join("")).toContain("last");
+  });
   test("hands up a kind the owner did not name instead of failing", async () => {
     const { a, b, received, errors, send } = pair();
     // A future control frame must reach its owner rather than fail the stream.
     b.push(Buffer.from(`!nonce!{"type":"start"}!\n`));
     await send({ type: "data", message: { after: true } });
     expect(errors).toEqual([]);
-    expect(received).toContainEqual({ type: "start", undecided: true });
+    expect(received).toContainEqual({ type: "start" });
     a.close();
     b.close();
   });

@@ -37,7 +37,7 @@ function unescape(s) {
 /**
  * @param {string} nonce
  * @param {(bytes:Buffer)=>void} write
- * @param {(message:unknown)=>void} receive
+ * @param {(message:unknown,undecided?:true)=>void} receive
  * @param {(error:Error)=>void} fail
  * @param {()=>void} [onLive]
  * @param {{maxMessageBytes?:number,maxQueuedBytes?:number,kinds?:string[]}} [limits]
@@ -134,6 +134,9 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
     }
   }, 1000);
   function close() {
+    // Whatever is already queued still goes out; only a pending timer is dropped.
+    // Callers end with a last frame (`closed`, `error`) that must not be lost.
+    if (!ended && queue.length) flush();
     ended = true;
     clearInterval(timer);
     if (soon !== undefined) clearTimeout(soon);
@@ -212,9 +215,10 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
           // chunk nor an acknowledgement, and typed data never takes this path.
           if (frame.type !== undefined) {
             // Kinds this owner decides for itself are its own; the rest are handed
-            // up as undecided rather than told apart by shape.
+            // up flagged rather than told apart by shape. The flag is a second
+            // argument, so a frame's own keys are never overwritten.
             if (kinds.has(frame.type)) receive(frame);
-            else receive({ ...frame, undecided: true });
+            else receive(frame, true);
             continue;
           }
           if (Number.isSafeInteger(frame.ack)) {
@@ -222,6 +226,12 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
               throw new Error("Focus stream acknowledgement is out of order");
             acknowledged = frame.ack;
             flush();
+            continue;
+          }
+          // Only a chunk is numbered. A request (`op`/`id`) is whole, and is handed
+          // up like a kind rather than failing the out-of-order check.
+          if (!Number.isSafeInteger(frame.n)) {
+            receive(frame);
             continue;
           }
           if (

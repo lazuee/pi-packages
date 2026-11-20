@@ -3,8 +3,11 @@ const bootstrap = JSON.parse(
   Buffer.from(String(process.argv[1]), "base64").toString()
 );
 const { focusWire } = await import(bootstrap.wire);
-/** @type {{close:()=>Promise<void>,receive:(message:unknown)=>void} | undefined} */
+/** @type {{close:()=>Promise<void>,receive:(message:unknown,undecided?:true)=>void} | undefined} */
 let runtime;
+// Requests can beat `serve`; they wait here rather than failing the connection.
+/** @type {unknown[]} */
+let queued = [];
 let starting = false;
 let stopped = false;
 /** @param {Error} [error] */
@@ -54,28 +57,34 @@ const wire = focusWire(
       starting = true;
       void import(value.input.modules.helper)
         .then(async ({ serve }) => {
-          runtime = await serve(
+          const served = await serve(
             value.input,
             (/** @type {unknown} */ message) => wire.send(message),
             stop
           );
           if (stopped) {
-            await runtime?.close();
+            await served.close();
             return;
           }
+          runtime = served;
           wire.send({ type: "ready" });
+          // Nothing more waits once served; a backlog is small and bounded above.
+          for (const pending of queued) served.receive(pending);
+          queued = [];
         })
         .catch(stop);
-    } else if (value?.type === "log") {
-      /* the owner logs its own diagnostics; a helper log is not a request */
+    } else if (value?.type === "log" || value?.type === "ready") {
+      /* the owner logs its own diagnostics; neither is a request */
     } else if (runtime) runtime.receive(value);
+    else if (queued.length < 64) queued.push(value);
     else throw new Error("Remote connection is not ready");
   },
   stop,
   undefined,
   { maxMessageBytes: 8 * 1024 * 1024, maxQueuedBytes: 24 * 1024 * 1024 }
 );
-process.stdin.setRawMode(true);
+// A PTY is the normal case; a pipe has no raw mode to set.
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
 process.stdin.on("data", (/** @type {Buffer} */ bytes) => wire.push(bytes));
 process.stdin.on("error", () => stop().catch(() => null));
 process.stdin.on("end", () => {

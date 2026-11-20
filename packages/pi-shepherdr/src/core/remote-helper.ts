@@ -306,18 +306,31 @@ export async function openRemoteHelper(
           return;
         }
         if (ended) return;
-        if (message["type"] === "ready" && !admitted) {
-          admitted = true;
-          clearTimeout(timer);
-          resolveReady();
-        } else if (message["type"] === "error") {
+        // `error` and `ready` are the handshake; anything else needs admission
+        // first. A kind this owner does not know is taken as the helper's data
+        // rather than failing, so a newer peer is not rejected by shape.
+        if (message["type"] === "error") {
           throw new Error(
             typeof message["message"] === "string"
               ? message["message"]
               : "Remote connection failed"
           );
-        } else if (admitted) onMessage(message);
-        else throw new Error("Remote connection sent data before admission");
+        }
+        if (!admitted) {
+          if (message["type"] !== "ready") {
+            // `start` and `close` are the owner's own; a peer echo is ignored.
+            if (message["type"] !== "start" && message["type"] !== "close")
+              onMessage(message);
+            return;
+          }
+          admitted = true;
+          clearTimeout(timer);
+          resolveReady();
+          return;
+        }
+        // Post-admission owner frames must not reach the request dispatcher.
+        if (message["type"] === "ready" || message["type"] === "start") return;
+        onMessage(message);
       },
       failed,
       () => {

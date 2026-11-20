@@ -140,7 +140,8 @@ rpcSocket.on("data", (chunk) => {
 });
 rpcSocket.on("error", stop);
 rpcSocket.on("close", () => stop(new Error("Remote Core disconnected")));
-process.stdin.setRawMode(true);
+// A PTY is the normal case; a pipe has no raw mode to set.
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
 process.stdin.on("data", (bytes) =>
   wire.push(typeof bytes === "string" ? Buffer.from(bytes) : bytes)
 );
