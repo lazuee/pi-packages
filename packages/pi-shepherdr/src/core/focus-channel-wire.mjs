@@ -194,6 +194,8 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
             onLive?.();
             continue;
           }
+          // Helper diagnostics travel as frames; the owner reads them itself.
+          if (typeof frame.type === "string" && !("n" in frame)) continue;
           if (Number.isSafeInteger(frame.ack)) {
             if (frame.ack !== acknowledged + 1 || frame.ack > sent)
               throw new Error("Focus stream acknowledgement is out of order");

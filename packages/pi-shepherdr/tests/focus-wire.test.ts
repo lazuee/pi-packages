@@ -153,4 +153,13 @@ describe("focus wire flow control", () => {
     a.close();
     b.close();
   });
+  test("passes a helper log frame without breaking the stream", async () => {
+    const { a, b, received, errors, send } = pair();
+    b.push(Buffer.from(`!nonce!{"type":"log","message":"helper said"}!\n`));
+    await send({ type: "data", message: { after: true } });
+    expect(errors).toEqual([]);
+    expect((received.at(-1) as { message: { after: boolean } }).message.after).toBe(true);
+    a.close();
+    b.close();
+  });
 });
