@@ -39,11 +39,14 @@ function unescape(s) {
  * @param {(message:unknown)=>void} receive
  * @param {(error:Error)=>void} fail
  * @param {()=>void} [onLive]
- * @param {{maxMessageBytes?:number,maxQueuedBytes?:number}} [limits]
+ * @param {{maxMessageBytes?:number,maxQueuedBytes?:number,kinds?:string[]}} [limits]
  */
 export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
   const maxMessage = limits.maxMessageBytes ?? MAX_MESSAGE;
   const maxQueued = limits.maxQueuedBytes ?? LIMIT;
+  // Kinds this owner decides for itself. The wire owns data, ack, ping and error;
+  // anything else must be named here, so its vocabulary is stated, not inferred.
+  const kinds = new Set(limits.kinds ?? []);
   const prefix = `!${nonce}!`;
   let buffer = "";
   let ended = false;
@@ -151,7 +154,11 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
         // can cost three characters, so keep a chunk under half CHUNK to leave room.
         for (let at = 0; at < bytes.length; at += CHUNK >> 1) {
           const data = bytes.subarray(at, at + (CHUNK >> 1)).toString("latin1");
-          queue.push({ data, end: at + (CHUNK >> 1) >= bytes.length, bytes: 0 });
+          queue.push({
+            data,
+            end: at + (CHUNK >> 1) >= bytes.length,
+            bytes: 0,
+          });
         }
         queuedBytes += bytes.length;
         flushSoon();
@@ -194,8 +201,15 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
             onLive?.();
             continue;
           }
-          // Helper diagnostics travel as frames; the owner reads them itself.
-          if (typeof frame.type === "string" && !("n" in frame)) continue;
+          // A kind frame is the peer's, by decision or by default; it is neither a
+          // chunk nor an acknowledgement, and typed data never takes this path.
+          if (frame.type !== undefined) {
+            // Kinds this owner decides for itself are its own; the rest are handed
+            // up as undecided rather than told apart by shape.
+            if (!kinds.has(frame.type)) receive({ ...frame, undecided: true });
+            else receive(frame);
+            continue;
+          }
           if (Number.isSafeInteger(frame.ack)) {
             if (frame.ack !== acknowledged + 1 || frame.ack > sent)
               throw new Error("Focus stream acknowledgement is out of order");
@@ -227,7 +241,9 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
           for (const bound of bounds) {
             if (!Number.isSafeInteger(bound) || bound <= accepted) continue;
             const whole = Buffer.concat(chunks);
-            receive(JSON.parse(whole.subarray(from - held, bound - held).toString()));
+            receive(
+              JSON.parse(whole.subarray(from - held, bound - held).toString())
+            );
             from = bound;
             accepted = bound;
           }

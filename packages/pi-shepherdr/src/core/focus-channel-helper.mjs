@@ -40,8 +40,8 @@ function stop(error) {
 }
 // The wire owns stdout, but a PTY merges stderr into it, so imported modules
 // logging mid-frame would corrupt the stream. Route console output as frames.
-for (const level of ["log", "error", "warn", "info"])
-  console[level] = (...args) => {
+for (const level of /** @type {const} */ (["log", "error", "warn", "info"]))
+  console[level] = (/** @type {unknown[]} */ ...args) => {
     try {
       wire.send({ type: "log", message: args.map(String).join(" ") });
     } catch {}

@@ -165,7 +165,9 @@ export class CoreRemoteTransport {
     }
     const { id } = message;
     if (typeof id !== "string") {
-      this.onNotice("Remote connection ignored a frame without a request identity");
+      this.onNotice(
+        "Remote connection ignored a frame without a request identity"
+      );
       return;
     }
     if (this.relay.consume(id, message)) return;
@@ -300,14 +302,13 @@ export class CoreRemoteTransport {
       }
       this.relay.hold(() =>
         this.call({
-            op: "context_relay_close",
-            threadId,
-            routeId: this.relay.routeId,
-          })
-          .then(
-            () => undefined,
-            () => undefined
-          )
+          op: "context_relay_close",
+          threadId,
+          routeId: this.relay.routeId,
+        }).then(
+          () => undefined,
+          () => undefined
+        )
       );
     } catch (error) {
       // A failed start leaves this owner registered: every later call would use

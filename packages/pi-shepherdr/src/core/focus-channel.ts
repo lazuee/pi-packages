@@ -185,9 +185,10 @@ export async function openCoreFocusChannel(
           resolveAdmission();
         } else if (frame["type"] === "data" && admitted && "message" in frame)
           state.receive(frame["message"]);
-        else if (frame["type"] === "log") {
+        else if (frame["type"] === "log")
           // Helper diagnostics; the host has its own channel for them.
-        } else if (frame["type"] === "error")
+          console.error("[shepherdr] focus helper", frame["message"]);
+        else if (frame["type"] === "error")
           throw new Error(
             typeof frame["message"] === "string"
               ? frame["message"]
@@ -211,7 +212,8 @@ export async function openCoreFocusChannel(
             },
           });
         }
-      }
+      },
+      { kinds: ["admitted", "log", "error"] }
     );
     stream = attachCoreTerminal(
       socketPath,

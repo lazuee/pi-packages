@@ -5,7 +5,12 @@ import { resolve } from "node:path";
 const NOTES_UNAVAILABLE =
   "Saved Notes reads are unavailable. Install Notes Compaction or Agent Comms alongside Shepherdr on the controller, then reload Pi. Other agent operations remain available.";
 
-/** Operations that need the selected Core's filesystem or authenticated Pi peers. */
+/**
+ * Operations that need the selected Core's filesystem or authenticated Pi peers.
+ * @param {any} input
+ * @param {(message:unknown)=>void} send
+ * @param {(error:unknown)=>void} fail
+ */
 export async function serve(input, send, fail) {
   const [
     { localCore },
@@ -29,14 +34,16 @@ export async function serve(input, send, fail) {
     import(input.modules.lifetime),
   ]);
   const core = localCore(process.env.HC_TERMINAL_SOCKET);
-  const terminals = terminalPeer((method, params) =>
-    core.request(method, params)
+  const terminals = terminalPeer(
+    (/** @type {string} */ method, /** @type {any} */ params) =>
+      core.request(method, params)
   );
   const subscriptions = new Map();
   const relay = helperContext(context, send);
   let savedSession;
   let savedSessionIndex;
   let closed = false;
+  /** @type {any} */
   let lifetime;
   const close = async () => {
     if (closed) return;
@@ -56,15 +63,17 @@ export async function serve(input, send, fail) {
       throw new Error(
         "Remote Core identity changed; refresh machines before retrying"
       );
-    lifetime = await superviseParents(core, (message) => {
+    lifetime = await superviseParents(core, (/** @type {string} */ message) => {
       if (!closed) send({ notice: message });
     });
   } catch (error) {
     await close();
     throw error;
   }
+  /** @param {any} terminal */
   const local = (terminal) =>
     typeof terminal.address === "string" && !terminal.address.includes("/");
+  /** @param {any} event */
   const localEvent = (event) => {
     if (event.method === "snapshot" || event.method === "missed")
       return { ...event, terminals: event.terminals.filter(local) };
@@ -80,7 +89,7 @@ export async function serve(input, send, fail) {
     let terminals;
     const subscription = core.subscribe(
       {},
-      (event) => {
+      (/** @type {any} */ event) => {
         if (event.method === "snapshot")
           terminals = event.terminals.filter(local);
       },
@@ -95,6 +104,7 @@ export async function serve(input, send, fail) {
       subscription.close();
     }
   }
+  /** @param {any} message */
   async function handle(message) {
     switch (message.op) {
       case "core": {
@@ -125,53 +135,59 @@ export async function serve(input, send, fail) {
         );
       }
       case "context": {
-        return relay.request(message.id, (signal) =>
+        return relay.request(message.id, (/** @type {AbortSignal} */ signal) =>
           context.requestContext(message.path, message.request, signal)
         );
       }
       case "saved_session": {
-        return relay.request(message.id, async (signal) => {
-          if (!input.modules.savedSession) throw new Error(NOTES_UNAVAILABLE);
-          if (
-            typeof message.path !== "string" ||
-            typeof message.history !== "boolean"
-          )
-            throw new TypeError("Invalid saved session location");
-          const reader = await (savedSession ??= import(
-            input.modules.savedSession
-          ));
-          const result = await reader.readSavedNotesSession(
-            message.path,
-            signal,
-            message.history
-          );
-          if (Buffer.byteLength(JSON.stringify(result)) > 7 * 1024 * 1024)
-            throw new Error(
-              "Saved session is too large to transfer; open it on its machine to read it"
+        return relay.request(
+          message.id,
+          async (/** @type {AbortSignal} */ signal) => {
+            if (!input.modules.savedSession) throw new Error(NOTES_UNAVAILABLE);
+            if (
+              typeof message.path !== "string" ||
+              typeof message.history !== "boolean"
+            )
+              throw new TypeError("Invalid saved session location");
+            const reader = await (savedSession ??= import(
+              input.modules.savedSession
+            ));
+            const result = await reader.readSavedNotesSession(
+              message.path,
+              signal,
+              message.history
             );
-          return result;
-        });
+            if (Buffer.byteLength(JSON.stringify(result)) > 7 * 1024 * 1024)
+              throw new Error(
+                "Saved session is too large to transfer; open it on its machine to read it"
+              );
+            return result;
+          }
+        );
       }
       case "find_saved_sessions": {
-        return relay.request(message.id, async (signal) => {
-          if (!input.modules.savedSessionIndex)
-            throw new Error(NOTES_UNAVAILABLE);
-          if (typeof message.threadId !== "string")
-            throw new TypeError("Invalid saved session identity");
-          const index = await (savedSessionIndex ??= import(
-            input.modules.savedSessionIndex
-          ));
-          const result = await index.findSavedNotesSessions(
-            message.threadId,
-            undefined,
-            signal
-          );
-          if (Buffer.byteLength(JSON.stringify(result)) > 7 * 1024 * 1024)
-            throw new Error(
-              "Saved session lookup is too large to transfer; open the session on its machine"
+        return relay.request(
+          message.id,
+          async (/** @type {AbortSignal} */ signal) => {
+            if (!input.modules.savedSessionIndex)
+              throw new Error(NOTES_UNAVAILABLE);
+            if (typeof message.threadId !== "string")
+              throw new TypeError("Invalid saved session identity");
+            const index = await (savedSessionIndex ??= import(
+              input.modules.savedSessionIndex
+            ));
+            const result = await index.findSavedNotesSessions(
+              message.threadId,
+              undefined,
+              signal
             );
-          return result;
-        });
+            if (Buffer.byteLength(JSON.stringify(result)) > 7 * 1024 * 1024)
+              throw new Error(
+                "Saved session lookup is too large to transfer; open the session on its machine"
+              );
+            return result;
+          }
+        );
       }
       case "context_relay": {
         return relay.start(message.threadId, message.routeId);
@@ -186,6 +202,7 @@ export async function serve(input, send, fail) {
         return session.readSessionHeader(message.path);
       }
       case "directory": {
+        /** @param {string} value */
         const expand = (value) =>
           value === "~"
             ? homedir()
@@ -203,7 +220,7 @@ export async function serve(input, send, fail) {
       case "subscribe": {
         const subscription = core.subscribe(
           message.filter ?? {},
-          (event) => {
+          (/** @type {any} */ event) => {
             const value = localEvent(event);
             if (value) send({ subscription: message.id, event: value });
           },
@@ -216,7 +233,8 @@ export async function serve(input, send, fail) {
       case "watch": {
         const stop = watch.watchSessions(
           message.paths,
-          (path) => send({ subscription: message.id, path }),
+          (/** @type {string} */ path) =>
+            send({ subscription: message.id, path }),
           fail
         );
         subscriptions.set(message.id, stop);
@@ -234,6 +252,7 @@ export async function serve(input, send, fail) {
   }
   return {
     close,
+    /** @param {any} message */
     receive(message) {
       if (closed) return;
       if (

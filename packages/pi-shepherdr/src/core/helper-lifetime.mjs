@@ -7,22 +7,30 @@ const ENDED = new Set([
   "signaled",
 ]);
 
+/** @param {any} record */
 function program(record) {
   return Number.isSafeInteger(record.pid) && record.pid > 0
     ? record.pid
     : undefined;
 }
 
-/** Core's native parent links and lifetime flags are the only ownership source. */
+/**
+ * Core's native parent links and lifetime flags are the only ownership source.
+ * @param {any} core
+ * @param {(message:string)=>void} warn
+ */
 export async function superviseParents(core, warn) {
   const children = new Map();
   const parents = new Map();
   let active = true;
   let chain = Promise.resolve();
   let streamWarning;
+  /** @param {()=>Promise<void>} work */
   function enqueue(work) {
     chain = chain
-      .then(() => active && work())
+      .then(async () => {
+        if (active) await work();
+      })
       .catch((error) => {
         if (active)
           warn(
@@ -30,6 +38,7 @@ export async function superviseParents(core, warn) {
           );
       });
   }
+  /** @param {string} address */
   function forget(address) {
     const child = children.get(address);
     if (!child) return;
@@ -38,6 +47,7 @@ export async function superviseParents(core, warn) {
     parent?.children.delete(address);
     if (parent?.children.size === 0) parents.delete(child.record.parent);
   }
+  /** @param {any} record @param {boolean} [verify] */
   async function track(record, verify = true) {
     if (!record || !TERMINAL.test(record.address)) return;
     const previous = children.get(record.address);
@@ -75,6 +85,7 @@ export async function superviseParents(core, warn) {
     // Read the actual parent, never infer its death from an aggregate omission.
     if (verify) await check(parent);
   }
+  /** @param {any} parent */
   async function check(parent) {
     try {
       const record = await core.request(
@@ -128,7 +139,7 @@ export async function superviseParents(core, warn) {
       parent.warning = undefined;
     } catch (error) {
       if (!active) return;
-      const message = `Automatic shutdown for children of ${parent.reference} is unavailable: ${error.message}. Existing agents remain available. Reconnect the parent Core or close these children explicitly.`;
+      const message = `Automatic shutdown for children of ${parent.reference} is unavailable: ${/** @type {Error} */ (error).message}. Existing agents remain available. Reconnect the parent Core or close these children explicitly.`;
       if (parent.warning !== message) warn(message);
       parent.warning = message;
     }
@@ -138,13 +149,15 @@ export async function superviseParents(core, warn) {
   }
   const subscription = core.subscribe(
     {},
-    (message) => {
+    (/** @type {any} */ message) => {
       enqueue(async () => {
         if (message.method === "snapshot" || message.method === "missed") {
-          const local = message.terminals.filter((record) =>
+          const local = message.terminals.filter((/** @type {any} */ record) =>
             TERMINAL.test(record.address)
           );
-          const addresses = new Set(local.map((record) => record.address));
+          const addresses = new Set(
+            local.map((/** @type {any} */ record) => record.address)
+          );
           for (const address of children.keys())
             if (!addresses.has(address)) forget(address);
           for (const record of local) await track(record, false);
@@ -164,7 +177,7 @@ export async function superviseParents(core, warn) {
         }
       });
     },
-    (error) => {
+    (/** @type {any} */ error) => {
       streamWarning = error;
       if (active)
         warn(

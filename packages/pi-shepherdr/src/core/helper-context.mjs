@@ -1,17 +1,23 @@
 import { randomUUID } from "node:crypto";
 
-/** Reverse context traffic shares the live Core transport, never exec polls. */
+/**
+ * Reverse context traffic shares the live Core transport, never exec polls.
+ * @param {any} context
+ * @param {(message:unknown)=>void} send
+ */
 export function helperContext(context, send) {
   const incoming = new Map();
   const outgoing = new Map();
   // path -> live close, replaced only once its listener is actually bound.
   const relays = new Map();
   let closed = false;
+  /** @param {unknown} request @param {AbortSignal} signal */
   function requestController(request, signal) {
     signal.throwIfAborted();
     if (closed) throw new Error("Shared context controller disconnected");
     const id = randomUUID();
     return new Promise((resolve, reject) => {
+      /** @param {unknown} [error] @param {unknown} [result] */
       const finish = (error, result) => {
         if (!outgoing.delete(id)) return;
         clearTimeout(timer);
@@ -43,6 +49,7 @@ export function helperContext(context, send) {
     });
   }
   return {
+    /** @param {string} id @param {(signal:AbortSignal)=>Promise<unknown>} execute */
     async request(id, execute) {
       if (closed) throw new Error("Shared context connection closed");
       const controller = new AbortController();
@@ -53,6 +60,7 @@ export function helperContext(context, send) {
         incoming.delete(id);
       }
     },
+    /** @param {string} threadId @param {string} routeId */
     async start(threadId, routeId) {
       if (closed) throw new Error("Shared context connection closed");
       const path = context.relayContextPath(threadId, routeId);
@@ -75,6 +83,7 @@ export function helperContext(context, send) {
       relays.set(path, close);
       return path;
     },
+    /** @param {string} threadId @param {string} routeId */
     async stop(threadId, routeId) {
       // Routes are keyed by the path the controller was handed for this identity.
       const path = context.relayContextPath(threadId, routeId);
@@ -85,6 +94,7 @@ export function helperContext(context, send) {
       await closing();
       return true;
     },
+    /** @param {any} message */
     consume(message) {
       if (message.op === "context_cancel") {
         incoming.get(message.id)?.abort();

@@ -300,6 +300,11 @@ export async function openRemoteHelper(
           resolveClosed();
           return;
         }
+        // A diagnostic may arrive before `serve` exists, so it is never buffered.
+        if (message["type"] === "log") {
+          console.error("[shepherdr] remote helper", message["message"]);
+          return;
+        }
         if (ended) return;
         if (message["type"] === "ready" && !admitted) {
           admitted = true;
@@ -327,7 +332,11 @@ export async function openRemoteHelper(
           },
         });
       },
-      { maxMessageBytes: 8 * 1024 * 1024, maxQueuedBytes: 24 * 1024 * 1024 }
+      {
+        maxMessageBytes: 8 * 1024 * 1024,
+        maxQueuedBytes: 24 * 1024 * 1024,
+        kinds: ["ready", "closed", "log", "error"],
+      }
     );
     stream = attachCoreTerminal(
       socketPath,

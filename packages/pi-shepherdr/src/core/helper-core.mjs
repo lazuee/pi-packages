@@ -1,9 +1,17 @@
 import { createConnection } from "node:net";
 
 // The helper talks to its own Core, never to a guessed socket or another host.
+/** @param {string} socketPath */
 export function localCore(socketPath) {
   const connections = new Set();
   let closed = false;
+  /**
+   * @param {string} method
+   * @param {any} params
+   * @param {(value:any, finish:(error?:unknown)=>void)=>void} receive
+   * @param {(error:unknown)=>void} fail
+   * @param {number} [timeoutMs]
+   */
   function open(method, params, receive, fail, timeoutMs = 45_000) {
     if (closed) throw new Error("Core connection closed");
     const socket = createConnection(socketPath);
@@ -57,18 +65,19 @@ export function localCore(socketPath) {
           receive(value, finish);
         }
       } catch (error) {
-        failed(error);
+        failed(/** @type {Error} */ (error));
       }
     });
     return finish;
   }
   return {
+    /** @param {string} method @param {any} params @param {number} [timeoutMs] */
     request(method, params, timeoutMs = 45_000) {
       return new Promise((resolve, reject) =>
         open(
           method,
           params,
-          (value, finish) => {
+          (/** @type {any} */ value, /** @type {any} */ finish) => {
             if (value.id !== 1 || !("result" in value))
               throw new Error("Invalid Core response");
             finish();
@@ -79,22 +88,25 @@ export function localCore(socketPath) {
         )
       );
     },
+    /** @param {any} filter @param {(value:any)=>void} receive @param {(error:unknown)=>void} fail */
     subscribe(filter, receive, fail) {
       let initial = true;
+      /** @type {(()=>void) | undefined} */
       let stop;
       let floor = 0;
       const ready = new Promise((resolve, reject) => {
         stop = open(
           "events.subscribe",
           filter,
-          (value) => {
+          (/** @type {any} */ value) => {
             if (initial) {
               if (value.id !== 1 || !Array.isArray(value.result?.terminals))
                 throw new Error("Invalid Core snapshot");
               initial = false;
               floor = value.result.seq;
               receive({ method: "snapshot", ...value.result });
-              resolve();
+              // The erased resolve is the only one available for a void promise.
+              /** @type {any} */ (resolve)();
             } else if (value.method === "event") {
               if (value.params.seq > floor)
                 receive({ method: "event", event: value.params });
@@ -105,7 +117,7 @@ export function localCore(socketPath) {
               receive({ method: "heartbeat", seq: value.params.seq });
             else throw new Error("Invalid Core event");
           },
-          (error) => {
+          (/** @type {any} */ error) => {
             reject(error);
             fail(error);
           }
