@@ -8,13 +8,10 @@
         "@lazuee/pi-agent-comms": "0.0.1",
         "@lazuee/pi-agent-desktop": "0.0.1",
         "@lazuee/pi-ask": "0.0.1",
-        "@lazuee/pi-auto-trees": "0.0.1",
         "@lazuee/pi-better-skills-tool": "0.0.1",
         "@lazuee/pi-cache-hit-predictor": "0.0.1",
         "@lazuee/pi-github-watch": "0.0.1",
         "@lazuee/pi-shepherdr": "0.0.1",
-        "@lazuee/pi-smart-btw": "0.0.1",
-        "@lazuee/pi-subagent-review": "0.0.1",
         "@lazuee/pi-suggestions": "0.0.1",
         "@lazuee/pi-tokens": "0.0.1",
         "@lazuee/pi-unicode-charts": "0.0.1",
@@ -25,13 +22,10 @@
         "@lazuee/pi-agent-comms": "workspace:*",
         "@lazuee/pi-agent-desktop": "workspace:*",
         "@lazuee/pi-ask": "workspace:*",
-        "@lazuee/pi-auto-trees": "workspace:*",
         "@lazuee/pi-better-skills-tool": "workspace:*",
         "@lazuee/pi-cache-hit-predictor": "workspace:*",
         "@lazuee/pi-github-watch": "workspace:*",
         "@lazuee/pi-shepherdr": "workspace:*",
-        "@lazuee/pi-smart-btw": "workspace:*",
-        "@lazuee/pi-subagent-review": "workspace:*",
         "@lazuee/pi-suggestions": "workspace:*",
         "@lazuee/pi-tokens": "workspace:*",
         "@lazuee/pi-unicode-charts": "workspace:*",
@@ -112,23 +106,6 @@
         "@howaboua/pi-codex-conversion",
       ],
     },
-    "packages/pi-auto-trees": {
-      "name": "@lazuee/pi-auto-trees",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@earendil-works/pi-coding-agent": "1.6.0",
-        "@howaboua/pi-codex-conversion": "5.0.1",
-        "typescript": "^7.0.2",
-      },
-      "peerDependencies": {
-        "@earendil-works/pi-coding-agent": ">=1.5.0",
-        "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.1",
-      },
-      "optionalPeers": [
-        "@howaboua/pi-codex-conversion",
-      ],
-    },
     "packages/pi-better-skills-tool": {
       "name": "@lazuee/pi-better-skills-tool",
       "version": "0.0.1",
@@ -170,13 +147,10 @@
         "@lazuee/pi-agent-comms": "0.0.1",
         "@lazuee/pi-agent-desktop": "0.0.1",
         "@lazuee/pi-ask": "0.0.1",
-        "@lazuee/pi-auto-trees": "0.0.1",
         "@lazuee/pi-better-skills-tool": "0.0.1",
         "@lazuee/pi-cache-hit-predictor": "0.0.1",
         "@lazuee/pi-github-watch": "0.0.1",
         "@lazuee/pi-shepherdr": "0.0.1",
-        "@lazuee/pi-smart-btw": "0.0.1",
-        "@lazuee/pi-subagent-review": "0.0.1",
         "@lazuee/pi-suggestions": "0.0.1",
         "@lazuee/pi-tokens": "0.0.1",
         "@lazuee/pi-unicode-charts": "0.0.1",
@@ -186,13 +160,10 @@
         "@lazuee/pi-agent-comms": "workspace:*",
         "@lazuee/pi-agent-desktop": "workspace:*",
         "@lazuee/pi-ask": "workspace:*",
-        "@lazuee/pi-auto-trees": "workspace:*",
         "@lazuee/pi-better-skills-tool": "workspace:*",
         "@lazuee/pi-cache-hit-predictor": "workspace:*",
         "@lazuee/pi-github-watch": "workspace:*",
         "@lazuee/pi-shepherdr": "workspace:*",
-        "@lazuee/pi-smart-btw": "workspace:*",
-        "@lazuee/pi-subagent-review": "workspace:*",
         "@lazuee/pi-suggestions": "workspace:*",
         "@lazuee/pi-tokens": "workspace:*",
         "@lazuee/pi-unicode-charts": "workspace:*",
@@ -256,44 +227,6 @@
     "packages/pi-skill-agent-harness": {
       "name": "@lazuee/pi-skill-agent-harness",
       "version": "0.0.1",
-    },
-    "packages/pi-smart-btw": {
-      "name": "@lazuee/pi-smart-btw",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@earendil-works/pi-agent-core": "1.6.0",
-        "@earendil-works/pi-ai": "1.6.0",
-        "@earendil-works/pi-coding-agent": "1.6.0",
-        "@earendil-works/pi-tui": "1.6.0",
-        "@types/node": "^26.6.6",
-        "typescript": "^7.0.2",
-      },
-      "peerDependencies": {
-        "@earendil-works/pi-agent-core": ">=1.0.0",
-        "@earendil-works/pi-ai": ">=1.0.0",
-        "@earendil-works/pi-coding-agent": ">=1.5.0",
-        "@earendil-works/pi-tui": ">=1.0.0",
-      },
-    },
-    "packages/pi-subagent-review": {
-      "name": "@lazuee/pi-subagent-review",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@earendil-works/pi-ai": "1.6.0",
-        "@earendil-works/pi-coding-agent": "1.6.0",
-        "@howaboua/pi-codex-conversion": "5.0.1",
-        "@types/node": "^26.6.6",
-        "typescript": "^7.0.2",
-      },
-      "peerDependencies": {
-        "@earendil-works/pi-ai": ">=1.0.0",
-        "@earendil-works/pi-coding-agent": ">=1.5.0",
-        "@earendil-works/pi-tui": ">=1.0.0",
-        "@howaboua/pi-codex-conversion": ">=5.0.1",
-      },
-      "optionalPeers": [
-        "@howaboua/pi-codex-conversion",
-      ],
     },
     "packages/pi-suggestions": {
       "name": "@lazuee/pi-suggestions",
@@ -460,8 +393,6 @@
 
     "@lazuee/pi-ask": ["@lazuee/pi-ask@workspace:packages/pi-ask"],
 
-    "@lazuee/pi-auto-trees": ["@lazuee/pi-auto-trees@workspace:packages/pi-auto-trees"],
-
     "@lazuee/pi-better-skills-tool": ["@lazuee/pi-better-skills-tool@workspace:packages/pi-better-skills-tool"],
 
     "@lazuee/pi-cache-hit-predictor": ["@lazuee/pi-cache-hit-predictor@workspace:packages/pi-cache-hit-predictor"],
@@ -473,10 +404,6 @@
     "@lazuee/pi-shepherdr": ["@lazuee/pi-shepherdr@workspace:packages/pi-shepherdr"],
 
     "@lazuee/pi-skill-agent-harness": ["@lazuee/pi-skill-agent-harness@workspace:packages/pi-skill-agent-harness"],
-
-    "@lazuee/pi-smart-btw": ["@lazuee/pi-smart-btw@workspace:packages/pi-smart-btw"],
-
-    "@lazuee/pi-subagent-review": ["@lazuee/pi-subagent-review@workspace:packages/pi-subagent-review"],
 
     "@lazuee/pi-suggestions": ["@lazuee/pi-suggestions@workspace:packages/pi-suggestions"],
 
@@ -1454,8 +1381,6 @@
 
     "@lazuee/pi-ask/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
-    "@lazuee/pi-auto-trees/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
-
     "@lazuee/pi-better-skills-tool/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "@lazuee/pi-cache-hit-predictor/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
@@ -1465,10 +1390,6 @@
     "@lazuee/pi-github-watch/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "@lazuee/pi-shepherdr/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
-
-    "@lazuee/pi-smart-btw/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
-
-    "@lazuee/pi-subagent-review/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "@lazuee/pi-suggestions/typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
