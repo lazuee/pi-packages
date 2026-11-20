@@ -353,6 +353,11 @@ describe.skipIf(!built)("buildArgs against the real CLI", () => {
 // `session start` mints its own id and ignores --session, so the extension runs
 // it unprefixed and adopts the id it answers with. That id has to be the
 // namespace the next call lands in, or the refs a start seeds are unreachable.
+//
+// `status` proves that without needing an app or a permission grant, so this
+// holds on a bare runner where no window is open: it echoes the id the call
+// actually ran in. A snapshot would instead depend on the platform being able
+// to read a live window.
 describe.skipIf(!built)("a nested session start", () => {
   it(
     "hands back an id the next call really runs in",
@@ -368,11 +373,11 @@ describe.skipIf(!built)("a nested session start", () => {
       expect(started.status).toBe(0);
       const id: string = JSON.parse(started.stdout).data.session_id;
       expect(id).toMatch(/^run-/);
-      const snap = spawnSync(BIN, ["snapshot", "--app", "Finder"], {
+      const status = spawnSync(BIN, ["status"], {
         encoding: "utf-8",
         env: { ...process.env, AGENT_DESKTOP_SESSION: id },
       });
-      expect(JSON.parse(snap.stdout).data.snapshot_id).toBeTruthy();
+      expect(JSON.parse(status.stdout).data.session_id).toBe(id);
       spawnSync(BIN, ["session", "end", `--session=${id}`]);
     }
   );
