@@ -1,13 +1,38 @@
-// End-to-end credit keeps Core's terminal repaint fallback out of this stream.
+// Credit keeps Core's repaint fallback out of this stream.
 const LIMIT = 1024 * 1024;
 const CHUNK = 8192;
-// Frames kept in flight before waiting for an acknowledgement. Core allows 256KiB
-// of credit; one 8KiB chunk is ~11KiB once base64-encoded inside its JSON frame,
-// so 16 stays around 171KiB. A single repaint on a wide terminal exceeds four
-// chunks and would otherwise stall for a whole round trip on every burst.
+// In-flight frames before an ack; a repaint exceeds four chunks.
 const WINDOW = 16;
-// PeerChannel's 512KiB JSON plus the transport's data envelope.
 const MAX_MESSAGE = 512 * 1024 + 128;
+// Payloads cross a pty, which rewrites \n and some controls.
+const PCT = 0x25;
+const BAD = new Set([0, 3, 4, 10, 13, 17, 19, 21, 26, 33, 37, 92, 127]);
+/** @param {Buffer} bytes */
+function escape(bytes) {
+  let out = "";
+  for (const b of bytes)
+    out +=
+      b < 32 || b > 126 || BAD.has(b)
+        ? `%${b.toString(16).padStart(2, "0")}`
+        : String.fromCharCode(b);
+  return out;
+}
+/** @param {string} s */
+function unescape(s) {
+  const out = Buffer.allocUnsafe(s.length);
+  let n = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s.charCodeAt(i);
+    if (c === PCT) {
+      const h = s.slice(i + 1, i + 3);
+      if (h.length !== 2 || Number.isNaN(Number.parseInt(h, 16)))
+        throw new Error("Focus stream escape is malformed");
+      out[n++] = Number.parseInt(h, 16);
+      i += 2;
+    } else out[n++] = c & 0xff;
+  }
+  return out.subarray(0, n);
+}
 /**
  * @param {string} nonce
  * @param {(bytes:Buffer)=>void} write
@@ -25,29 +50,59 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
   let heard = Date.now();
   let sent = 0;
   let received = 0;
+  let accepted = 0;
+  let held = 0;
   let acknowledged = 0;
+  /** Send-stream byte count for `ends`; separate from what is read. */
+  let sentBytes = 0;
+  let readBytes = 0;
   let queuedBytes = 0;
   /** @type {Buffer[]} */
   let chunks = [];
   let chunkBytes = 0;
-  /** @type {Array<{data:string,end:boolean}>} */
+  /** @type {Array<{data:string,end:boolean,bytes:number}>} */
   const queue = [];
   /** @param {object} value */
   const emit = (value) => {
     if (!ended)
       write(
-        Buffer.from(
-          `${prefix}${Buffer.from(JSON.stringify(value)).toString("base64")}!\n`
-        )
+        Buffer.from(`${prefix}${escape(Buffer.from(JSON.stringify(value)))}!\n`)
       );
   };
   const flush = () => {
     while (!ended && queue.length && sent - acknowledged < WINDOW) {
-      const frame = queue.shift();
-      if (!frame) break;
-      queuedBytes -= frame.data.length;
-      emit({ n: ++sent, ...frame });
+      // A burst of small messages otherwise spends one window slot and one write
+      // each. Pack the queued bytes and let the ends mark the messages they
+      // drain, so several small messages share one frame and one round trip.
+      let data = "";
+      let packed = 0;
+      /** @type {number[]} ends, in bytes from the start of the send stream */
+      const ends = [];
+      for (let next = queue[0]; next; next = queue[0]) {
+        if (data && data.length + next.data.length > CHUNK * 3) break;
+        queue.shift();
+        queuedBytes -= next.bytes;
+        data += next.data;
+        // An end is the byte count at the message's last byte. Bytes still
+        // queued come after it, so a message never drains before it arrives.
+        packed += next.data.length;
+        if (next.end) ends.push(sentBytes + packed);
+      }
+      sentBytes += packed;
+      emit({ n: ++sent, data, ends });
     }
+  };
+  // A short window lets a burst of small messages queue up so flush can pack
+  // them, instead of one write and one round trip per 100-byte fragment.
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let soon;
+  const flushSoon = () => {
+    if (soon !== undefined) return;
+    soon = setTimeout(() => {
+      soon = undefined;
+      if (!ended) flush();
+    }, 8);
+    soon.unref?.();
   };
   /** @param {unknown} error */
   const failed = (error) => {
@@ -72,6 +127,8 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
   function close() {
     ended = true;
     clearInterval(timer);
+    if (soon !== undefined) clearTimeout(soon);
+    soon = undefined;
     queue.length = 0;
     chunks = [];
     buffer = "";
@@ -87,14 +144,14 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
         const bytes = Buffer.from(json);
         if (bytes.length > maxMessage)
           throw new Error("Remote message exceeds its size limit");
-        if (queuedBytes + Math.ceil(bytes.length / 3) * 4 > maxQueued)
-          throw new Error("Focus stream output exceeded its buffer");
-        for (let at = 0; at < bytes.length; at += CHUNK) {
-          const data = bytes.subarray(at, at + CHUNK).toString("base64");
-          queuedBytes += data.length;
-          queue.push({ data, end: at + CHUNK >= bytes.length });
+        // Chunk the raw bytes; the whole frame is escaped on emit. An escaped byte
+        // can cost three characters, so keep a chunk under half CHUNK to leave room.
+        for (let at = 0; at < bytes.length; at += CHUNK >> 1) {
+          const data = bytes.subarray(at, at + (CHUNK >> 1)).toString("latin1");
+          queue.push({ data, end: at + (CHUNK >> 1) >= bytes.length, bytes: 0 });
         }
-        flush();
+        queuedBytes += bytes.length;
+        flushSoon();
       } catch (error) {
         failed(error);
         throw error;
@@ -104,7 +161,7 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
     push(bytes) {
       if (ended) return;
       try {
-        buffer += bytes.toString("ascii");
+        buffer += bytes.toString("latin1");
         if (buffer.length > LIMIT)
           throw new Error("Focus stream input exceeded its buffer");
         for (;;) {
@@ -118,10 +175,13 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
             buffer = buffer.slice(start);
             return;
           }
+          const body = buffer.slice(start + prefix.length, end);
+          // Transitional: an earlier build base64-encoded the whole frame, so it
+          // never starts with '{' the way an escaped JSON frame does.
           const frame = JSON.parse(
-            Buffer.from(
-              buffer.slice(start + prefix.length, end),
-              "base64"
+            (body.startsWith("{")
+              ? unescape(body)
+              : Buffer.from(body, "base64")
             ).toString()
           );
           buffer = buffer.slice(end + 1);
@@ -141,22 +201,36 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
           if (
             frame.n !== received + 1 ||
             typeof frame.data !== "string" ||
-            frame.data.length > 11_000 ||
-            typeof frame.end !== "boolean"
+            frame.data.length > 110_000 ||
+            (typeof frame.end !== "boolean" && !Array.isArray(frame.ends))
           )
             throw new Error("Focus stream data is out of order or invalid");
-          const chunk = Buffer.from(frame.data, "base64");
+          const chunk = Buffer.from(frame.data, "latin1");
+          chunks.push(chunk);
           chunkBytes += chunk.length;
           if (chunkBytes > maxMessage)
             throw new Error("Remote message exceeds its size limit");
-          chunks.push(chunk);
-          received++;
-          if (frame.end) {
-            const message = JSON.parse(Buffer.concat(chunks).toString());
-            chunks = [];
-            chunkBytes = 0;
-            receive(message);
+          // Ends are byte counts in the send stream. `chunks` holds every byte from
+          // `held` onward, so a message still arriving is sliced from its own start.
+          const bounds = Array.isArray(frame.ends)
+            ? frame.ends
+            : frame.end
+              ? [readBytes + chunk.length]
+              : [];
+          let from = accepted;
+          readBytes += chunk.length;
+          for (const bound of bounds) {
+            if (!Number.isSafeInteger(bound) || bound <= accepted) continue;
+            const whole = Buffer.concat(chunks);
+            receive(JSON.parse(whole.subarray(from - held, bound - held).toString()));
+            from = bound;
+            accepted = bound;
           }
+          const rest = Buffer.concat(chunks).subarray(accepted - held);
+          chunks = rest.length ? [rest] : [];
+          chunkBytes = rest.length;
+          held = accepted;
+          received++;
           emit({ ack: received });
         }
       } catch (error) {

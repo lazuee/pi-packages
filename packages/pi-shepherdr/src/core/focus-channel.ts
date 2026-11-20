@@ -67,8 +67,9 @@ export async function openCoreFocusChannel(
       "base64"
     ),
   ];
-  // Worst-case Windows quoting, with room for the resolved Node executable path.
-  if (argv.reduce((size, arg) => size + arg.length * 2 + 3, 0) > 30_000)
+  // Core refuses a single argument beyond ~130KiB (measured), and the launcher is
+  // inlined rather than read from disk, so check the arguments themselves.
+  if (argv.some((arg) => arg.length > 120_000))
     throw new Error(
       "Remote focus launcher is too large; update Shepherdr before retrying"
     );
@@ -184,7 +185,9 @@ export async function openCoreFocusChannel(
           resolveAdmission();
         } else if (frame["type"] === "data" && admitted && "message" in frame)
           state.receive(frame["message"]);
-        else if (frame["type"] === "error")
+        else if (frame["type"] === "log") {
+          // Helper diagnostics; the host has its own channel for them.
+        } else if (frame["type"] === "error")
           throw new Error(
             typeof frame["message"] === "string"
               ? frame["message"]

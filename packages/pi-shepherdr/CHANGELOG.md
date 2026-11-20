@@ -10,3 +10,9 @@
 - Blocking results report `blocked_on` without an extra hop, and `blocking` states it.
 - A wait whose work a follow-up `assign` took over is retired instead of hanging on the old attempt.
 - Input baselines are read just before submitting, so a remote worker that persists the prompt first no longer fails the reply check.
+- Remote focus frames carry their payload escaped instead of base64, and the stream's parser tolerates either encoding so a mixed pair of builds still connects.
+- Remote frames pack the messages already queued, so a burst of small repaints costs one write and one acknowledgement instead of one each.
+- Fixed remote focus dropping a frame when its kind byte was misread, when a write raced the attach handshake, and when an acknowledgement frame arrived.
+- Fixed a literal `%` corrupting a remote frame, and a send-offset that received bytes could shift while two replies were in flight.
+- Helper diagnostics reach the host as frames instead of landing in the PTY stream mid-frame.
+- The remote launcher guard measures each argument, which is what Core's ~130KiB limit applies to, instead of a doubled total.

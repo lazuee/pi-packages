@@ -38,6 +38,14 @@ function stop(error) {
   process.stdin.destroy();
   process.stdout.end(() => process.exit(error ? 1 : 0));
 }
+// The wire owns stdout, but a PTY merges stderr into it, so imported modules
+// logging mid-frame would corrupt the stream. Route console output as frames.
+for (const level of ["log", "error", "warn", "info"])
+  console[level] = (...args) => {
+    try {
+      wire.send({ type: "log", message: args.map(String).join(" ") });
+    } catch {}
+  };
 const wire = focusWire(
   bootstrap.nonce,
   (bytes) => {

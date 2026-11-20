@@ -15,7 +15,10 @@ import type { CoreObject } from "./protocol.js";
 
 const moduleUrl = (source: string) =>
   `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-let bundle: ReturnType<typeof sources> | undefined;
+// Not memoised: the bundle inlines sibling modules read from disk, and a cached
+// copy outlives a reload, so reconnecting would keep serving an older wire than
+// the focus channel uses.
+
 async function savedSessionSource(): Promise<string | undefined> {
   const url = await notesModule("saved-session");
   if (!url) return undefined;
@@ -146,7 +149,7 @@ export async function openRemoteHelper(
   signal: AbortSignal
 ): Promise<RemoteHelper> {
   signal.throwIfAborted();
-  const source = await (bundle ??= sources());
+  const source = await sources();
   signal.throwIfAborted();
   const client = new CoreClient(socketPath);
   const nonce = randomBytes(8).toString("hex");
@@ -159,7 +162,9 @@ export async function openRemoteHelper(
       "base64"
     ),
   ];
-  if (argv.reduce((size, arg) => size + arg.length * 2 + 3, 0) > 30_000)
+  // Measured: Core refuses a single argument beyond ~130KiB with E2BIG, so each
+  // argument is checked on its own, since that is what Core's limit applies to.
+  if (argv.some((arg) => arg.length > 120_000))
     throw new Error(
       "Remote launcher exceeds the supported command size; update Shepherdr"
     );
