@@ -171,15 +171,16 @@ export class SuggestionEditor implements EditorComponent, Focusable {
     const lines = this.inner.render(width);
     const { prediction } = this.state;
     if (!prediction || !this.canShow()) return lines;
-    // Unknown layouts and menus are left untouched. Require a single empty
-    // content row, but preserve any decoration before its cursor.
+    // Unknown layouts and menus are left untouched. Require the bordered empty
+    // editor, and keep any decoration before its cursor.
     if (lines.length !== 3) return lines;
-    const rowIndex = 0;
-    const row = lines[rowIndex] ?? "";
-    if (row === undefined) return lines;
-    const marker = row.indexOf(CURSOR_MARKER);
-    if (marker === -1 || lines.join("").split(CURSOR_MARKER).length !== 2)
+    // The cursor sits on a text row, not the top border, so locate it rather
+    // than assuming a row: the single marker is the row worth ghosting.
+    const rowIndex = lines.findIndex((line) => line.includes(CURSOR_MARKER));
+    if (rowIndex === -1 || lines.join("").split(CURSOR_MARKER).length !== 2)
       return lines;
+    const row = lines[rowIndex] ?? "";
+    const marker = row.indexOf(CURSOR_MARKER);
     const before = row.slice(0, marker);
     const after = row.slice(marker + CURSOR_MARKER.length);
     const cursor = renderFakeCursor(" ");

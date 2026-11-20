@@ -25,7 +25,7 @@
   "main": "index.ts",
   "exports": "./index.ts",
   "scripts": {
-    "check": "tsgo --noEmit",
+    "check": "tsgo --noEmit && bun test",
     "pack:dry": "npm pack --dry-run"
   },
   "devDependencies": {
