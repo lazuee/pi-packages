@@ -115,9 +115,12 @@ export function focusWire(nonce, write, receive, fail, onLive, limits = {}) {
     close();
     fail(reason);
   };
+  // Both sides ping every second; the lease only fires when a link has gone quiet
+  // for far longer than one round trip on a slow machine.
+  const LEASE = 30_000;
   const timer = setInterval(() => {
     try {
-      if (Date.now() - heard > 10_000)
+      if (Date.now() - heard > LEASE)
         throw new Error("Focus stream lease expired");
       emit({ ping: true });
     } catch (error) {
