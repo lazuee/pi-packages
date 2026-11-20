@@ -16,3 +16,5 @@
 - Fixed a literal `%` corrupting a remote frame, and a send-offset that received bytes could shift while two replies were in flight.
 - Helper diagnostics reach the host as frames instead of landing in the PTY stream mid-frame.
 - The remote launcher guard measures each argument, which is what Core's ~130KiB limit applies to, instead of a doubled total.
+- A shared-context relay that fails after `start` reports it instead of leaving the machine advertising a route that answers nothing.
+- Closing a route drops its published listener, so a reconnect does not find a stale relay; a failure recorded for an older connection is cleared when a tool retries sharing.

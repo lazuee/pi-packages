@@ -35,7 +35,8 @@ export class CoreRemoteTransport {
   private ended: Error | undefined;
   private closing: Promise<void> | undefined;
   private route: string | undefined;
-  private relayFailure: ((error: Error) => void) | undefined;
+  private relayFailureOf: ((error: Error) => void) | undefined;
+  private reported = false;
   private readonly socketPath: string;
   private readonly machine: CoreMachine;
   private readonly onNotice: (message: string) => void;
@@ -54,6 +55,10 @@ export class CoreRemoteTransport {
       () => !!this.ended,
       8 * 1024 * 1024,
       (error) => {
+        // Inline context handling runs a handler after `start` resolved, so a
+        // rejection here never reaches the caller: report it, or the machine
+        // keeps advertising a relay that answers nothing.
+        this.report(error);
         void this.close(error);
       }
     );
@@ -126,6 +131,12 @@ export class CoreRemoteTransport {
         );
     });
   }
+  private report(error: Error): void {
+    // Once per transport: an inline failure and the close it causes are one drop.
+    if (this.reported) return;
+    this.reported = true;
+    this.relayFailureOf?.(error);
+  }
   private send(message: CoreObject): void {
     if (this.ended || !this.helper)
       throw this.ended ?? new Error("Remote connection is not ready");
@@ -142,6 +153,8 @@ export class CoreRemoteTransport {
   }
   private receive(message: CoreObject): void {
     if (this.ended) return;
+    // One malformed or stale frame belongs to its own call; a Core route that
+    // carries no request identity must not take the shared transport down.
     if (typeof message["notice"] === "string") {
       this.onNotice(message["notice"]);
       return;
@@ -151,8 +164,10 @@ export class CoreRemoteTransport {
       return;
     }
     const { id } = message;
-    if (typeof id !== "string")
-      throw new TypeError("Remote response has no request identity");
+    if (typeof id !== "string") {
+      this.onNotice("Remote connection ignored a frame without a request identity");
+      return;
+    }
     if (this.relay.consume(id, message)) return;
     if (message["ok"] === true) this.finish(id, undefined, message["result"]);
     else {
@@ -268,14 +283,41 @@ export class CoreRemoteTransport {
     if (previous && previous !== this) await previous.close();
     if (this.ended) throw this.ended;
     this.route = route;
-    this.relayFailure = onFailure;
+    this.relayFailureOf = onFailure;
     relayOwners.set(route, this);
-    await this.relay.start(
-      threadId,
-      createHash("sha256").update(this.machine.id).digest("hex").slice(0, 32),
-      handler,
-      (message) => this.call(message)
-    );
+    try {
+      await this.relay.start(
+        threadId,
+        createHash("sha256").update(this.machine.id).digest("hex").slice(0, 32),
+        handler,
+        (message) => this.call(message)
+      );
+      if (this.ended) {
+        // The owner closed while this call was still starting; its close found no
+        // relay yet, so the listener just bound has to be released here.
+        await this.relay.stop();
+        throw this.ended;
+      }
+      this.relay.hold(() =>
+        this.call({
+            op: "context_relay_close",
+            threadId,
+            routeId: this.relay.routeId,
+          })
+          .then(
+            () => undefined,
+            () => undefined
+          )
+      );
+    } catch (error) {
+      // A failed start leaves this owner registered: every later call would use
+      // the pathless relay. Close it so a retry binds its own listener.
+      const failed = error instanceof Error ? error : new Error(String(error));
+      await this.close(failed).catch(() => {
+        /* empty */
+      });
+      throw failed;
+    }
   }
   contextRelayPath(): string {
     if (this.ended) throw this.ended;
@@ -301,10 +343,14 @@ export class CoreRemoteTransport {
       )
       .finally(() => {
         this.lifetime.abort();
-        if (this.route && relayOwners.get(this.route) === this)
+        // A start that resolved after this close published its relay late, so
+        // only a late close can still be the registered owner here.
+        if (this.route && relayOwners.get(this.route) === this) {
           relayOwners.delete(this.route);
+          void this.relay.stop();
+        }
       });
-    if (error) this.relayFailure?.(error);
+    if (error) this.report(error);
     return this.closing;
   }
 }

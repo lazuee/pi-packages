@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 export function helperContext(context, send) {
   const incoming = new Map();
   const outgoing = new Map();
+  // path -> live close, replaced only once its listener is actually bound.
   const relays = new Map();
   let closed = false;
   function requestController(request, signal) {
@@ -55,18 +56,34 @@ export function helperContext(context, send) {
     async start(threadId, routeId) {
       if (closed) throw new Error("Shared context connection closed");
       const path = context.relayContextPath(threadId, routeId);
-      let ready = relays.get(path);
+      const starting = relays.get(path);
+      if (typeof starting === "function") return path;
+      let ready = starting;
       if (!ready) {
         ready = context.listenContext(path, requestController);
         relays.set(path, ready);
       }
+      let close;
       try {
-        await ready;
+        close = await ready;
       } catch (error) {
         relays.delete(path);
         throw error;
       }
+      // Leaving the listener published after the controller dropped would make
+      // the routed relay look reachable while nobody answers over its Core.
+      relays.set(path, close);
       return path;
+    },
+    async stop(threadId, routeId) {
+      // Routes are keyed by the path the controller was handed for this identity.
+      const path = context.relayContextPath(threadId, routeId);
+      const closing = relays.get(path);
+      if (!closing) return false;
+      if (typeof closing === "function") return false;
+      relays.delete(path);
+      await closing();
+      return true;
     },
     consume(message) {
       if (message.op === "context_cancel") {
@@ -90,7 +107,9 @@ export function helperContext(context, send) {
       for (const entry of outgoing.values())
         entry.finish(new Error("Shared context controller disconnected"));
       await Promise.allSettled(
-        [...relays.values()].map(async (ready) => (await ready)())
+        [...relays.values()].map(async (closing) =>
+          typeof closing === "function" ? undefined : (await closing)()
+        )
       );
       relays.clear();
     },

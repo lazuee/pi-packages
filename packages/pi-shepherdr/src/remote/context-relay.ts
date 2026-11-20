@@ -4,7 +4,9 @@ export class ContextRelay {
     | ((request: unknown, signal: AbortSignal) => Promise<unknown>)
     | undefined;
   private readonly incomingContext = new Map<string, AbortController>();
-  private relayPath: string | undefined;
+  relayPath: string | undefined;
+  routeId: string | undefined;
+  private release: (() => Promise<void>) | undefined;
   private readonly send: (message: Record<string, unknown>) => void;
   private readonly closed: () => boolean;
   private readonly maxFrameBytes: number;
@@ -27,6 +29,7 @@ export class ContextRelay {
     call: (message: Record<string, unknown>) => Promise<unknown>
   ): Promise<void> {
     this.contextHandler = handler;
+    this.routeId = routeId;
     const path = await call({ op: "context_relay", threadId, routeId });
     if (typeof path !== "string")
       throw new TypeError("Invalid shared context relay path");
@@ -95,5 +98,16 @@ export class ContextRelay {
   abortAll() {
     for (const controller of this.incomingContext.values()) controller.abort();
     this.incomingContext.clear();
+  }
+  /** Drop the published listener; a closed transport keeps no route. */
+  async stop(): Promise<void> {
+    const hook = this.release;
+    this.release = undefined;
+    this.relayPath = undefined;
+    await hook?.();
+  }
+  /** Registers the owner's listener cleanup, run once on stop. */
+  hold(release: () => Promise<void>): void {
+    this.release = release;
   }
 }

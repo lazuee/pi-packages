@@ -176,6 +176,9 @@ export async function serve(input, send, fail) {
       case "context_relay": {
         return relay.start(message.threadId, message.routeId);
       }
+      case "context_relay_close": {
+        return relay.stop(message.threadId, message.routeId);
+      }
       case "view": {
         return session.readSessionView(message.path);
       }

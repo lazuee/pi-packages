@@ -198,9 +198,20 @@ export async function requestContext(path, request, signal) {
   });
 }
 
-/** @param {string} path @param {(request: unknown, signal: AbortSignal) => Promise<unknown>} handle */
+const listeners = new Map();
+
+/** One owner per path: a later owner retires the older listener, whose close must
+ * then leave the newer descriptor in place. @param {string} path
+ * @param {(request: unknown, signal: AbortSignal) => Promise<unknown>} handle */
 export async function listenContext(path, handle) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  // Retire before reading the descriptor: a live older owner would otherwise
+  // refuse this one and a dropped controller would keep the routed relay dead.
+  const retired = listeners.get(path);
+  listeners.delete(path);
+  await retired?.().catch(() => {
+    /* empty */
+  });
   try {
     const previous = JSON.parse(await readFile(path, "utf-8"));
     if (Number.isInteger(previous.pid)) {
@@ -290,12 +301,12 @@ export async function listenContext(path, handle) {
     closed = true;
     for (const socket of sockets) socket.destroy();
     await new Promise((resolve) => server.close(resolve));
-    try {
-      if (JSON.parse(await readFile(path, "utf-8")).token === token)
-        await unlink(path);
-    } catch (error) {
+    // A newer owner already published its descriptor at this path.
+    if (listeners.get(path) !== close) return;
+    listeners.delete(path);
+    await unlink(path).catch((error) => {
       if (!hasCode(error, "ENOENT")) throw error;
-    }
+    });
   };
   try {
     await new Promise((resolve, reject) => {
@@ -320,6 +331,7 @@ export async function listenContext(path, handle) {
       { flag: "wx", mode: 0o600 }
     );
     await rename(temporary, path);
+    listeners.set(path, close);
     server.on("error", () => {
       for (const socket of sockets) socket.destroy();
     });

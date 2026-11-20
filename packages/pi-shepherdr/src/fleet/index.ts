@@ -253,6 +253,9 @@ export class AgentFleet {
             "Session changed; retry sharing from the current session"
           );
         if (runtime.local) return;
+        // A tool that needs sharing retries it itself, so a failure recorded for
+        // an older connection is not left to make every route look dead.
+        delete runtime.contextRelayError;
         await this.prepareContextRelay(name, runtime, client, ctx);
         if (
           this.context !== ctx ||
