@@ -53,7 +53,6 @@ export class AgentAttachment {
     params: AgentsParams,
     signal: AbortSignal
   ) {
-    if (params.board) this.board.requireAvailable();
     const sessionFile = sessionPath(panel);
     const controllerFile = ctx.sessionManager.getSessionFile();
     const controllerSessionId = ctx.sessionManager.getSessionId();
@@ -65,6 +64,8 @@ export class AgentAttachment {
       throw new Error(
         "An attached agent cannot attach another controller; use its existing controller"
       );
+    // Availability is the weakest claim, so it follows the local identity checks.
+    if (params.board) this.board.requireAvailable();
     const context = params.context === true;
     const useBoard = params.board === true;
     const controllerContext = context
@@ -211,7 +212,6 @@ export class AgentAttachment {
     params: AgentsParams,
     signal: AbortSignal
   ) {
-    if (params.board) this.board.requireAvailable();
     const route = attachmentRoutes(ctx).find(
       (entry) =>
         entry.machine === runtime.machine &&
@@ -221,6 +221,7 @@ export class AgentAttachment {
       throw new Error(
         "No completed attachment for this target in this controller session"
       );
+    if (params.board) this.board.requireAvailable();
     const { plan } = route;
     if ((params.context && !plan.context) || (params.board && !plan.board))
       throw new Error("Cannot detach a choice that was not attached");

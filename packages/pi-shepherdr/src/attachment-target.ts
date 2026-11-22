@@ -139,7 +139,6 @@ export class AttachmentTarget {
     )
       throw new Error("Invalid attachment request");
     const plan = input.plan as AttachmentPlan;
-    if (plan.board) this.board.requireAvailable();
     if (
       (!plan.context && !plan.board) ||
       plan.controllerSessionId === plan.targetSessionId ||
@@ -180,6 +179,7 @@ export class AttachmentTarget {
           )))
     )
       throw new Error("Invalid attachment identities or routes");
+    if (plan.board) this.board.requireAvailable();
     if (
       !ctx.isIdle() ||
       ctx.sessionManager.getSessionId() !== plan.targetSessionId
@@ -293,7 +293,6 @@ export class AttachmentTarget {
   ) {
     if (!checkDetachment(input)) throw new Error("Invalid detach request");
     const requested = input as Static<typeof Detachment>;
-    if (requested.board) this.board.requireAvailable();
     const { plan } = requested;
     if (
       !isDeepStrictEqual(attachmentOwner(ctx), plan) ||
@@ -301,6 +300,7 @@ export class AttachmentTarget {
       !ctx.isIdle()
     )
       throw new Error("Detach requires the original settled target session");
+    if (requested.board) this.board.requireAvailable();
     if (
       (!requested.context && !requested.board) ||
       (requested.context && !plan.context) ||
