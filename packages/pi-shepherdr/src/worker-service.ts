@@ -39,6 +39,9 @@ export function registerWorkerService(
 ): void {
   let active: ExtensionContext | undefined;
   let busy: Pick<WorkerStart, "scope" | "key" | "requestId"> | undefined;
+  // The API passes no signal, so the service keeps the one that ends a dispatch.
+  // Shutdown aborts it; a fresh controller is minted before each start.
+  let aborter = new AbortController();
   function assertContext(ctx: ExtensionContext) {
     if (
       ctx.mode !== "tui" ||
@@ -165,6 +168,7 @@ export function registerWorkerService(
         };
         try {
           const runtime = fleet.connected();
+          aborter = new AbortController();
           let worker = records(ctx).find(
             (value) => value.scope === input.scope && value.key === input.key
           );
@@ -301,7 +305,7 @@ export function registerWorkerService(
             panel,
             input.prompt,
             false,
-            new AbortController().signal,
+            aborter.signal,
             () => {
               /* empty */
             },
@@ -356,5 +360,6 @@ export function registerWorkerService(
   });
   pi.on("session_shutdown", () => {
     active = undefined;
+    aborter.abort();
   });
 }
