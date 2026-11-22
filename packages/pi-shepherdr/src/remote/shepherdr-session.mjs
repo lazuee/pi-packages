@@ -453,3 +453,48 @@ export async function readSessionHeader(path) {
     await file.close();
   }
 }
+
+/**
+ * The parent session file recorded for a worker, when one was recorded.
+ *
+ * The ancestry entry is a shepherdr one, so the shared saved-session reader (which
+ * keeps only notes entries) drops it. Reading the head directly keeps it.
+ * @param {string} path
+ */
+export async function readSessionAncestry(path) {
+  const file = await open(expandHome(path), "r").catch((error) => {
+    throw new Error(
+      "Saved worker session could not be opened; check that its file is available on the original machine",
+      { cause: error }
+    );
+  });
+  try {
+    const bytes = Buffer.alloc(64 * 1024);
+    let size = 0;
+    while (size < bytes.length) {
+      const read = await file.read(bytes, size, bytes.length - size, size);
+      size += read.bytesRead;
+      const drained = read.bytesRead === 0;
+      const text = bytes.subarray(0, size).toString("utf-8");
+      const lines = text.split("\n");
+      if (!drained) lines.pop();
+      for (const line of lines) {
+        if (!line) continue;
+        let entry;
+        try {
+          entry = record(JSON.parse(line));
+        } catch {
+          continue;
+        }
+        if (entry?.["customType"] !== "herdr-spawn-ancestry-v1") continue;
+        const parent = record(entry["data"])?.["parent"];
+        const file = record(parent)?.["sessionFile"];
+        return typeof file === "string" && file ? file : undefined;
+      }
+      if (drained) return undefined;
+    }
+    return undefined;
+  } finally {
+    await file.close();
+  }
+}

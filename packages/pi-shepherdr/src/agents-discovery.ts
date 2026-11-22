@@ -41,17 +41,17 @@ export async function agentsHelp(
       list: "machine?",
       find: "query? status? machine?",
       focus: "target machine? voice? handoff?",
-      spawn: `agent_type label message name? machine? placement? workspace? cwd? base? blocking? timeout_ms? allow_writes?${
+      spawn: `agent_type label message name? machine? placement? workspace? cwd? base? blocking? allow_writes?${
         boardAvailable ? " board_thread_id?" : ""
       }`,
       watch: "target machine?",
       unwatch: "target machine?",
       send: "target message machine?",
-      assign: "target message machine? blocking? timeout_ms?",
+      assign: "target message machine? blocking?",
       attach: "target context? board? machine?",
       detach: "target context? board? machine?",
       read: "target machine? source=latest|visible|recent? lines?",
-      reply: "target extension id message machine? timeout_ms?",
+      reply: "target extension id message machine?",
     },
     rules: {
       peers: gpt
@@ -102,11 +102,8 @@ export async function agentsHelp(
         ? "Idle target; stop context/board independently; omitted=false, at least one true; counterpart checkpoints remain readonly"
         : "Stop context/board independently; omitted=false, at least one true; retain counterpart checkpoints read-only; idle target",
       blocking: gpt
-        ? "spawn/assign default false→dispatch then return; true→wait for result; profile overrides spawn. Parallel blocking calls: await Promise.allSettled. Background reports automatic→do other work/end turn, NO poll or await timers/extra Promises"
-        : "spawn/assign return after dispatch by default. Set blocking:true to wait for the result; profile blocking overrides spawn. Use await Promise.allSettled for parallel blocking calls, including failures. Background reports arrive automatically: do other work or end this turn, never poll or await timers or extra Promises for reports",
-      timeout_ms: gpt
-        ? "Blocking wait budget; expiry detaches, report still arrives. Long tool→set it"
-        : "Budget for a blocking wait; expiry detaches it and the report still arrives later. Set it when the task runs a long tool",
+        ? "spawn/assign default false→dispatch then return; true→wait unbounded for result; profile overrides spawn. Parallel blocking calls: await Promise.allSettled. Background reports automatic→do other work/end turn, NO poll or await timers/extra Promises"
+        : "spawn/assign return after dispatch by default. Set blocking:true to wait for the result, however long it takes; profile blocking overrides spawn. Use await Promise.allSettled for parallel blocking calls, including failures. Background reports arrive automatically: do other work or end this turn, never poll or await timers or extra Promises for reports",
       share_context: gpt
         ? "Profile false→isolated notes/history; otherwise→controller sharing setting"
         : "Profile false isolates notes/history; otherwise follows controller sharing setting",

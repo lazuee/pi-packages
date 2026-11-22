@@ -13,7 +13,10 @@ import {
   sendPeerFocus,
   sendPeerMessage,
 } from "../remote/shepherdr-peer.mjs";
-import { readSessionHeader } from "../remote/shepherdr-session.mjs";
+import {
+  readSessionAncestry,
+  readSessionHeader,
+} from "../remote/shepherdr-session.mjs";
 import type {
   ExtensionReply,
   FocusRequest,
@@ -139,6 +142,13 @@ export class CoreConnection {
       );
     return { id: header["id"], cwd: header["cwd"] };
   }
+  /** The recorded parent of a worker; see the notice for why this is its own op. */
+  async sessionAncestry(path: string): Promise<string | undefined> {
+    if (!(this.core instanceof RemoteCoreEndpoint))
+      return readSessionAncestry(path);
+    const parent = await this.core.call({ op: "session_ancestry", path });
+    return typeof parent === "string" && parent ? parent : undefined;
+  }
   async findSavedSessions(
     threadId: string,
     signal?: AbortSignal
@@ -220,6 +230,27 @@ export class CoreConnection {
       };
     }
     return sendPeerMessage(this.peer, agent, message);
+  }
+  /**
+   * Ends a terminal for good: kills it when live, then removes the record.
+   * An unknown state is refused rather than guessed, so a still-running agent is
+   * never orphaned behind a removed entry.
+   */
+  async closeTerminal(panel: PaneInfo): Promise<"killed" | "removed"> {
+    const record = object(
+      await this.core.request("terminal.get", { terminal: panel.terminal_id })
+    );
+    const { address, state } = record;
+    if (address !== panel.terminal_id)
+      throw new Error("Target pane changed; resolve it again");
+    if (state !== "live" && state !== "finished")
+      throw new Error(
+        `Terminal state is unknown (${String(state)}); inspect the target before closing`
+      );
+    if (state === "live")
+      await this.core.request("terminal.kill", { terminal: panel.terminal_id });
+    await this.core.request("terminal.rm", { terminal: panel.terminal_id });
+    return state === "live" ? "killed" : "removed";
   }
   async commands(agent: PaneInfo) {
     if (this.core instanceof RemoteCoreEndpoint)

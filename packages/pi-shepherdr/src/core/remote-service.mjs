@@ -202,6 +202,9 @@ export async function serve(input, send, fail) {
       case "session_header": {
         return session.readSessionHeader(message.path);
       }
+      case "session_ancestry": {
+        return session.readSessionAncestry(message.path);
+      }
       case "directory": {
         /** @param {string} value */
         const expand = (value) =>

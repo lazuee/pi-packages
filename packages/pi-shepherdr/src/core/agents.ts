@@ -58,13 +58,52 @@ export async function getCurrentPane(
   return terminalPane(await client.core.request("terminal.get", { terminal }));
 }
 
+/**
+ * A `kill` may act on a finished terminal, which has left the agent snapshot but
+ * can still be listed by name, so a name miss falls back to the raw terminals.
+ */
+async function getAnyAgent(
+  client: CoreConnection,
+  target: string
+): Promise<PaneInfo> {
+  try {
+    return await getAgent(client, target);
+  } catch (error) {
+    if (
+      !(error instanceof Error && "kind" in error && error.kind === "not_found")
+    )
+      throw error;
+    const found = terminalSnapshot(
+      await client.core.request("terminal.list")
+    ).panes.filter((terminal) => terminal.name === target);
+    if (found.length > 1)
+      throw new Error("Agent name is ambiguous; use its terminal address", {
+        cause: error,
+      });
+    const [terminal] = found;
+    if (terminal)
+      return terminalPane(
+        await client.core.request("terminal.get", {
+          terminal: terminal.terminal_id,
+        })
+      );
+    throw error;
+  }
+}
+
 export async function resolvePiAgent(
   client: CoreConnection,
   target: string,
-  controllingPaneId = process.env["HC_TERMINAL_ID"]
+  controllingPaneId = process.env["HC_TERMINAL_ID"],
+  requirePi = true
 ): Promise<PaneInfo> {
-  const agent = await getAgent(client, target);
-  if (agent.agent !== "pi") throw new Error(`${target} is not a Pi agent`);
+  const agent = await (requirePi
+    ? getAgent(client, target)
+    : getAnyAgent(client, target));
+  // A finished terminal keeps no session label, so a kill must accept it to
+  // remove the leftover record; every other action needs a live agent.
+  if (requirePi && agent.agent !== "pi")
+    throw new Error(`${target} is not a Pi agent`);
   if (controllingPaneId && agent.terminal_id === controllingPaneId)
     throw new Error("refusing to target the controlling Pi session");
   return agent;

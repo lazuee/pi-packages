@@ -54,6 +54,7 @@ export class RemoteCoreEndpoint {
         "find_saved_sessions",
         "view",
         "session_header",
+        "session_ancestry",
       ].includes(String(input["op"]))
     )
       return this.admission.run(
@@ -106,13 +107,23 @@ export class RemoteCoreEndpoint {
         { ...params, terminal: `${this.machine.id}/${params["terminal"]}` },
         options
       );
-      return ["terminal.get", "terminal.kill", "terminal.label"].includes(
-        method
-      )
+      if (method === "terminal.kill" || method === "terminal.rm")
+        return this.localLoose(result);
+      return ["terminal.get", "terminal.label"].includes(method)
         ? this.local(result)
         : result;
     }
     return this.call({ op: "core", method, params }, options);
+  }
+  /** A mutating call may answer with a confirmation rather than a record. */
+  private localLoose(value: unknown): unknown {
+    if (!value || typeof value !== "object" || !("address" in value))
+      return value;
+    try {
+      return this.local(value);
+    } catch {
+      return value;
+    }
   }
   private local(value: unknown): CoreObject {
     const record = object(value);

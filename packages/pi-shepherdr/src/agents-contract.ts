@@ -28,8 +28,6 @@ const ACTIONS = [
   "read",
   "reply",
 ] as const;
-/** Actions with a blocking wait to bound. */
-const WAIT_ACTIONS: ReadonlySet<string> = new Set(["spawn", "assign", "reply"]);
 export const READ_SOURCES = ["latest", "visible", "recent"] as const;
 const STATUSES = ["idle", "working", "blocked", "done", "unknown"] as const;
 
@@ -50,33 +48,17 @@ const ACTION_FIELDS: Record<(typeof ACTIONS)[number], ReadonlySet<string>> = {
     "message",
     "base",
     "blocking",
-    "timeout_ms",
     "board_thread_id",
     "allow_writes",
   ]),
   watch: new Set(["action", "machine", "target"]),
   unwatch: new Set(["action", "machine", "target"]),
   send: new Set(["action", "machine", "target", "message"]),
-  assign: new Set([
-    "action",
-    "machine",
-    "target",
-    "message",
-    "blocking",
-    "timeout_ms",
-  ]),
+  assign: new Set(["action", "machine", "target", "message", "blocking"]),
   attach: new Set(["action", "machine", "target", "context", "board"]),
   detach: new Set(["action", "machine", "target", "context", "board"]),
   read: new Set(["action", "machine", "target", "source", "lines"]),
-  reply: new Set([
-    "action",
-    "machine",
-    "target",
-    "extension",
-    "id",
-    "message",
-    "timeout_ms",
-  ]),
+  reply: new Set(["action", "machine", "target", "extension", "id", "message"]),
 };
 const AgentsRequest = obj({
   action: {
@@ -110,12 +92,6 @@ const AgentsRequest = obj({
     bool({
       description:
         "true waits; an agent that stops on a question resolves at once. Profile policy overrides spawn; default false",
-    })
-  ),
-  timeout_ms: opt(
-    int({
-      minimum: 1,
-      description: "Detach the blocking wait after this long",
     })
   ),
   context: opt(bool()),
@@ -153,10 +129,6 @@ export const AgentsParameters = {
       }),
       target: opt(str()),
       machine: opt(str()),
-      timeout_ms: opt({
-        ...int({ minimum: 1 }),
-        type: "integer",
-      }),
     },
     { open: true }
   ),
@@ -227,15 +199,6 @@ export function parseAgentsRequest(input: unknown): AgentsParams {
       throw new Error(`${action} requires context:true or board:true`);
     request = { context: false, board: false, ...request };
   }
-  if ("timeout_ms" in request) {
-    if (!WAIT_ACTIONS.has(action))
-      throw new Error(`${action} has no blocking wait; omit timeout_ms`);
-    if (
-      !Number.isInteger(request["timeout_ms"]) ||
-      (request["timeout_ms"] as number) < 1
-    )
-      throw new Error("timeout_ms must be a positive integer");
-  }
   if (
     action === "spawn" &&
     request["board_thread_id"] !== undefined &&
@@ -278,12 +241,6 @@ export function parseAgentsRequest(input: unknown): AgentsParams {
     }
   }
   return request as AgentsParams;
-}
-
-/** Applies to the call's blocking value, including a profile-forced spawn. */
-export function requestedWaitMs(input: AgentsToolParams | AgentsParams) {
-  const value = input.timeout_ms;
-  return typeof value === "number" && value > 0 ? value : undefined;
 }
 
 export function isBlockingAgentsCall(input: unknown): boolean {

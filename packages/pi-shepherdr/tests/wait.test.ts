@@ -58,6 +58,18 @@ describe("wait contract", () => {
         blocking: true,
       }).blocking
     ).toBe(true);
+    // The wait is unbounded, so the field is gone from every action.
+    for (const action of ["assign", "spawn", "reply"] as const)
+      expect(() =>
+        parseAgentsRequest({
+          action,
+          target: "p",
+          message: "m",
+          ...(action === "spawn" ? { agent_type: "general", label: "l" } : {}),
+          ...(action === "reply" ? { extension: "e", id: "1" } : {}),
+          timeout_ms: 5,
+        })
+      ).toThrow("timeout_ms");
     expect(() =>
       parseAgentsRequest({ action: "send", target: "p", message: "m" })
     ).not.toThrow();
