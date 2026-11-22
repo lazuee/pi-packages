@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A blocking wait no longer detaches on a budget, stall or ended session: it holds until the settlement arrives. `timeout_ms` is still accepted and validated, and the `detached`/`detail` result fields are gone.
+- A blocking `reply` waits on its claim without re-reading the pane for a baseline.
+
 - `timeout_ms` on a blocking `spawn`, `assign` or `reply` detaches after the budget; the work and its automatic report continue.
 - A spawn records worker ownership before delivery, so a detached blocking spawn still keeps resume and close-idle.
 - A wait detaches instead of hanging on an uncollectable result, a follow-up `assign` taking the work over, or a session whose monitoring ended; the cause is reported.

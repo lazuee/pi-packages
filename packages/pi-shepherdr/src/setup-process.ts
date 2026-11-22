@@ -140,6 +140,13 @@ export async function runSetupProcess(
   const settle = async () => {
     signal.removeEventListener("abort", abort);
     await cleanup;
+
+    if (cleanupError)
+      // oxlint-disable-next-line no-unsafe-finally -- Cleanup failure must remain visible, even when the primary operation failed.
+      throw new Error(
+        `Setup process cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
+        { cause: cleanupError }
+      );
   };
   // Cleanup runs outside the try so its own failure is reported, not masked.
   const result = await completed.then(
@@ -152,10 +159,5 @@ export async function runSetupProcess(
       throw error;
     }
   );
-  if (cleanupError)
-    throw new Error(
-      `Setup process cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`,
-      { cause: cleanupError }
-    );
   return result;
 }

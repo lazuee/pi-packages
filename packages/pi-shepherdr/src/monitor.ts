@@ -206,16 +206,9 @@ export class AgentMonitor {
     attempt: WorkAttempt,
     signal: AbortSignal,
     replyingTo?: ExtensionReply,
-    timeoutMs?: number,
     onStall?: (window: string) => void
   ): Promise<ClaimedSettlement> | undefined {
-    return this.settlements.claim(
-      attempt,
-      signal,
-      replyingTo,
-      timeoutMs,
-      onStall
-    );
+    return this.settlements.claim(attempt, signal, replyingTo, onStall);
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.settlements.observeReply(attempt, reply);

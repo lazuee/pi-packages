@@ -3,10 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { parseAgentsRequest, requestedWaitMs } from "../src/agents-contract.js";
 import { dispatchAgentWork } from "../src/agents-work.js";
 import { MonitorState } from "../src/monitor-state.js";
-import {
-  SettlementDelivery,
-  SettlementTimeoutError,
-} from "../src/settlement/delivery.js";
+import { SettlementDelivery } from "../src/settlement/delivery.js";
 
 const attempt = { attemptId: "a1", terminalId: "t1" };
 const signal = () => new AbortController().signal;
@@ -112,13 +109,30 @@ describe("wait contract", () => {
   });
 });
 
-describe("deadline", () => {
-  test("rejects with a timeout and leaves later results to the controller", async () => {
+describe("claim", () => {
+  test("a delivered result resolves its waiter, never the controller", async () => {
     const { counter, delivery } = await loadDelivery();
-    const pending = delivery.claim(attempt, signal(), undefined, 5)!;
-    const outcome = await pending.catch((error: unknown) => error);
-    expect(outcome).toBeInstanceOf(Error);
-    expect((outcome as Error).name).toBe("SettlementTimeoutError");
+    const pending = delivery.claim(attempt, signal())!;
+    delivery.deliverSettlement(
+      lifecycle,
+      record("a1"),
+      settlement,
+      "a1",
+      undefined,
+      { id: "m1", stopReason: "stop", text: "done" } as never
+    );
+    expect((await pending).status).toBe("done");
+    // The waiter consumed the result, so the controller was never asked.
+    expect(counter.value).toBe(0);
+  });
+
+  test("a dropped waiter leaves the result to the controller", async () => {
+    const { counter, delivery } = await loadDelivery();
+    const pending = delivery.claim(attempt, signal())!;
+    delivery.releaseClaim(attempt, new Error("dropped"));
+    expect(
+      ((await pending.catch((error: unknown) => error)) as Error).message
+    ).toBe("dropped");
     // No waiter left: the result now goes to the controller instead.
     delivery.deliverSettlement(
       lifecycle,
@@ -131,9 +145,27 @@ describe("deadline", () => {
     expect(counter.value).toBe(1);
   });
 
-  test("a delivered result wins over its deadline", async () => {
+  test("an abort rejects its waiter with the abort reason", async () => {
     const { delivery } = await loadDelivery();
-    const pending = delivery.claim(attempt, signal(), undefined, 1000)!;
+    const controller = new AbortController();
+    const pending = delivery.claim(attempt, controller.signal)!;
+    const reason = new Error("caller gave up");
+    controller.abort(reason);
+    expect(await pending.catch((error: unknown) => error)).toBe(reason);
+  });
+
+  test("a stopped monitor rejects its waiters", async () => {
+    const { delivery } = await loadDelivery();
+    const pending = delivery.claim(attempt, signal())!;
+    delivery.stop();
+    const outcome = (await pending.catch((error: unknown) => error)) as Error;
+    expect(outcome.message).toBe("Shepherdr monitor stopped");
+  });
+
+  test("an observed claim still resolves through its waiter", async () => {
+    const { delivery } = await loadDelivery();
+    const pending = delivery.claim(attempt, signal())!;
+    delivery.observeReply(attempt, { id: "e1", extension: "ask" } as never);
     delivery.deliverSettlement(
       null as never,
       record("a1"),
@@ -143,27 +175,6 @@ describe("deadline", () => {
       undefined
     );
     expect((await pending).status).toBe("done");
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
-
-  test("a stopped monitor detaches as a session detach, not a warning", async () => {
-    const { delivery } = await loadDelivery();
-    const pending = delivery.claim(attempt, signal(), undefined, 1000)!;
-    delivery.stop();
-    const outcome = (await pending.catch((error: unknown) => error)) as Error;
-    expect(outcome.name).toBe("SettlementTimeoutError");
-    expect((outcome as SettlementTimeoutError).source).toBe("session");
-  });
-
-  test("retiring an attempt drops its waiter", async () => {
-    const { delivery } = await loadDelivery();
-    const pending = delivery.claim(attempt, signal(), undefined, 1000)!;
-    delivery.retireAttempt("a1");
-    expect(
-      ((await pending.catch((error: unknown) => error)) as Error).message
-    ).toBe("Settlement was reported separately");
-    // A stale retry can claim again once its attempt was retired.
-    expect(delivery.claim(attempt, signal())).toBeDefined();
   });
 });
 
@@ -194,7 +205,7 @@ describe("baseline", () => {
 
 /** Minimal monitor/doc surface for dispatch; the real one needs a Core session. */
 function fakeMonitor(state: MonitorState) {
-  const claims: { attemptId: string; timeoutMs?: number }[] = [];
+  const claims: { attemptId: string }[] = [];
   const monitor = {
     claims,
     list: () => state.list(),
@@ -204,20 +215,10 @@ function fakeMonitor(state: MonitorState) {
       state.beginWork(paneId, task, expected),
     expectUser: (work: never, after: string | null) =>
       state.expectUser(work, after),
-    claimWork: (
-      work: { attemptId: string; terminalId: string },
-      _signal: AbortSignal,
-      _reply: string | undefined,
-      timeoutMs?: number
-    ) => {
-      claims.push({ attemptId: work.attemptId, timeoutMs });
-      // The fake monitor has no reporter behind it, so honour the deadline here.
-      return new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new SettlementTimeoutError(timeoutMs ?? 1, "result")),
-          timeoutMs
-        )
-      );
+    claimWork: (work: { attemptId: string; terminalId: string }) => {
+      claims.push({ attemptId: work.attemptId });
+      // The fake monitor has no reporter behind it, so this never resolves.
+      return new Promise<never>(() => undefined);
     },
     observeReply: () => undefined,
     acceptWork: (work: never) => state.acceptWork(work),
@@ -233,13 +234,13 @@ function fakeMonitor(state: MonitorState) {
 }
 
 describe("dispatch", () => {
-  test("carries the deadline to the claim and returns a detach result", async () => {
+  test("claims the work, then waits on its settlement", async () => {
     const state = new MonitorState();
     const monitor = fakeMonitor(state);
     const runtime = { machine: "local", monitor } as never;
     const panel = { pane_id: "p", terminal_id: "t1" } as never;
 
-    const dispatch = await dispatchAgentWork(
+    const dispatch = dispatchAgentWork(
       runtime,
       panel,
       "task",
@@ -247,15 +248,15 @@ describe("dispatch", () => {
       signal(),
       () => undefined,
       async () => undefined,
-      { expectUserMessage: true, timeoutMs: 5 }
+      { expectUserMessage: true }
     );
+    // Let the submit path run up to the unresolved claim.
+    await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(monitor.claims).toHaveLength(1);
-    expect(monitor.claims[0]!.timeoutMs).toBe(5);
-    expect(dispatch.detach).toBe("timeout");
-    expect(dispatch.settlement).toBeUndefined();
-    // The work itself is untouched: still working, not settled.
+    // The wait is still open, so the work itself stays accepted, not settled.
     expect(state.byTerminal("t1")!.activity.phase).toBe("working");
+    expect(dispatch).toBeInstanceOf(Promise);
   });
 });
 

@@ -15,9 +15,7 @@ const delay = (ms: number) =>
 function rejected(cause: unknown): Error {
   return Object.assign(
     cause instanceof Error ? cause : new Error(String(cause)),
-    {
-      code: "SHEPHERDR_DELIVERY_REJECTED",
-    }
+    { code: "SHEPHERDR_DELIVERY_REJECTED" }
   );
 }
 
@@ -186,25 +184,28 @@ export async function focusCoreWindow(
   } catch (error) {
     failed = true;
     failure = dispatched ? error : rejected(error);
-  }
-  // Left the try block, so cleanup failures below are reported, not masked.
-  if (probe) {
-    try {
-      await core.request("terminal.kill", { terminal: probe });
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        "kind" in error &&
-        error.kind === "not_found"
-      ) {
-        if (failed) throw failure;
-        return;
+  } finally {
+    if (probe) {
+      try {
+        await core.request("terminal.kill", { terminal: probe });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "kind" in error &&
+          error.kind === "not_found"
+        ) {
+          // oxlint-disable-next-line no-unsafe-finally -- Preserve the focus result while treating an already-closed probe as successful cleanup.
+          if (failed) throw failure;
+          // oxlint-disable-next-line no-unsafe-finally -- Preserve the focus result while treating an already-closed probe as successful cleanup.
+          return;
+        }
+        const cleanupFailure = new Error(
+          `${focused ? "Focus succeeded" : `Focus failed: ${String(failure)}`} but its temporary terminal could not be closed: ${String(error)}`,
+          { cause: failure ?? error }
+        );
+        // oxlint-disable-next-line no-unsafe-finally -- Preserve the focus result while treating an already-closed probe as successful cleanup.
+        throw dispatched ? cleanupFailure : rejected(cleanupFailure);
       }
-      const cleanupFailure = new Error(
-        `${focused ? "Focus succeeded" : `Focus failed: ${String(failure)}`} but its temporary terminal could not be closed: ${String(error)}`,
-        { cause: failure ?? error }
-      );
-      throw dispatched ? cleanupFailure : rejected(cleanupFailure);
     }
   }
   if (failed) throw failure;

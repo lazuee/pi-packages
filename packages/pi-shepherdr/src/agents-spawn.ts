@@ -151,7 +151,6 @@ export async function spawnAgent(
     );
     let promptSubmissionStarted = false;
     let promptAccepted = false;
-    let ownershipRecorded = false;
     let dispatch;
     let shared: { agentName?: string; warning?: string } | undefined;
     let boardShared: { agentName?: string; warning?: string } | undefined;
@@ -179,26 +178,20 @@ export async function spawnAgent(
         onUpdate,
         async () => {
           promptSubmissionStarted = true;
-          // Record before delivery: a detached call never returns, and the worker
-          // must still carry ownership for resume and close-idle.
-          try {
-            await recordSpawn(started.agent, agentArgs, agentName, startParams);
-            ownershipRecorded = true;
-          } catch {
-            ownershipWarning =
-              "Submitted, but saved worker ownership could not be recorded. Automatic resume is unavailable; use its current target and do not resend the task";
-          }
           const receipt = await runtime.client.sendMessage(
             started.agent,
             attributedMessage
           );
           promptAccepted = true;
+          try {
+            await recordSpawn(started.agent, agentArgs, agentName, startParams);
+          } catch {
+            ownershipWarning =
+              "Submitted, but saved worker ownership could not be recorded. Automatic resume is unavailable; use its current target and do not resend the task";
+          }
           return receipt;
         },
-        {
-          expectUserMessage: true,
-          timeoutMs: params.timeout_ms,
-        }
+        { expectUserMessage: true }
       );
     } catch (error) {
       if (
@@ -207,7 +200,7 @@ export async function spawnAgent(
       ) {
         return await rollbackStartedAgent(runtime.client, started, error);
       }
-      if (!promptAccepted && !ownershipRecorded) {
+      if (!promptAccepted) {
         try {
           await recordSpawn(started.agent, agentArgs, agentName, startParams);
         } catch (ownershipError) {
@@ -235,24 +228,14 @@ export async function spawnAgent(
                 spawned: true,
                 ...settlementResult(runtime.machine, dispatch.settlement),
               }
-            : dispatch.detach
-              ? {
-                  spawned: true,
-                  machine: runtime.machine,
-                  target: started.id,
-                  name,
-                  status: "working",
-                  detached: dispatch.detach,
-                  next: `Still running; its result arrives automatically without another call. Inspect now with agents read machine=${JSON.stringify(runtime.machine)} target=${JSON.stringify(started.agent.pane_id)}${dispatch.detail ? `. ${dispatch.detail}` : ""}`,
-                }
-              : {
-                  spawned: true,
-                  machine: runtime.machine,
-                  target: started.id,
-                  name,
-                  status: "working",
-                  next: "Do other work or end this turn; completion/blockage arrives automatically. Do not poll or await timers/extra Promises for reports",
-                }),
+            : {
+                spawned: true,
+                machine: runtime.machine,
+                target: started.id,
+                name,
+                status: "working",
+                next: "Do other work or end this turn; completion/blockage arrives automatically. Do not poll or use timers/extra Promises for reports",
+              }),
         agent: agentName,
         ...(boardBinding || sharing
           ? {

@@ -21,12 +21,21 @@ import type {
 } from "../types.js";
 import { blockedSettlement, SettlementCollector } from "./collector.js";
 import type { CollectedSettlementWithSession } from "./collector.js";
-import { SettlementDelivery, SettlementTimeoutError } from "./delivery.js";
+import { SettlementDelivery } from "./delivery.js";
 
 export { SettlementCollector } from "./collector.js";
-
-export { SettlementTimeoutError } from "./delivery.js";
 export type { ClaimedSettlement } from "./delivery.js";
+
+/** A blocked result stopped being collectable; the report itself is lost. */
+export class SettlementTimeoutError extends Error {
+  readonly detail?: string;
+
+  constructor(detail?: string) {
+    super(detail ?? "the blocked result was not collected");
+    this.name = "SettlementTimeoutError";
+    this.detail = detail;
+  }
+}
 
 interface SettlementRetry {
   attemptId: string | undefined;
@@ -141,10 +150,9 @@ export class SettlementReporter {
     attempt: WorkAttempt,
     signal: AbortSignal,
     replyingTo?: ExtensionReply,
-    timeoutMs?: number,
     onStall?: (window: string) => void
   ) {
-    const pending = this.delivery.claim(attempt, signal, replyingTo, timeoutMs);
+    const pending = this.delivery.claim(attempt, signal, replyingTo);
     if (pending && onStall) this.stalls.set(attempt.attemptId, onStall);
     return pending;
   }
@@ -158,7 +166,12 @@ export class SettlementReporter {
   retireAttempt(attemptId: string | undefined): void {
     this.turns.delete(attemptId ?? "");
     this.stalls.delete(attemptId ?? "");
-    this.delivery.retireAttempt(attemptId);
+    // No waiter survives a retired attempt; a later result goes to the controller.
+    if (attemptId)
+      this.delivery.releaseAttempt(
+        attemptId,
+        new Error("Settlement was reported separately")
+      );
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.delivery.observeReply(attempt, reply);
@@ -263,7 +276,7 @@ export class SettlementReporter {
           // recorded it, so give a waiter one more chance before retiring it.
           if (retryState.count === 0 && this.retry(lifecycle, retryState))
             return;
-          this.delivery.retireAttempt(retryState.attemptId);
+          this.retireAttempt(retryState.attemptId);
           return;
         }
         this.clearRetry(request.record.terminalId, retryState.attemptId);
@@ -537,7 +550,7 @@ export class SettlementReporter {
     if (attemptId)
       this.delivery.releaseAttempt(
         attemptId,
-        new SettlementTimeoutError(0, "stall", message)
+        new SettlementTimeoutError(message)
       );
     if (
       this.failedAttempts.has(record.terminalId) &&

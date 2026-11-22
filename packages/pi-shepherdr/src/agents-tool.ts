@@ -268,28 +268,15 @@ export function createAgentsTool(
           executionSignal,
           update,
           () => runtime.client.sendMessage(panel, attributedMessage),
-          {
-            expectUserMessage: true,
-            onAccepted: () =>
-              setChildSupervision(
-                pi,
-                ctx,
-                runtime.local ? fleet.localMachine() : runtime.machine,
-                panel,
-                true
-              ),
-            timeoutMs: params.timeout_ms,
-            onStall: (window) =>
-              update({
-                content: [{ type: "text", text: window }],
-                details: {
-                  machine: runtime.machine,
-                  target: panel.pane_id,
-                  status: "working",
-                },
-              }),
-            requireTurn: true,
-          }
+          { expectUserMessage: true }
+        );
+        // The submission landed, so this session now supervises the worker.
+        setChildSupervision(
+          pi,
+          ctx,
+          runtime.local ? fleet.localMachine() : runtime.machine,
+          panel,
+          true
         );
         if (params.action === "send")
           return toolResult(
@@ -316,22 +303,13 @@ export function createAgentsTool(
                     assigned: true,
                     ...settlementResult(runtime.machine, dispatch.settlement),
                   }
-                : dispatch.detach
-                  ? {
-                      assigned: true,
-                      machine: runtime.machine,
-                      target: panel.pane_id,
-                      status: "working",
-                      detached: dispatch.detach,
-                      next: `Still running; its result arrives automatically without another call. Inspect now with agents read machine=${JSON.stringify(runtime.machine)} target=${JSON.stringify(panel.pane_id)}${dispatch.detail ? `. ${dispatch.detail}` : ""}`,
-                    }
-                  : {
-                      assigned: true,
-                      machine: runtime.machine,
-                      target: panel.pane_id,
-                      status: "working",
-                      next: "Do other work or end this turn; completion/blockage arrives automatically. Do not poll or await timers/extra Promises for reports",
-                    }),
+                : {
+                    assigned: true,
+                    machine: runtime.machine,
+                    target: panel.pane_id,
+                    status: "working",
+                    next: "Do other work or end this turn; completion/blockage arrives automatically. Do not poll or await timers/extra Promises for reports",
+                  }),
           },
           dispatch.warning
         );
