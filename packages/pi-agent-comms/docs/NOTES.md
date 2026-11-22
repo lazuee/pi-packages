@@ -40,11 +40,15 @@ The tool requires a successful checkpoint write immediately before the request. 
 
 Code and Notebook also accept `await tools.new_context(...)` after an awaited note save in the same cell. The native tool remains the advertised entry point. The nested callable does not add prompt guidance or a discovery listing.
 
-Reminders arrive at 85% and 90% context use. With normal compaction off, `/compact` opens a fresh window immediately if the latest completed turn saved fresh notes. Otherwise it requests a checkpoint first. The new window waits for your next prompt; it does not start a continuation turn. Abort, errors and failed writes retain the old context. Overflow recovery still uses Pi's normal compaction.
+Reminders arrive at 85% and 90% context use. With normal compaction off, `/compact` opens a Notes window. If there is no eligible save, it asks the agent to save a checkpoint first. Instructions after `/compact` guide that checkpoint. The new window waits for your next prompt. Overflow recovery still uses Pi's normal compaction.
+
+Set **Rollover tail** to **Conversation** to keep user messages, attachments and assistant replies since the last completed Notes save on the selected branch in this window. **Full** also keeps complete tool-call groups, reasoning and extension messages. The carried conversation stays in its original order. It does not start another turn. With **Off** (the default), no tail is carried and only a save in the latest completed turn qualifies.
 
 Pi rejects `/compact` when there is too little history to prepare compaction, before extensions run. `new_context` follows the separate **New window requests** setting.
 
-Idle rollover is off by default. Choose 25m, 55m, 2h, 6h or 12h in `/notes`. Hour presets use a five-minute buffer, stored as 115, 355 or 715 minutes. Saved 5- and 15-minute settings remain valid. After the interval, the next input waits for rollover only if the latest completed turn saved fresh notes. Otherwise it proceeds in the current window without requesting a checkpoint. These intervals are user preferences, not provider cache-expiry guarantees. Held input retains its original text, attachments and SDK options. If normal compaction has nothing to summarise, input proceeds in the current window. A failed rollover keeps input pending. Submit another prompt to retry, or reload to cancel it.
+Idle rollover is off by default. Choose 25m, 55m, 2h, 6h or 12h in `/notes`. Hour presets leave a five-minute buffer. When the interval elapses, the next prompt waits for rollover. With a Conversation or Full tail, Notes uses the same save eligibility as `/compact` and requests a checkpoint if needed. With the tail off or normal compaction on, input proceeds in the current window if the latest completed turn did not save notes.
+
+Held input keeps its original text, attachments and SDK options. If normal compaction has nothing to summarise, input proceeds in the current window. After a failed checkpoint or rollover, submit another prompt to retry or reload to cancel the pending input.
 
 ## Management
 
@@ -60,9 +64,9 @@ Coordination covers local processes running this Notes release under the same OS
 
 Update Observatory before applying if you use its historical index. Older versions may block the rewritten file. Current versions reconcile removed records without discarding indexed statistics.
 
-### Model roles
+### Roles
 
-`/roles` opens the read-only model roles subview of Notes. You can also choose **Model roles** in the Notes tab. It shows the configuration path, configured values and a JSON example. `/notes` opens Notes and `/board` opens Board. Press Tab or Shift-Tab to switch between those two tabs. Edit `<Pi agent directory>/notes-compaction/model-roles.json` to define roles:
+`/roles` lists configured roles. You can also choose **Roles** in Notes. Tab and Shift-Tab switch between the Notes and Board settings tabs. Edit `<Pi agent directory>/notes-compaction/model-roles.json` to define roles:
 
 ```json
 {
@@ -78,9 +82,9 @@ Update Observatory before applying if you use its historical index. Older versio
 }
 ```
 
-Create the parent directory and file if missing. Use an available Pi provider and exact model ID. Role IDs start with a lowercase letter and contain only lowercase letters, numbers and hyphens. Reasoning accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`. Roles have no shipped model assignments. Changes apply on the next turn or when reopening the subview. All defined roles are available to the agent. The old `enabled` property is ignored.
+Create the parent directory and file if missing. Use an available Pi provider and exact model ID. Role IDs start with a lowercase letter and contain only lowercase letters, numbers and hyphens. Reasoning accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`. Roles have no shipped model assignments. Changes apply on the next turn or when reopening the list. All defined roles are available to the agent. The old `enabled` property is ignored.
 
-Only role IDs and descriptions are shared with the agent. After saving its checkpoint, it can call `new_context` with an optional `role` when a sustained scope shift warrants a different role. The next context window uses that role's model and reasoning in the same session. Without a role, `new_context` keeps the current model. There is no manual role switching or recommendation acceptance workflow.
+The agent sees its selected role and the available role descriptions, not the model or reasoning settings. After saving a checkpoint, it can pass a configured role ID to `new_context` to switch in the same session. Omit the role to keep the current one. A Shepherdr spawn profile does not select a Notes role.
 
 Notes must be active for both models. Pi handles authentication and clamps unsupported reasoning levels. Provider capabilities and context limits still apply, and switching does not guarantee cache reuse. Context retirement and recovery keep their existing Notes settings.
 
@@ -102,7 +106,7 @@ The whitelist is preseeded in `<Pi agent directory>/notes-compaction/settings.js
 ```json
 {
   "active": "whitelist",
-  "modelWhitelist": ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"],
+  "modelWhitelist": ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"],
   "normalCompaction": false,
   "rankedHistorySearch": false,
   "newWindowRequests": "unrestricted",
