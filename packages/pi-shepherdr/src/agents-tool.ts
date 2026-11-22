@@ -24,9 +24,10 @@ import {
   toolResult,
 } from "./agents-work.js";
 import type { AgentBoard } from "./board/host.js";
-import { resolvePiAgent } from "./core/agents.js";
+import { getSnapshot, resolvePiAgent } from "./core/agents.js";
 import type { AgentFleet } from "./fleet/index.js";
 import { notifyKilledParent } from "./kill-notice.js";
+import type { NoticeOutcome } from "./kill-notice.js";
 import { attributeAgentPrompt } from "./messages/attribution.js";
 import type { createPeerCommands } from "./peer-commands.js";
 import type { SharedAgentContext } from "./shared-context.js";
@@ -34,17 +35,23 @@ import { setChildSupervision } from "./spawn-ownership.js";
 import type { PaneInfo } from "./types.js";
 import { WorkerResumer } from "./worker-resume.js";
 
-/** A live program was ended; a finished terminal is only removed. */
+/** Only a live program is killed; one that had already exited is just removed. */
 export function killedResult(
-  outcome: "killed" | "removed",
+  outcome: "killed" | "ended",
   machine: string,
-  panel: Pick<PaneInfo, "pane_id">
+  panel: Pick<PaneInfo, "pane_id">,
+  notice: NoticeOutcome
 ) {
   return {
     killed: outcome === "killed",
     outcome,
     machine,
     target: panel.pane_id,
+    // An owed notice that did not land leaves that parent waiting; say so
+    // rather than reporting a clean kill.
+    ...(notice === "failed"
+      ? { notice: "failed", next: "Tell its parent the worker is gone" }
+      : {}),
   };
 }
 
@@ -190,6 +197,12 @@ export function createAgentsTool(
           // A kill also clears a finished record, which carries no Pi label.
           params.action !== "kill"
         ));
+      // Loaded once for the kill: Core can remap an address on an exited
+      // program, so this is the current terminal source and the parent's.
+      const terminals =
+        params.action === "kill"
+          ? (await getSnapshot(runtime.client)).panes
+          : undefined;
       if (params.commands) {
         return toolResult({
           machine: runtime.machine,
@@ -198,7 +211,10 @@ export function createAgentsTool(
         });
       }
       if (params.action === "kill") {
-        const outcome = await runtime.client.closeTerminal(panel);
+        const outcome = await runtime.client.closeTerminal(
+          panel,
+          terminals?.find((pane) => pane.pane_id === panel.pane_id)?.terminal_id
+        );
         // The pane is gone either way, so a missing local id must not fail the
         // kill. Supervision only gates a later resume of this dead pane.
         try {
@@ -214,11 +230,14 @@ export function createAgentsTool(
         }
         // A peer parent would otherwise keep waiting on a dead worker. Own work
         // is told by this session's own supervision, so the notice is skipped.
-        await notifyKilledParent(fleet, ctx, panel, {
+        const notice = await notifyKilledParent(fleet, ctx, panel, {
           machine: runtime.machine,
           childName: owned?.panel.name,
-        }).catch(() => false);
-        return toolResult(killedResult(outcome, runtime.machine, panel));
+          ...(terminals ? { panes: terminals } : {}),
+        }).catch((): NoticeOutcome => "failed");
+        return toolResult(
+          killedResult(outcome, runtime.machine, panel, notice)
+        );
       }
       if (params.action === "attach" || params.action === "detach") {
         return toolResult(

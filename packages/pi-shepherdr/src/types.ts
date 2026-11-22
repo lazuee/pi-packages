@@ -72,6 +72,8 @@ interface AgentSessionInfo {
 }
 
 export interface PaneInfo {
+  /** Parent session file, when this session was spawned by another agent. */
+  ancestry?: string;
   agent?: string | null;
   worker?: true;
   agent_session?: AgentSessionInfo | null;

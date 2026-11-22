@@ -74,8 +74,8 @@ export async function agentsHelp(
         ? "send/assign to owned closed worker→resume saved session+reporting unless unwatched; /quit never resumes"
         : "Sending or assigning to an owned closed worker resumes its saved session and reporting unless unwatched; /quit never resumes",
       kill: gpt
-        ? "Ends target terminal, then record; refuses if target=this session. Finished→remove only, killed:false"
-        : "Ends the target terminal and then its record; refuses the session you call from. A finished agent is only removed, reported as killed:false",
+        ? "Ends target terminal, then record; refuses target=this session. Already exited→ended, no kill. Outranks a wait: told to stop, not sent"
+        : "Ends the target terminal and then its record; refuses the session you call from. A program that already exited is only removed and reports no kill. A blocking wait on it is told the worker is gone instead of being left to settle",
       label: "Short Pi session name; app tabs use default names",
       placement:
         "new_workspace (default) shows it in the app sidebar; new_tab needs a space ID; terminal is the bare opt-out",

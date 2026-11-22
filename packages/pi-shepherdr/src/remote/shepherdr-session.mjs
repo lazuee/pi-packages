@@ -13,6 +13,9 @@ function record(value) {
 }
 
 const READ_CHUNK_BYTES = 64 * 1024;
+/** Bytes of a session head searched for its ancestry; a resume can push that
+ * entry past a compaction summary, so the head is more than one chunk. */
+const ANCESTRY_HEAD_BYTES = 256 * 1024;
 /** @typedef {{leaf:string|undefined,entries:Record<string,unknown>[],result:import("../types.js").SessionView}} ViewSummary */
 /** @type {Map<string,{mtimeMs:number,ctimeMs:number,ino:number,dev:number,size:number,digest:string,terminated:boolean,summary:ViewSummary}>} */
 const sessionCache = new Map();
@@ -459,6 +462,10 @@ export async function readSessionHeader(path) {
  *
  * The ancestry entry is a shepherdr one, so the shared saved-session reader (which
  * keeps only notes entries) drops it. Reading the head directly keeps it.
+ *
+ * The window is a quarter of the byte cap, so a session resumed from a
+ * compaction — the case a kill is most often used on — still reaches an
+ * ancestry entry written after that compaction's summary.
  * @param {string} path
  */
 export async function readSessionAncestry(path) {
@@ -469,7 +476,7 @@ export async function readSessionAncestry(path) {
     );
   });
   try {
-    const bytes = Buffer.alloc(64 * 1024);
+    const bytes = Buffer.alloc(ANCESTRY_HEAD_BYTES);
     let size = 0;
     while (size < bytes.length) {
       const read = await file.read(bytes, size, bytes.length - size, size);

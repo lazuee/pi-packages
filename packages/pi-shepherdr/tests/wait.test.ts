@@ -19,7 +19,7 @@ import { readSessionAncestry } from "../src/remote/shepherdr-session.mjs";
 import { SettlementDelivery } from "../src/settlement/delivery.js";
 import type { Waiter } from "../src/settlement/delivery.js";
 import { setChildSupervision } from "../src/spawn-ownership.js";
-import type { ExtensionReply } from "../src/types.js";
+import type { ExtensionReply, PaneInfo } from "../src/types.js";
 
 const attempt = { attemptId: "a1", terminalId: "t1" };
 const signal = () => new AbortController().signal;
@@ -236,7 +236,7 @@ describe("kill notice", () => {
         panel,
         { machine: "local", childName: "worker" }
       )
-    ).toBe(true);
+    ).toBe("sent");
     expect(sent).toHaveLength(1);
     expect((sent[0] as { message: { text: string } }).message.text).toContain(
       "was killed by another session"
@@ -252,7 +252,7 @@ describe("kill notice", () => {
         panel,
         { machine: "local" }
       )
-    ).toBe(false);
+    ).toBe("skipped");
     expect(sent).toHaveLength(0);
   });
 
@@ -267,7 +267,7 @@ describe("kill notice", () => {
           machine: "local",
         }
       )
-    ).toBe(false);
+    ).toBe("skipped");
     expect(sent).toHaveLength(0);
   });
 
@@ -280,8 +280,27 @@ describe("kill notice", () => {
         { pane_id: "tK", terminal_id: "tK" } as never,
         { machine: "local" }
       )
-    ).toBe(false);
+    ).toBe("skipped");
     expect(sent).toHaveLength(0);
+  });
+
+  test("a parent that cannot be reached is reported, not hidden", async () => {
+    const unreachable = {
+      ...(fleet([], "/tmp/parent.jsonl") as never as object),
+      connected: () => ({
+        client: {
+          sessionAncestry: async () => "/tmp/parent.jsonl",
+          sendMessage: async () => {
+            throw new Error("receiver unavailable");
+          },
+        },
+      }),
+    } as never;
+    expect(
+      await notifyKilledParent(unreachable, ctx("/tmp/killer.jsonl"), panel, {
+        machine: "local",
+      })
+    ).toBe("failed");
   });
 });
 
@@ -289,7 +308,7 @@ describe("kill result", () => {
   const panel = { pane_id: "p" } as never;
 
   test("a live kill reports killed", () => {
-    expect(killedResult("killed", "local", panel)).toEqual({
+    expect(killedResult("killed", "local", panel, "sent")).toEqual({
       killed: true,
       outcome: "killed",
       machine: "local",
@@ -297,10 +316,17 @@ describe("kill result", () => {
     });
   });
 
-  test("a remove-only outcome does not claim a kill", () => {
-    expect(killedResult("removed", "local", panel)).toMatchObject({
+  test("a program that had already exited never claims a kill", () => {
+    expect(killedResult("ended", "local", panel, "skipped")).toMatchObject({
       killed: false,
-      outcome: "removed",
+      outcome: "ended",
+    });
+  });
+
+  test("an undelivered parent notice is named", () => {
+    expect(killedResult("killed", "local", panel, "failed")).toMatchObject({
+      notice: "failed",
+      next: "Tell its parent the worker is gone",
     });
   });
 });
@@ -331,7 +357,8 @@ describe("remote reply normalisation", () => {
 
 describe("closeTerminal", () => {
   /** A Core that records calls; closeTerminal only touches request(). */
-  const fakeCore = (state: string) => {
+  /** `labels` is what the program leaves behind; a released pane has none. */
+  const fakeCore = (state: string, address = "t1", labelled = false) => {
     const calls: string[] = [];
     const connection = Object.create(CoreConnection.prototype) as {
       core: { request: (method: string) => Promise<unknown> };
@@ -340,13 +367,28 @@ describe("closeTerminal", () => {
       request: async (method: string) => {
         calls.push(method);
         return method === "terminal.get"
-          ? { address: "t1", state }
-          : { address: "t1" };
+          ? {
+              address,
+              state,
+              labels: labelled ? { "pi.session_file": "/tmp/s.jsonl" } : {},
+              status: { app: "pi", state: "idle" },
+            }
+          : { address };
       },
     };
     return { calls, connection: connection as unknown as CoreConnection };
   };
   const panel = { pane_id: "p", terminal_id: "t1" } as never;
+  /** What a live program's pane carries; `panel` is the bare exited shape. */
+  const livePanel = {
+    pane_id: "p",
+    terminal_id: "t1",
+    agent: "pi",
+    agent_status: "idle",
+    interactive_ready: true,
+    launch_pending: false,
+    name: "w",
+  } as never;
 
   test("a live terminal is killed, then removed", async () => {
     const { calls, connection } = fakeCore("live");
@@ -354,10 +396,45 @@ describe("closeTerminal", () => {
     expect(calls).toEqual(["terminal.get", "terminal.kill", "terminal.rm"]);
   });
 
-  test("a finished terminal is only removed", async () => {
-    const { calls, connection } = fakeCore("finished");
-    expect(await connection.closeTerminal(panel)).toBe("removed");
+  test("a finished terminal whose labels outlived it is not killed", async () => {
+    const { calls, connection } = fakeCore("finished", "t1", true);
+    expect(await connection.closeTerminal(livePanel)).toBe("ended");
     expect(calls).toEqual(["terminal.get", "terminal.rm"]);
+  });
+
+  test("a live terminal is killed whatever the caller's panel says", async () => {
+    const { calls, connection } = fakeCore("live");
+    // The state decides, not the caller's panel, which can be stale either way.
+    expect(await connection.closeTerminal(panel)).toBe("killed");
+    expect(await connection.closeTerminal(livePanel)).toBe("killed");
+    expect(calls).toEqual([
+      "terminal.get",
+      "terminal.kill",
+      "terminal.rm",
+      "terminal.get",
+      "terminal.kill",
+      "terminal.rm",
+    ]);
+  });
+
+  test("a program that already exited is only removed, never reported killed", async () => {
+    const { calls, connection } = fakeCore("finished", "t1", true);
+    // A finished program keeps its diff and even its labels; only `state` says
+    // no kill happened.
+    expect(await connection.closeTerminal(livePanel)).toBe("ended");
+    expect(await connection.closeTerminal(panel)).toBe("ended");
+    expect(calls).toEqual([
+      "terminal.get",
+      "terminal.rm",
+      "terminal.get",
+      "terminal.rm",
+    ]);
+  });
+
+  test("a remapped address is read from the caller's terminal", async () => {
+    const { calls, connection } = fakeCore("live", "t2");
+    expect(await connection.closeTerminal(panel, "t2")).toBe("killed");
+    expect(calls).toEqual(["terminal.get", "terminal.kill", "terminal.rm"]);
   });
 
   test("an unknown state is refused before anything is removed", async () => {
@@ -999,5 +1076,39 @@ describe("blocked note", () => {
     delivery.note("a1", "stopped on a question; collecting it for up to 30s");
     expect(notes[0]).toContain("collecting");
     expect(notes[0]).not.toContain("timeout");
+  });
+});
+
+describe("session ancestry depth", () => {
+  const entry = `${JSON.stringify({
+    type: "custom",
+    customType: "herdr-spawn-ancestry-v1",
+    data: { parent: { sessionFile: "/tmp/p" } },
+  })}\n`;
+  const filler = (count: number) =>
+    Array.from(
+      { length: count },
+      (_, index) =>
+        `${JSON.stringify({ type: "message", text: "x".repeat(1024), index })}\n`
+    ).join("");
+
+  const read = async (body: string) => {
+    const path = join(tmpdir(), `anc-${randomUUID()}.jsonl`);
+    writeFileSync(path, body);
+    return readSessionAncestry(path);
+  };
+
+  test("a resumed session's ancestry past the old 64 KiB head is found", async () => {
+    // A resume writes a compaction summary ahead of the ancestry entry.
+    expect(await read(`${filler(70)}${entry}{"type":"message"}\n`)).toBe(
+      "/tmp/p"
+    );
+  });
+
+  test("the whole window answers, not just its first chunk", async () => {
+    // 230 x ~1060 bytes sits inside the 256 KiB window, past every 64 KiB chunk.
+    expect(await read(`${filler(230)}${entry}`)).toBe("/tmp/p");
+    // 250 x ~1060 exceeds it; the boundary is honest rather than silent sooner.
+    expect(await read(`${filler(250)}${entry}`)).toBeUndefined();
   });
 });

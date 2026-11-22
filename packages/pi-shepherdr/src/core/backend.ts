@@ -235,22 +235,32 @@ export class CoreConnection {
    * Ends a terminal for good: kills it when live, then removes the record.
    * An unknown state is refused rather than guessed, so a still-running agent is
    * never orphaned behind a removed entry.
+   *
+   * The outcome names what this call did. Core's `live` state is the only proof
+   * a kill happened: a finished program keeps its diff but loses its status and
+   * session label, and `paneAlive` can only read those off a live record.
+   *
+   * A finished program can have its address remapped while the pane keeps its
+   * id, so the caller's fresh terminal wins when one is supplied.
    */
-  async closeTerminal(panel: PaneInfo): Promise<"killed" | "removed"> {
+  async closeTerminal(
+    panel: PaneInfo,
+    terminal = panel.terminal_id
+  ): Promise<"killed" | "ended"> {
     const record = object(
-      await this.core.request("terminal.get", { terminal: panel.terminal_id })
+      await this.core.request("terminal.get", { terminal })
     );
     const { address, state } = record;
-    if (address !== panel.terminal_id)
+    if (address !== terminal)
       throw new Error("Target pane changed; resolve it again");
     if (state !== "live" && state !== "finished")
       throw new Error(
         `Terminal state is unknown (${String(state)}); inspect the target before closing`
       );
     if (state === "live")
-      await this.core.request("terminal.kill", { terminal: panel.terminal_id });
-    await this.core.request("terminal.rm", { terminal: panel.terminal_id });
-    return state === "live" ? "killed" : "removed";
+      await this.core.request("terminal.kill", { terminal });
+    await this.core.request("terminal.rm", { terminal });
+    return state === "live" ? "killed" : "ended";
   }
   async commands(agent: PaneInfo) {
     if (this.core instanceof RemoteCoreEndpoint)
