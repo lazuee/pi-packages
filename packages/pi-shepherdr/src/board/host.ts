@@ -20,6 +20,7 @@ import {
   saveBinding,
   saveChild,
 } from "./records.js";
+import type { BoardBinding } from "./records.js";
 
 /** Private fleet adapter: spawning and attachment policy never enters the shared engine. */
 export class AgentBoard {
@@ -123,10 +124,18 @@ export class AgentBoard {
   requireAvailable() {
     this.owner();
   }
-  enabled(ctx: ExtensionContext | undefined) {
-    return this.runtime?.enabled(ctx) ?? false;
+  /**
+   * Whether this session receives boards. A child inherits that from its
+   * upstream rather than its own setting, so the owner's answer alone misses an
+   * inherited board; the saved binding is what knows.
+   */
+  enabled(ctx: ExtensionContext | undefined): boolean {
+    if (!ctx || !this.runtime) return false;
+    return Boolean(
+      binding(ctx).upstream || this.runtime.enabled(ctx) || binding(ctx).enabled
+    );
   }
-  binding(ctx: ExtensionContext) {
+  binding(ctx: ExtensionContext): BoardBinding {
     const own = binding(ctx);
     // Configuration/defaults belong to the loaded owner, not this protocol reader.
     return own.upstream ? own : { ...own, enabled: this.enabled(ctx) };
