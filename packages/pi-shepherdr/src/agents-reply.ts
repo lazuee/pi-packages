@@ -45,7 +45,7 @@ export async function replyAgent(
     signal,
     onUpdate,
     send,
-    { replyingTo: reply }
+    { replyingTo: reply, describeWait: (note) => `Reply ${note}` }
   );
   return toolResult(
     {

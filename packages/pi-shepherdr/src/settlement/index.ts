@@ -22,18 +22,16 @@ import type {
 import { blockedSettlement, SettlementCollector } from "./collector.js";
 import type { CollectedSettlementWithSession } from "./collector.js";
 import { SettlementDelivery } from "./delivery.js";
+import type { Waiter } from "./delivery.js";
 
 export { SettlementCollector } from "./collector.js";
-export type { ClaimedSettlement } from "./delivery.js";
+export type { ClaimedSettlement, Waiter } from "./delivery.js";
 
 /** A blocked result stopped being collectable; the report itself is lost. */
-export class SettlementTimeoutError extends Error {
-  readonly detail?: string;
-
-  constructor(detail?: string) {
-    super(detail ?? "the blocked result was not collected");
-    this.name = "SettlementTimeoutError";
-    this.detail = detail;
+export class SettlementLostError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SettlementLostError";
   }
 }
 
@@ -79,8 +77,6 @@ export interface SettlementRequest {
    * status tick ahead of the write.
    */
   requireTurn?: boolean;
-  /** Reports that the blocked result is still being collected. */
-  onStall?: (window: string) => void;
   record: MonitoredAgent;
   requireNewReply?: boolean;
   status: SettledAgentStatus;
@@ -150,14 +146,10 @@ export class SettlementReporter {
     attempt: WorkAttempt,
     signal: AbortSignal,
     replyingTo?: ExtensionReply,
-    onStall?: (window: string) => void
+    wait?: Waiter
   ) {
-    const pending = this.delivery.claim(attempt, signal, replyingTo);
-    if (pending && onStall) this.stalls.set(attempt.attemptId, onStall);
-    return pending;
+    return this.delivery.claim(attempt, signal, replyingTo, wait);
   }
-  /** Registered at claim time so a stalled first pass can be reported. */
-  private readonly stalls = new Map<string, (window: string) => void>();
   /** Marks a live claim as a tool wait, which must see its own turn. */
   requireTurn(attemptId: string | undefined): void {
     if (attemptId) this.turns.add(attemptId);
@@ -165,7 +157,6 @@ export class SettlementReporter {
   private readonly turns = new Set<string>();
   retireAttempt(attemptId: string | undefined): void {
     this.turns.delete(attemptId ?? "");
-    this.stalls.delete(attemptId ?? "");
     // No waiter survives a retired attempt; a later result goes to the controller.
     if (attemptId)
       this.delivery.releaseAttempt(
@@ -177,7 +168,6 @@ export class SettlementReporter {
     this.delivery.observeReply(attempt, reply);
   }
   releaseClaim(attempt: WorkAttempt | undefined, error: unknown) {
-    this.stalls.delete(attempt?.attemptId ?? "");
     this.turns.delete(attempt?.attemptId ?? "");
     this.delivery.releaseClaim(attempt, error);
   }
@@ -237,13 +227,14 @@ export class SettlementReporter {
     this.reporting.set(key, request.status);
     if (retryState.attemptId && this.turns.has(retryState.attemptId))
       request = { ...request, requireTurn: true };
-    const onStall =
-      request.onStall ?? this.stalls.get(retryState.attemptId ?? "");
     const retryRequest = task ? { ...request, task } : request;
-    // A pending blocked report supersedes the visible attempt; a stall in the
-    // first pass would otherwise leave the caller silent until the window ends.
-    if (retryState.count === 0 && request.status === "blocked" && onStall)
-      onStall(`${SETTLEMENT_RETRY_WINDOW_SECONDS}s`);
+    // A pending blocked report supersedes the visible attempt; without a note
+    // here the caller would sit silent until the retry window ran out.
+    if (retryState.count === 0 && request.status === "blocked")
+      this.delivery.note(
+        retryState.attemptId,
+        `stopped on a question; collecting it for up to ${SETTLEMENT_RETRY_WINDOW_SECONDS}s`
+      );
     // Later passes carry the live record: its settled activity no longer holds
     // the attempt id, so a retry must not be re-stamped with a stale task.
     const retryLive = (reason: string, record: MonitoredAgent) => ({
@@ -280,7 +271,6 @@ export class SettlementReporter {
           return;
         }
         this.clearRetry(request.record.terminalId, retryState.attemptId);
-        this.stalls.delete(retryState.attemptId ?? "");
         this.delivery.deliverSettlement(
           lifecycle,
           request.record,
@@ -396,7 +386,6 @@ export class SettlementReporter {
         this.clearRetry(current.terminalId, retryState.attemptId);
         this.failedAttempts.delete(current.terminalId);
         this.persist();
-        this.stalls.delete(retryState.attemptId ?? "");
         this.delivery.deliverSettlement(
           lifecycle,
           current,
@@ -422,7 +411,6 @@ export class SettlementReporter {
           ) {
             this.persist();
           }
-          this.stalls.delete(retryState.attemptId ?? "");
           this.delivery.deliverSettlement(
             lifecycle,
             currentOwnsAttempt ? current : request.record,
@@ -548,10 +536,7 @@ export class SettlementReporter {
       reason
     } after ${SETTLEMENT_RETRY_WINDOW_SECONDS} seconds`;
     if (attemptId)
-      this.delivery.releaseAttempt(
-        attemptId,
-        new SettlementTimeoutError(message)
-      );
+      this.delivery.releaseAttempt(attemptId, new SettlementLostError(message));
     if (
       this.failedAttempts.has(record.terminalId) &&
       this.failedAttempts.get(record.terminalId) === attemptId

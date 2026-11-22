@@ -132,6 +132,8 @@ export async function dispatchAgentWork(
   options: {
     expectUserMessage?: boolean;
     replyingTo?: ExtensionReply;
+    /** Turns a plain note into the caller's wording for the waiting line. */
+    describeWait?: (note: string) => string;
   } = {}
 ): Promise<{
   settlement?: ClaimedSettlement;
@@ -150,6 +152,7 @@ export async function dispatchAgentWork(
   let settlement: Promise<ClaimedSettlement> | undefined;
   let receipt: PeerDelivery | void;
   let sendStarted = false;
+  const label = panel.name ?? panel.pane_id;
   try {
     await runtime.monitor.track(panel);
     const baseline = options.expectUserMessage
@@ -161,8 +164,19 @@ export async function dispatchAgentWork(
       options.expectUserMessage ? (baseline?.input?.id ?? null) : undefined
     );
     if (!attempt) throw new Error(`${panel.pane_id} is not monitored`);
+    const describe = options.describeWait;
+    const waiter = describe
+      ? {
+          note: (note: string) =>
+            reportProgress(onUpdate, describe(note), {
+              machine: runtime.machine,
+              target: panel.pane_id,
+              status: "working",
+            }),
+        }
+      : undefined;
     settlement = blocking
-      ? runtime.monitor.claimWork(attempt, signal, options.replyingTo)
+      ? runtime.monitor.claimWork(attempt, signal, options.replyingTo, waiter)
       : undefined;
     if (!blocking && options.replyingTo) {
       runtime.monitor.observeReply(attempt, options.replyingTo);
@@ -224,7 +238,7 @@ export async function dispatchAgentWork(
   }
   if (receipt?.command) return { command: true };
   if (!settlement) return {};
-  reportProgress(onUpdate, `Waiting for ${panel.name ?? panel.pane_id}`, {
+  reportProgress(onUpdate, `Waiting for ${label}`, {
     machine: runtime.machine,
     target: panel.pane_id,
     status: "working",

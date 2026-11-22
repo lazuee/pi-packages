@@ -25,9 +25,21 @@ interface SettlementWaiter {
   resolve(settlement: ClaimedSettlement): void;
 }
 
-type SettlementClaim =
-  | { replyingTo: ExtensionReply; waiter?: SettlementWaiter }
-  | { replyingTo?: ExtensionReply; waiter: SettlementWaiter };
+/**
+ * The caller's half of a blocking wait. The layer drives it; the caller decides
+ * how progress is shown, so wording stays out of the settlement path.
+ */
+export interface Waiter {
+  /** Says what the wait is doing, for a caller that can show progress. */
+  note(message: string): void;
+}
+
+interface SettlementClaim {
+  replyingTo?: ExtensionReply;
+  waiter?: SettlementWaiter;
+  /** Only a wait whose caller wants progress carries one. */
+  progress?: Waiter;
+}
 
 /** Claims are per-attempt capabilities; delivery chooses exactly one waiter or controller. */
 export class SettlementDelivery {
@@ -52,8 +64,14 @@ export class SettlementDelivery {
     const claim = this.claims.get(attempt.attemptId);
     this.claims.set(attempt.attemptId, {
       ...(claim?.waiter ? { waiter: claim.waiter } : {}),
+      ...(claim?.progress ? { progress: claim.progress } : {}),
       replyingTo: reply,
     });
+  }
+
+  /** Reports how a live wait is going; silent for a caller without one. */
+  note(attemptId: string | undefined, message: string): void {
+    if (attemptId) this.claims.get(attemptId)?.progress?.note(message);
   }
   stop() {
     for (const claim of this.claims.values()) {
@@ -65,7 +83,8 @@ export class SettlementDelivery {
   claim(
     attempt: WorkAttempt,
     signal: AbortSignal,
-    replyingTo?: ExtensionReply
+    replyingTo?: ExtensionReply,
+    wait?: Waiter
   ): Promise<ClaimedSettlement> | undefined {
     signal.throwIfAborted();
     // Updates share the worker's current settlement, without stealing its waiter.
@@ -86,6 +105,7 @@ export class SettlementDelivery {
       };
       const claim: SettlementClaim = {
         ...(reply ? { replyingTo: reply } : {}),
+        ...(wait ? { progress: wait } : {}),
         waiter: {
           cleanup: () => signal.removeEventListener("abort", abort),
           reject,

@@ -18,6 +18,7 @@ import { SettlementReporter } from "./settlement/index.js";
 import type {
   ClaimedSettlement,
   SettlementRequest,
+  Waiter,
 } from "./settlement/index.js";
 import type {
   ExtensionReply,
@@ -206,9 +207,9 @@ export class AgentMonitor {
     attempt: WorkAttempt,
     signal: AbortSignal,
     replyingTo?: ExtensionReply,
-    onStall?: (window: string) => void
+    wait?: Waiter
   ): Promise<ClaimedSettlement> | undefined {
-    return this.settlements.claim(attempt, signal, replyingTo, onStall);
+    return this.settlements.claim(attempt, signal, replyingTo, wait);
   }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     this.settlements.observeReply(attempt, reply);
@@ -310,16 +311,10 @@ export class AgentMonitor {
         /* empty */
       });
     for (const completion of completions) {
-      const stalled = completion.onStall
-        ? (window: string) =>
-            completion.onStall!(
-              `${completion.record.name ?? completion.record.paneId} stopped on a question; collecting it for up to ${window}. It arrives automatically, so do not resend`
-            )
-        : undefined;
       // A claimed attempt means a tool is still waiting; otherwise publish.
       void (completion.claim
-        ? this.waitReport(completion, completion.onStall ? stalled : undefined)
-        : this.report(completion, stalled));
+        ? this.waitReport(completion)
+        : this.report(completion));
     }
   }
 
@@ -357,10 +352,7 @@ export class AgentMonitor {
     });
   }
 
-  private report(
-    request: SettlementRequest,
-    onStall?: (window: string) => void
-  ): Promise<void> {
+  private report(request: SettlementRequest): Promise<void> {
     const generation = this.activationGeneration;
     const { context } = this;
     if (!context) return Promise.resolve();
@@ -371,7 +363,7 @@ export class AgentMonitor {
         isCurrent: () =>
           generation === this.activationGeneration && context === this.context,
       },
-      onStall ? { ...request, onStall } : request
+      request
     );
   }
 
@@ -380,10 +372,7 @@ export class AgentMonitor {
   }
 
   /** A call that already claimed waits for its own turn to persist. */
-  private waitReport(
-    request: SettlementRequest,
-    onStall?: (window: string) => void
-  ): Promise<void> {
-    return this.report({ ...request, requireTurn: true }, onStall);
+  private waitReport(request: SettlementRequest): Promise<void> {
+    return this.report({ ...request, requireTurn: true });
   }
 }

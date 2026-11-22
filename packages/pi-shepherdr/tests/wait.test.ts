@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-
-import { parseAgentsRequest, requestedWaitMs } from "../src/agents-contract.js";
+import { parseAgentsRequest } from "../src/agents-contract.js";
 import { dispatchAgentWork } from "../src/agents-work.js";
 import { MonitorState } from "../src/monitor-state.js";
 import { SettlementDelivery } from "../src/settlement/delivery.js";
+import type { Waiter } from "../src/settlement/delivery.js";
+import type { ExtensionReply } from "../src/types.js";
 
 const attempt = { attemptId: "a1", terminalId: "t1" };
 const signal = () => new AbortController().signal;
@@ -48,64 +49,18 @@ const settlement = {
 } as never;
 
 describe("wait contract", () => {
-  test("timeout_ms is accepted only with a blocking call", () => {
+  test("blocking is the only wait control", () => {
     expect(
       parseAgentsRequest({
         action: "assign",
         target: "p",
         message: "m",
         blocking: true,
-        timeout_ms: 5,
-      }).timeout_ms
-    ).toBe(5);
-    expect(
-      parseAgentsRequest({
-        action: "spawn",
-        agent_type: "general",
-        label: "l",
-        message: "m",
-        timeout_ms: 5,
-      }).timeout_ms
-    ).toBe(5);
-    expect(
-      parseAgentsRequest({
-        action: "reply",
-        target: "p",
-        extension: "e",
-        id: "1",
-        message: "m",
-        timeout_ms: 5,
-      }).timeout_ms
-    ).toBe(5);
+      }).blocking
+    ).toBe(true);
     expect(() =>
-      parseAgentsRequest({
-        action: "send",
-        target: "p",
-        message: "m",
-        timeout_ms: 5,
-      })
-    ).toThrow("timeout_ms");
-    expect(() =>
-      parseAgentsRequest({ action: "read", target: "p", timeout_ms: 5 })
-    ).toThrow("timeout_ms");
-    expect(() =>
-      parseAgentsRequest({
-        action: "assign",
-        target: "p",
-        message: "m",
-        timeout_ms: 0,
-      })
-    ).toThrow("timeout_ms");
-    expect(() =>
-      parseAgentsRequest({
-        action: "assign",
-        target: "p",
-        message: "m",
-        timeout_ms: 1.5,
-      })
-    ).toThrow("timeout_ms");
-    expect(requestedWaitMs({ action: "assign", timeout_ms: 250 })).toBe(250);
-    expect(requestedWaitMs({ action: "assign" })).toBeUndefined();
+      parseAgentsRequest({ action: "send", target: "p", message: "m" })
+    ).not.toThrow();
   });
 });
 
@@ -176,6 +131,33 @@ describe("claim", () => {
     );
     expect((await pending).status).toBe("done");
   });
+
+  test("a note survives observeReply", async () => {
+    const { delivery } = await loadDelivery();
+    const notes: string[] = [];
+    const pending = delivery.claim(attempt, signal(), undefined, {
+      note: (message) => notes.push(message),
+    })!;
+    delivery.observeReply(attempt, { id: "e1", extension: "ask" } as never);
+    delivery.note("a1", "still collecting");
+    expect(notes).toEqual(["still collecting"]);
+    delivery.deliverSettlement(
+      null as never,
+      record("a1"),
+      settlement,
+      "a1",
+      undefined,
+      undefined
+    );
+    expect((await pending).status).toBe("done");
+  });
+
+  test("a note without a waiter is silent", async () => {
+    const { delivery } = await loadDelivery();
+    delivery.claim(attempt, signal());
+    expect(() => delivery.note("a1", "nobody listens")).not.toThrow();
+    expect(() => delivery.note("missing", "no claim")).not.toThrow();
+  });
 });
 
 describe("baseline", () => {
@@ -205,7 +187,7 @@ describe("baseline", () => {
 
 /** Minimal monitor/doc surface for dispatch; the real one needs a Core session. */
 function fakeMonitor(state: MonitorState) {
-  const claims: { attemptId: string }[] = [];
+  const claims: { attemptId: string; waiter?: Waiter }[] = [];
   const monitor = {
     claims,
     list: () => state.list(),
@@ -215,8 +197,13 @@ function fakeMonitor(state: MonitorState) {
       state.beginWork(paneId, task, expected),
     expectUser: (work: never, after: string | null) =>
       state.expectUser(work, after),
-    claimWork: (work: { attemptId: string; terminalId: string }) => {
-      claims.push({ attemptId: work.attemptId });
+    claimWork: (
+      work: { attemptId: string; terminalId: string },
+      _signal: AbortSignal,
+      _reply?: ExtensionReply,
+      waiter?: Waiter
+    ) => {
+      claims.push({ attemptId: work.attemptId, ...(waiter ? { waiter } : {}) });
       // The fake monitor has no reporter behind it, so this never resolves.
       return new Promise<never>(() => undefined);
     },
@@ -257,6 +244,52 @@ describe("dispatch", () => {
     // The wait is still open, so the work itself stays accepted, not settled.
     expect(state.byTerminal("t1")!.activity.phase).toBe("working");
     expect(dispatch).toBeInstanceOf(Promise);
+  });
+
+  test("a note reaches the caller's own wording", async () => {
+    const state = new MonitorState();
+    const monitor = fakeMonitor(state);
+    const runtime = { machine: "local", monitor } as never;
+    const panel = { pane_id: "p", terminal_id: "t1" } as never;
+    const shown: string[] = [];
+
+    void dispatchAgentWork(
+      runtime,
+      panel,
+      "task",
+      true,
+      signal(),
+      (update) =>
+        shown.push(
+          (update.content?.[0] as { text?: string } | undefined)?.text ?? ""
+        ),
+      async () => undefined,
+      { expectUserMessage: true, describeWait: (note) => `p ${note}` }
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    monitor.claims[0]!.waiter!.note("is collecting");
+    expect(shown.at(-1)).toBe("p is collecting");
+  });
+
+  test("without describeWait the claim carries no waiter", async () => {
+    const state = new MonitorState();
+    const monitor = fakeMonitor(state);
+    const runtime = { machine: "local", monitor } as never;
+    const panel = { pane_id: "p", terminal_id: "t1" } as never;
+
+    void dispatchAgentWork(
+      runtime,
+      panel,
+      "task",
+      true,
+      signal(),
+      () => undefined,
+      async () => undefined
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(monitor.claims[0]!.waiter).toBeUndefined();
   });
 });
 
@@ -497,5 +530,45 @@ describe("stall reason", () => {
     const { turnReason } = await import("../src/settlement/index.js");
     expect(turnReason({ toolHead: true })).toContain("still running");
     expect(turnReason({})).toContain("not persisted");
+  });
+});
+
+describe("blocked note", () => {
+  const reporter = async () => {
+    const { SettlementReporter } = await import("../src/settlement/index.js");
+    return new SettlementReporter(
+      {} as never,
+      {} as never,
+      new MonitorState(),
+      () => undefined,
+      {} as never,
+      { machine: "local", label: () => "local", operatorPrefix: "hc" },
+      async () => undefined
+    );
+  };
+
+  test("a claimed wait is the one a note reaches", async () => {
+    const instance = await reporter();
+    const notes: string[] = [];
+    instance.claim(attempt, signal(), undefined, {
+      note: (message) => notes.push(message),
+    });
+    const { delivery } = instance as unknown as {
+      delivery: { note: (id: string, message: string) => void };
+    };
+    delivery.note("a1", "stopped on a question; collecting it for up to 30s");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toContain("stopped on a question");
+  });
+
+  test("the wording names collection, not a timeout", async () => {
+    const { delivery } = await loadDelivery();
+    const notes: string[] = [];
+    delivery.claim(attempt, signal(), undefined, {
+      note: (message) => notes.push(message),
+    });
+    delivery.note("a1", "stopped on a question; collecting it for up to 30s");
+    expect(notes[0]).toContain("collecting");
+    expect(notes[0]).not.toContain("timeout");
   });
 });

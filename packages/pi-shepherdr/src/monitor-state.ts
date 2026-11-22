@@ -21,8 +21,6 @@ export interface WorkAttempt {
 interface CompletionCandidate {
   /** A tool still waits on this attempt. */
   claim?: boolean;
-  /** Set for a blocked completion; the monitor owns the wording. */
-  onStall?: (window: string) => void;
   record: MonitoredAgent;
   requireNewReply: boolean;
   status: SettledAgentStatus;
@@ -322,7 +320,6 @@ export class MonitorState {
         };
         completion = {
           claim: true,
-          onStall: () => undefined,
           requireNewReply: false,
           status: panel.agent_status,
         };
