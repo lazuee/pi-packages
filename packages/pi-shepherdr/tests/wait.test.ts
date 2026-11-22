@@ -15,9 +15,11 @@ import { startCoreAgent } from "../src/core/spawn.js";
 import { AgentFleet } from "../src/fleet/index.js";
 import { notifyKilledParent } from "../src/kill-notice.js";
 import { MonitorState } from "../src/monitor-state.js";
+
 import { readSessionAncestry } from "../src/remote/shepherdr-session.mjs";
 import { SettlementDelivery } from "../src/settlement/delivery.js";
 import type { Waiter } from "../src/settlement/delivery.js";
+
 import { setChildSupervision } from "../src/spawn-ownership.js";
 import type { ExtensionReply, PaneInfo } from "../src/types.js";
 
@@ -1079,6 +1081,7 @@ describe("blocked note", () => {
   });
 });
 
+
 describe("session ancestry depth", () => {
   const entry = `${JSON.stringify({
     type: "custom",
@@ -1112,3 +1115,147 @@ describe("session ancestry depth", () => {
     expect(await read(`${filler(250)}${entry}`)).toBeUndefined();
   });
 });
+
+describe("reconcile closure", () => {
+  /** A live pane at full status; Core keeps status and label after a program exits. */
+  const live = (
+    paneId: string,
+    terminalId: string,
+    over: Partial<PaneInfo> = {}
+  ) =>
+    ({
+      pane_id: paneId,
+      terminal_id: terminalId,
+      agent: "pi",
+      agent_status: "idle",
+      interactive_ready: true,
+      launch_pending: false,
+      name: "worker",
+      ...over,
+    }) as PaneInfo;
+  const settled = (paneId: string, terminalId: string) => ({
+    scope: "persistent",
+    activity: { phase: "settled", status: "idle" },
+    paneId,
+    terminalId,
+    name: "worker",
+  });
+  const snapshot = (panes: PaneInfo[], agents: PaneInfo[] = panes) => ({
+    panes,
+    agents,
+    tabs: [],
+    workspaces: [],
+  });
+
+  test("a terminal id that moved is adopted instead of pinned", () => {
+    const state = new MonitorState();
+    state.restore([settled("p1", "t1")]);
+    state.reconcile(snapshot([live("p1", "t2")]), undefined);
+    expect(state.list().map((record) => record.terminalId)).toEqual(["t2"]);
+  });
+
+  test("one unresolved record does not pin another record's migration", () => {
+    const state = new MonitorState();
+    state.restore([settled("p1", "t1"), settled("p2", "t2")]);
+    // p1's agent entry is missing, so its record cannot resolve on this pass.
+    state.reconcile(
+      snapshot([live("p1", "t1"), live("p2", "t2")], [live("p2", "t2")]),
+      undefined
+    );
+    expect(state.list().map((record) => record.terminalId)).toEqual([
+      "t1",
+      "t2",
+    ]);
+    state.reconcile(snapshot([live("p1", "t1"), live("p2", "t3")]), undefined);
+    expect(
+      state
+        .list()
+        .map((record) => record.terminalId)
+        .toSorted()
+    ).toEqual(["t1", "t3"]);
+  });
+
+  test("an exited program is gone though its status survived", () => {
+    const state = new MonitorState();
+    state.restore([
+      {
+        scope: "persistent",
+        activity: { phase: "working", attemptId: "a1", task: "w" },
+        paneId: "p1",
+        terminalId: "t1",
+      },
+    ]);
+    // Status still says working; the label is gone and it is not interactive.
+    const result = state.reconcile(
+      snapshot([
+        live("p1", "t1", {
+          agent_status: "working",
+          name: null,
+          interactive_ready: false,
+          launch_pending: true,
+        }),
+      ]),
+      undefined
+    );
+    expect(result.removed.map((record) => record.terminalId)).toEqual(["t1"]);
+    expect(state.list()).toEqual([]);
+  });
+
+  test("a cleared foreground keeps the recorded directory", () => {
+    const state = new MonitorState();
+    state.restore([{ ...settled("p1", "t1"), cwd: "/work" }]);
+    // The pane loses its foreground without the record losing the directory.
+    state.reconcile(
+      snapshot([live("p1", "t1", { cwd: undefined })]),
+      undefined
+    );
+    expect(state.byTerminal("t1")?.cwd).toBe("/work");
+    // A new foreground still wins over the recorded one.
+    state.reconcile(snapshot([live("p1", "t1", { cwd: "/next" })]), undefined);
+    expect(state.byTerminal("t1")?.cwd).toBe("/next");
+  });
+
+  test("a live pane with a status nobody recognises stays", () => {
+    // A status Core does not name is still a running program; only the label
+    // going away proves it stopped.
+    const state = new MonitorState();
+    state.restore([settled("p1", "t1")]);
+    const result = state.reconcile(
+      snapshot([live("p1", "t1", { agent_status: "unknown" })]),
+      undefined
+    );
+    expect(result.removed).toEqual([]);
+    expect(state.list().map((record) => record.terminalId)).toEqual(["t1"]);
+  });
+
+  test("a bare pane, a settled status and a live label all stay", () => {
+    const state = new MonitorState();
+    state.restore([settled("p1", "t1")]);
+    expect(
+      state.reconcile(snapshot([live("p1", "t1")], []), undefined).removed
+    ).toEqual([]);
+    expect(
+      state.reconcile(snapshot([live("p1", "t1")]), undefined).removed
+    ).toEqual([]);
+    expect(state.list().map((record) => record.terminalId)).toEqual(["t1"]);
+  });
+
+  test("a working pane still resolves as work, not closure", () => {
+    const state = new MonitorState();
+    state.restore([
+      {
+        scope: "persistent",
+        activity: { phase: "working", attemptId: "a1", task: "w" },
+        paneId: "p1",
+        terminalId: "t1",
+      },
+    ]);
+    const result = state.reconcile(
+      snapshot([live("p1", "t1", { agent_status: "working" })]),
+      undefined
+    );
+    expect(result.removed).toEqual([]);
+    expect(state.byTerminal("t1")?.activity.phase).toBe("working");
+  });
+});
+

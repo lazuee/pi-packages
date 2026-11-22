@@ -63,6 +63,23 @@ export function terminalPane(value: unknown): PaneInfo {
   };
 }
 
+/**
+ * Whether a program is still running in this pane.
+ *
+ * The session label is the only proof: Core keeps a terminal's diff, name and
+ * status after the program exits, and clears the label with it. Because `agent`,
+ * `interactive_ready` and `launch_pending` all derive from that one label they
+ * agree, and the status is only a second opinion — a live program can report a
+ * status no one recognises, which must not read as gone.
+ */
+export function paneAlive(panel: PaneInfo): boolean {
+  return (
+    panel.agent === "pi" &&
+    panel.interactive_ready === true &&
+    panel.launch_pending !== true
+  );
+}
+
 export function terminalSnapshot(value: unknown): SessionSnapshot {
   const { terminals } = object(value);
   if (!Array.isArray(terminals))

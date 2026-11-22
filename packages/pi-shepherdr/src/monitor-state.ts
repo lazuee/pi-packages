@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { activityForPanel, activityTask, isSettledStatus } from "./activity.js";
+import { paneAlive } from "./core/terminal.js";
 import {
   parseMonitoredAgent,
   recordForPanel,
@@ -268,27 +269,26 @@ export class MonitorState {
     const completions: CompletionCandidate[] = [];
     const removed: MonitoredAgent[] = [];
     for (const record of this.list()) {
-      const panel =
-        snapshot.agents.find(
-          (candidate) => candidate.terminal_id === record.terminalId
-        ) ??
-        snapshot.agents.find(
-          (candidate) => candidate.pane_id === record.paneId
-        );
-      if (!panel) {
-        const paneStillExists = snapshot.panes.some(
-          (candidate) =>
-            candidate.terminal_id === record.terminalId ||
-            candidate.pane_id === record.paneId
-        );
-        if (!paneStillExists) {
-          this.agents.delete(record.terminalId);
-          removed.push(record);
-          changed = true;
-        }
+      // `panes` is every live terminal; `agents` only those still running a
+      // program. A finished program keeps its pane and drops out of `agents`.
+      const live = snapshot.panes.find(
+        (candidate) =>
+          candidate.terminal_id === record.terminalId ||
+          candidate.pane_id === record.paneId
+      );
+      // `panes` holds only live terminals, so a closed pane and an exited
+      // program both arrive here as a miss; `paneAlive` is the second opinion
+      // for a live pane that has already lost its program. Unresolved is the
+      // only case that waits, and it is skipped below so a dead sibling cannot
+      // pin this record's terminal id along with it.
+      if (!live || !paneAlive(live)) {
+        this.agents.delete(record.terminalId);
+        removed.push(record);
+        changed = true;
         continue;
       }
-      if (panel.agent !== "pi" || panel.pane_id === controllingPaneId) continue;
+      const panel = live;
+      if (panel.pane_id === controllingPaneId) continue;
 
       let { activity } = record;
       let completion: Omit<CompletionCandidate, "record"> | undefined;
@@ -341,7 +341,7 @@ export class MonitorState {
         activity = { phase: "settled", status: panel.agent_status };
       }
 
-      const updated = {
+      const updated: MonitoredAgent = {
         ...(record.instructions ? { instructions: record.instructions } : {}),
         ...(record.latestInstruction
           ? { latestInstruction: record.latestInstruction }
@@ -353,6 +353,11 @@ export class MonitorState {
           record.lastAssistantId,
           record.notifiedExtensionMessages
         ),
+        // A cleared foreground falls back to the directory the worker started
+        // in; every other field tracks the pane and must not be carried over.
+        ...(panel.foreground_cwd || panel.cwd || !record.cwd
+          ? {}
+          : { cwd: record.cwd }),
       };
       if (!sameMonitorRecord(record, updated)) changed = true;
       if (record.terminalId !== updated.terminalId) {
