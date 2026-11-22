@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { activityStatus } from "./activity.js";
+import { insideHerdr } from "./herdr-host.js";
 import type {
   AgentStatus,
   MachineStatus,
@@ -71,6 +72,11 @@ export function renderAgentWidget(
   machines: MachineStatus[]
 ): void {
   if (!ctx?.hasUI) return;
+  // The app sidebar already lists agents; a footer copy of it is noise.
+  if (insideHerdr()) {
+    ctx.ui.setWidget(WIDGET_ID, undefined);
+    return;
+  }
   // Role comes from the live session, not watch scope or Core ancestry.
   agents = agents.filter((agent) => !agent.worker);
   if (

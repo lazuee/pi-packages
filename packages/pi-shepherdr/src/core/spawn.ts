@@ -18,8 +18,9 @@ export async function startCoreAgent(
   signal?: AbortSignal
 ): Promise<StartedAgent> {
   signal?.throwIfAborted();
+  const { placement } = params;
   const labels: Record<string, string> = {};
-  if (params.placement === "new_tab") {
+  if (placement === "new_tab") {
     const snapshot = terminalSnapshot(
       await client.core.request("terminal.list")
     );
@@ -34,10 +35,10 @@ export async function startCoreAgent(
       );
     labels["herdr.space"] = params.workspace;
     labels["herdr.tab"] = `tb${randomUUID().replaceAll("-", "")}`;
-  } else if (params.placement === "new_workspace") {
+  } else if (placement === "new_workspace") {
     labels["herdr.space"] = `sp${randomUUID().replaceAll("-", "")}`;
     labels["herdr.tab"] = `tb${randomUUID().replaceAll("-", "")}`;
-  } else if (params.placement !== "terminal") {
+  } else if (placement !== "terminal") {
     throw new UnstartedAgentLaunchError(
       "Choose terminal, new_tab or new_workspace placement for Core"
     );

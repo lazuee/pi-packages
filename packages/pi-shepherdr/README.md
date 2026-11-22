@@ -14,13 +14,13 @@ With Pi Codex's compatible custom developer-message API active, asynchronous wor
 pi install npm:@lazuee/pi-packages
 ```
 
-Requires Pi 1.5 or newer, Node.js 22.19 or newer and Herdr Core 0.1.18 or newer. Run Pi in a Core terminal, through `hc` or a Herdr app connected to that Core. Shepherdr reports Pi status to Core and discovers other Pi sessions with Shepherdr installed. No separate Pi integration is needed.
+Requires Pi 1.5 or newer, Node.js 22.19 or newer and Herdr Core 0.1.18 or newer, running inside the Herdr app. The legacy Herdr TUI is unsupported. Started anywhere else it warns on session start and stays inactive: only `/herdr` settings and help work, not delegation. Shepherdr reports Pi status to Core and discovers other Pi sessions with Shepherdr installed. No separate Pi integration is needed.
 
 Do not load Pi Codex's example `agents.toml` custom tool alongside Shepherdr; they own the same agent surface.
 
 Shepherdr installs and runs on its own. Pi Codex, shared Notes and boards are optional. Delegation, supervision, messages, focus and orchestration work without them. Shared Notes and boards both need [Agent Comms](../pi-agent-comms) loaded in every participating session. The standalone Notes Compaction 0.0.15+ and Agent Board 0.0.5+ packages also provide these integrations. Enable each shared feature in every participating session.
 
-Workers start as background Core terminals by default. Use `placement: "new_workspace"` for a new app workspace, or `placement: "new_tab"` with a `workspace` ID advertised by a live terminal on the target Core. A connected Herdr app adopts these terminals. Pane placement is no longer supported. Focus requires a Herdr app window running on the target Core's machine and connected to that Core.
+Each worker starts in its own new space so the sidebar lists it with its live status, including for remote workers. Inside the app the sidebar is the only list; the `herdr peers` footer widget is hidden there and shows only when Pi runs outside it. Detection is the app's bundle id, so it is macOS-only. Use `placement: "new_tab"` with a `workspace` ID advertised by a live terminal on the target Core to join a space instead, or `placement: "terminal"` for a bare terminal with no space. Pane placement is no longer supported. Focus requires a Herdr app window running on the target Core's machine and connected to that Core.
 
 Ordinary workers end when their parent's program exits. Active remote connections also verify Core's parent links and close ordinary children when Core misses cross-machine cleanup. Detached workers remain independent. Restoring a Pi session preserves its saved worker identity. `/root` follows saved spawn ancestry, not shared Notes or Board membership. Older workers without saved ancestry must use exact session references for messages.
 

@@ -75,7 +75,9 @@ export async function spawnAgent(
   const reservation = await reserveAgentName(runtime, label, params.name);
   const { name } = reservation;
   try {
-    const placement = params.placement ?? "terminal";
+    // A space keeps the worker visible in the app sidebar with its status;
+    // It is the only placement the app can show, so it is the default.
+    const placement = params.placement ?? "new_workspace";
     const { workspace } = params;
     const startParams = {
       name,

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,9 +7,12 @@ import { join } from "node:path";
 import { parseAgentsRequest } from "../src/agents-contract.js";
 import { killedResult } from "../src/agents-tool.js";
 import { dispatchAgentWork } from "../src/agents-work.js";
+import { buildPanelItems } from "../src/control-panel/items.js";
 import { resolvePiAgent } from "../src/core/agents.js";
 import { CoreConnection } from "../src/core/backend.js";
 import { RemoteCoreEndpoint } from "../src/core/remote-endpoint.js";
+import { startCoreAgent } from "../src/core/spawn.js";
+import { AgentFleet } from "../src/fleet/index.js";
 import { notifyKilledParent } from "../src/kill-notice.js";
 import { MonitorState } from "../src/monitor-state.js";
 import { readSessionAncestry } from "../src/remote/shepherdr-session.mjs";
@@ -17,6 +20,7 @@ import { SettlementDelivery } from "../src/settlement/delivery.js";
 import type { Waiter } from "../src/settlement/delivery.js";
 import { setChildSupervision } from "../src/spawn-ownership.js";
 import type { ExtensionReply } from "../src/types.js";
+import { renderAgentWidget } from "../src/widget.js";
 
 const attempt = { attemptId: "a1", terminalId: "t1" };
 const signal = () => new AbortController().signal;
@@ -369,6 +373,124 @@ describe("closeTerminal", () => {
       connection.closeTerminal({ pane_id: "p", terminal_id: "t9" } as never)
     ).rejects.toThrow("changed");
     expect(calls).toEqual(["terminal.get"]);
+  });
+});
+
+describe("spawn placement", () => {
+  /** Records the labels sent to terminal.run, then fails the address check. */
+  const run = async (placement = "new_workspace") => {
+    const sent: Record<string, unknown>[] = [];
+    const core = Object.create(RemoteCoreEndpoint.prototype) as never;
+    Object.assign(core, {
+      call: async (input: { op: string }) =>
+        input.op === "pi-executable" ? "/usr/bin/pi" : undefined,
+      request: async (method: string, params: Record<string, unknown>) => {
+        if (method === "terminal.run") sent.push(params);
+        return { address: "invalid" };
+      },
+    });
+    const params = { name: "w", label: "l", placement } as never;
+    await startCoreAgent(
+      { core, remote: {} } as never,
+      params,
+      "/tmp",
+      []
+    ).catch(() => undefined);
+    return (sent[0]?.labels ?? {}) as Record<string, string>;
+  };
+
+  test("a space is the default placement", async () => {
+    expect((await run())["herdr.space"]).toBeString();
+  });
+
+  test("an explicit terminal placement stays bare", async () => {
+    expect((await run("terminal"))["herdr.space"]).toBeUndefined();
+  });
+});
+
+describe("inactive panel", () => {
+  const items = (active: boolean, tab: "Settings" | "Status" | "Connections") =>
+    buildPanelItems(
+      {
+        fleet: { isActive: () => active, statuses: () => [] },
+        orchestration: () => false,
+      } as never,
+      tab,
+      { target: "", name: "", session: "" } as never
+    );
+
+  test("connection tabs are empty without a fleet", () => {
+    expect(items(false, "Status")).toEqual([]);
+    expect(items(false, "Connections")).toEqual([]);
+  });
+
+  test("settings stay available without a fleet", () => {
+    expect(items(false, "Settings").length).toBeGreaterThan(0);
+  });
+});
+
+describe("inactive reason", () => {
+  const fleet = () =>
+    Object.create(AgentFleet.prototype) as { inactiveError(): Error };
+  const bundle = process.env["__CFBundleIdentifier"];
+  const id = process.env["HC_TERMINAL_ID"];
+  afterEach(() => {
+    for (const [key, value] of [
+      ["__CFBundleIdentifier", bundle],
+      ["HC_TERMINAL_ID", id],
+    ] as const) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  test("outside the app names the app, not Core", () => {
+    delete process.env["__CFBundleIdentifier"];
+    delete process.env["HC_TERMINAL_ID"];
+    expect(fleet().inactiveError().message).toContain("inside the Herdr app");
+  });
+
+  test("inside the app without Core names Core", () => {
+    process.env["__CFBundleIdentifier"] = "dev.herdr.app";
+    delete process.env["HC_TERMINAL_ID"];
+    expect(fleet().inactiveError().message).toContain("Herdr Core");
+  });
+});
+
+describe("peers widget", () => {
+  const calls: unknown[] = [];
+  const ctx = () =>
+    ({
+      hasUI: true,
+      ui: {
+        theme: { fg: (_t: string, text: string) => text },
+        setWidget: (id: string, lines: unknown) => calls.push({ id, lines }),
+      },
+    }) as never;
+  const agent = {
+    machine: "local",
+    paneId: "p",
+    name: "w",
+    activity: { phase: "settled", status: "done" },
+  } as never;
+  const bundle = process.env["__CFBundleIdentifier"];
+  afterEach(() => {
+    calls.length = 0;
+    if (bundle === undefined) delete process.env["__CFBundleIdentifier"];
+    else process.env["__CFBundleIdentifier"] = bundle;
+  });
+
+  test("inside the app the widget is cleared", () => {
+    process.env["__CFBundleIdentifier"] = "dev.herdr.app";
+    renderAgentWidget(ctx(), [agent], []);
+    expect(calls).toEqual([{ id: "herdr-agents", lines: undefined }]);
+  });
+
+  test("outside the app an agent is listed", () => {
+    process.env["__CFBundleIdentifier"] = "com.mitchellh.ghostty";
+    renderAgentWidget(ctx(), [agent], []);
+    const [call] = calls as { lines?: string[] }[];
+    expect(call?.lines?.[0]).toContain("herdr peers");
   });
 });
 

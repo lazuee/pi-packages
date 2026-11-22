@@ -141,7 +141,7 @@ export class PanelView {
       "",
       ...wrap(
         this.tab === "Status" && !this.owners.fleet.isActive()
-          ? "Run Pi inside a Core terminal."
+          ? "Run Pi inside the Herdr app; machines and reconnecting need it."
           : ""
       ).filter((line) => line.trim()),
       "",

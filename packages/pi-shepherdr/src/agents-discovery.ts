@@ -78,7 +78,7 @@ export async function agentsHelp(
         : "Ends the target terminal and then its record; refuses the session you call from. A finished agent is only removed, reported as killed:false",
       label: "Short Pi session name; app tabs use default names",
       placement:
-        "terminal (default), new_tab, new_workspace; new_tab needs space ID",
+        "new_workspace (default) shows it in the app sidebar; new_tab needs a space ID; terminal is the bare opt-out",
       ...(boardAvailable
         ? {
             board_thread_id: gpt

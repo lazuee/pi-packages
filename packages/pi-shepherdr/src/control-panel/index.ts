@@ -18,9 +18,7 @@ export function controlPanelStatus(options: PanelOptions): string {
       ),
     ...(options.fleet.isActive()
       ? []
-      : [
-          "Fleet inactive. Run Pi inside a Core terminal; open /herdr → Status to reconnect.",
-        ]),
+      : ["Fleet inactive. Run Pi inside the Herdr app, then reopen /herdr."]),
     "Open /herdr in TUI for Settings, Status and Connections.",
   ].join("\n");
 }

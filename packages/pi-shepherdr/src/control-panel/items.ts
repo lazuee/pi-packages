@@ -17,6 +17,8 @@ export function buildPanelItems(
   tab: PanelTab,
   draft: SshSetupDraft
 ): SettingItem[] {
+  // Without a fleet these actions have nothing to drive; Settings still does.
+  if (!options.fleet.isActive() && tab !== "Settings") return [];
   if (tab === "Connections") {
     return sshSetupItems(draft);
   }
@@ -62,8 +64,9 @@ export function buildPanelItems(
       label: "Prioritize delegation",
       currentValue: options.orchestration() ? "on" : "off",
       values: ["off", "on"],
-      description:
-        "Tell this session’s agent to delegate by default. Does not start workers on its own.",
+      description: options.fleet.isActive()
+        ? "Tell this session’s agent to delegate by default. Does not start workers on its own."
+        : "Tell this session’s agent to delegate by default. Needs the Herdr app; stays inactive without it.",
     },
   ];
 }

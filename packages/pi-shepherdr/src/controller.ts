@@ -15,6 +15,7 @@ import { controlPanelStatus, openControlPanel } from "./control-panel/index.js";
 import { CORE_REQUIRED } from "./core/backend.js";
 import { sendPolicyMessage } from "./delivery.js";
 import type { AgentFleet } from "./fleet/index.js";
+import { HERDR_REQUIRED, insideHerdr } from "./herdr-host.js";
 import {
   activeAgentsBriefing,
   orchestrationGuidance,
@@ -261,6 +262,13 @@ async function activateController(
   fleet: AgentFleet,
   ctx: ExtensionContext
 ): Promise<boolean> {
+  // Checked before Core: outside the app the missing environment is a symptom,
+  // and naming the app is more use than naming Core.
+  if (!insideHerdr()) {
+    fleet.deactivate();
+    ctx.ui.notify(HERDR_REQUIRED, "warning");
+    return false;
+  }
   if (!process.env["HC_TERMINAL_ID"] || !process.env["HC_TERMINAL_SOCKET"]) {
     fleet.deactivate();
     ctx.ui.notify(CORE_REQUIRED, "error");

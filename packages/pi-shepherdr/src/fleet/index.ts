@@ -7,6 +7,7 @@ import { CORE_REQUIRED, CoreConnection } from "../core/backend.js";
 import { CoreClient } from "../core/client.js";
 import { coreMachines } from "../core/machines.js";
 import type { CoreMachine } from "../core/machines.js";
+import { HERDR_REQUIRED, insideHerdr } from "../herdr-host.js";
 import type { AgentMonitor } from "../monitor.js";
 import type {
   MachineStatus,
@@ -200,6 +201,7 @@ export class AgentFleet {
   }
 
   inactiveError(): Error {
+    if (!insideHerdr()) return new Error(HERDR_REQUIRED);
     if (!process.env["HC_TERMINAL_ID"] || !process.env["HC_TERMINAL_SOCKET"])
       return new Error(CORE_REQUIRED);
     return (
@@ -389,7 +391,7 @@ export class AgentFleet {
   private async coreCatalog(): Promise<CoreMachine[]> {
     const socket = process.env["HC_TERMINAL_SOCKET"];
     if (!socket)
-      throw new Error("Run Pi inside a Core terminal to connect Shepherdr");
+      throw new Error("Run Pi inside the Herdr app to connect Shepherdr");
     const client = new CoreClient(socket);
     try {
       return (await coreMachines(client)).filter(
