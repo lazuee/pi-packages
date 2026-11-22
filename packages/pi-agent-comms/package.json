@@ -47,7 +47,7 @@
     "unicode-case-folding": "1.1.2"
   },
   "devDependencies": {
-    "@howaboua/pi-codex-conversion": "5.0.1",
+    "@howaboua/pi-codex-conversion": "5.0.2",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
@@ -57,7 +57,7 @@
     "@earendil-works/pi-ai": ">=1.1.0",
     "@earendil-works/pi-coding-agent": ">=1.5.0",
     "@earendil-works/pi-tui": ">=1.1.0",
-    "@howaboua/pi-codex-conversion": ">=5.0.1"
+    "@howaboua/pi-codex-conversion": ">=5.0.2"
   },
   "peerDependenciesMeta": {
     "@howaboua/pi-codex-conversion": {
