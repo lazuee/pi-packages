@@ -20,7 +20,7 @@ Do not load Pi Codex's example `agents.toml` custom tool alongside Shepherdr; th
 
 Shepherdr installs and runs on its own. Pi Codex, shared Notes and boards are optional. Delegation, supervision, messages, focus and orchestration work without them. Shared Notes and boards both need [Agent Comms](../pi-agent-comms) loaded in every participating session. The standalone Notes Compaction 0.0.15+ and Agent Board 0.0.5+ packages also provide these integrations. Enable each shared feature in every participating session.
 
-Each worker starts in its own new space so the sidebar lists it with its live status, including for remote workers. Inside the app the sidebar is the only list; the `herdr peers` footer widget is hidden there and shows only when Pi runs outside it. Detection is the app's bundle id, so it is macOS-only. Use `placement: "new_tab"` with a `workspace` ID advertised by a live terminal on the target Core to join a space instead, or `placement: "terminal"` for a bare terminal with no space. Pane placement is no longer supported. Focus requires a Herdr app window running on the target Core's machine and connected to that Core.
+Each worker starts in its own new space so the sidebar lists it with its live status, including for remote workers. The sidebar is the only list; there is no footer widget. Detection is the app's bundle id, so it is macOS-only. Use `placement: "new_tab"` with a `workspace` ID advertised by a live terminal on the target Core to join a space instead, or `placement: "terminal"` for a bare terminal with no space. Pane placement is no longer supported. Focus requires a Herdr app window running on the target Core's machine and connected to that Core.
 
 Ordinary workers end when their parent's program exits. Active remote connections also verify Core's parent links and close ordinary children when Core misses cross-machine cleanup. Detached workers remain independent. Restoring a Pi session preserves its saved worker identity. `/root` follows saved spawn ancestry, not shared Notes or Board membership. Older workers without saved ancestry must use exact session references for messages.
 
@@ -286,7 +286,7 @@ Optional profile settings:
 
 Ordinary delegation stays inside `agents`. For terminal operations on Core, run `hc --skill`. For window operations, use `herdr-app --skill`.
 
-Herdr still owns terminals, layout, agent processes and restored sessions. Shepherdr owns event subscriptions, remote routing, the fleet widget and purple settlement messages.
+Herdr still owns terminals, layout, agent processes and restored sessions. Shepherdr owns event subscriptions, remote routing and purple settlement messages.
 
 ## Worker role integration
 

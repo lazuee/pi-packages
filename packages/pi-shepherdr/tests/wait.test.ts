@@ -20,7 +20,6 @@ import { SettlementDelivery } from "../src/settlement/delivery.js";
 import type { Waiter } from "../src/settlement/delivery.js";
 import { setChildSupervision } from "../src/spawn-ownership.js";
 import type { ExtensionReply } from "../src/types.js";
-import { renderAgentWidget } from "../src/widget.js";
 
 const attempt = { attemptId: "a1", terminalId: "t1" };
 const signal = () => new AbortController().signal;
@@ -454,43 +453,6 @@ describe("inactive reason", () => {
     process.env["__CFBundleIdentifier"] = "dev.herdr.app";
     delete process.env["HC_TERMINAL_ID"];
     expect(fleet().inactiveError().message).toContain("Herdr Core");
-  });
-});
-
-describe("peers widget", () => {
-  const calls: unknown[] = [];
-  const ctx = () =>
-    ({
-      hasUI: true,
-      ui: {
-        theme: { fg: (_t: string, text: string) => text },
-        setWidget: (id: string, lines: unknown) => calls.push({ id, lines }),
-      },
-    }) as never;
-  const agent = {
-    machine: "local",
-    paneId: "p",
-    name: "w",
-    activity: { phase: "settled", status: "done" },
-  } as never;
-  const bundle = process.env["__CFBundleIdentifier"];
-  afterEach(() => {
-    calls.length = 0;
-    if (bundle === undefined) delete process.env["__CFBundleIdentifier"];
-    else process.env["__CFBundleIdentifier"] = bundle;
-  });
-
-  test("inside the app the widget is cleared", () => {
-    process.env["__CFBundleIdentifier"] = "dev.herdr.app";
-    renderAgentWidget(ctx(), [agent], []);
-    expect(calls).toEqual([{ id: "herdr-agents", lines: undefined }]);
-  });
-
-  test("outside the app an agent is listed", () => {
-    process.env["__CFBundleIdentifier"] = "com.mitchellh.ghostty";
-    renderAgentWidget(ctx(), [agent], []);
-    const [call] = calls as { lines?: string[] }[];
-    expect(call?.lines?.[0]).toContain("herdr peers");
   });
 });
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Shepherdr requires running inside the Herdr app; outside it a session warns and stays inactive. The `herdr peers` footer widget is gone, leaving the sidebar as the only agent list.
 - A blocking wait is unbounded: it holds until the settlement arrives instead of detaching on a budget, a stall or an ended session. It still gives up rather than hangs when its result cannot be collected, when a follow-up `assign` takes the work over, or when that session's monitoring ends. `blocking` is the only wait control; `timeout_ms` and the `detached`/`detail` result fields are gone.
 - A held wait reports through one `Waiter` handed to the settlement layer, so the caller keeps the wording. A collectable blocked result says it is being collected instead of the call sitting silent.
 - A blocking call waits for the worker's own turn, not whatever reply the pane happened to hold. A tool-calling turn, which has no reply until the tool returns, no longer ends the wait early or stalls it.

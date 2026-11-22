@@ -14,7 +14,6 @@ import type {
   MonitoredAgent,
   ScopedMonitoredAgent,
 } from "../types.js";
-import { renderAgentWidget } from "../widget.js";
 import { reloadCoreCatalog } from "./catalog.js";
 import { connectMachine } from "./connection.js";
 import {
@@ -191,7 +190,6 @@ export class AgentFleet {
       runtime.client?.close();
     }
     this.runtimes.clear();
-    renderAgentWidget(this.context, [], []);
     this.context = undefined;
     for (const listener of this.listeners) listener();
   }
@@ -404,7 +402,6 @@ export class AgentFleet {
 
   private refresh(): void {
     if (!this.context) return;
-    renderAgentWidget(this.context, this.list(), this.statuses());
     for (const listener of this.listeners) listener();
   }
 
