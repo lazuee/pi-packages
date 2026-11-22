@@ -1,9 +1,21 @@
 import { describe, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { parseAgentsRequest } from "../src/agents-contract.js";
+import { killedResult } from "../src/agents-tool.js";
 import { dispatchAgentWork } from "../src/agents-work.js";
+import { resolvePiAgent } from "../src/core/agents.js";
+import { CoreConnection } from "../src/core/backend.js";
+import { RemoteCoreEndpoint } from "../src/core/remote-endpoint.js";
+import { notifyKilledParent } from "../src/kill-notice.js";
 import { MonitorState } from "../src/monitor-state.js";
+import { readSessionAncestry } from "../src/remote/shepherdr-session.mjs";
 import { SettlementDelivery } from "../src/settlement/delivery.js";
 import type { Waiter } from "../src/settlement/delivery.js";
+import { setChildSupervision } from "../src/spawn-ownership.js";
 import type { ExtensionReply } from "../src/types.js";
 
 const attempt = { attemptId: "a1", terminalId: "t1" };
@@ -48,6 +60,318 @@ const settlement = {
   status: "done",
 } as never;
 
+describe("kill contract", () => {
+  test("kill takes only a target", () => {
+    expect(parseAgentsRequest({ action: "kill", target: "p" }).action).toBe(
+      "kill"
+    );
+    for (const extra of [{ message: "m" }, { lines: 3 }] as const)
+      expect(() =>
+        parseAgentsRequest({ action: "kill", target: "p", ...extra })
+      ).toThrow("kill");
+  });
+});
+
+describe("kill guard", () => {
+  /** Resolution refuses the session it was called from, before any close. */
+  const client = (terminalId: string) =>
+    ({
+      core: {
+        request: async () => ({
+          address: terminalId,
+          state: "live",
+          status: { app: "pi" },
+          labels: { "pi.session_file": "/tmp/s.jsonl" },
+        }),
+      },
+    }) as never;
+
+  test("the calling terminal is refused", async () => {
+    await expect(resolvePiAgent(client("t1"), "t1", "t1")).rejects.toThrow(
+      "controlling"
+    );
+  });
+
+  test("another terminal resolves", async () => {
+    await expect(
+      resolvePiAgent(client("t2"), "t2", "t1")
+    ).resolves.toMatchObject({ terminal_id: "t2" });
+  });
+
+  test("a remote caller without a local id is not refused", async () => {
+    await expect(resolvePiAgent(client("t1"), "t1", "")).resolves.toMatchObject(
+      { terminal_id: "t1" }
+    );
+  });
+
+  test("a finished terminal resolves only for a kill", async () => {
+    // A finished record keeps no session label, so it is not a Pi agent.
+    const dead = {
+      core: {
+        request: async () => ({ address: "t1", state: "finished", labels: {} }),
+      },
+    } as never;
+    await expect(resolvePiAgent(dead, "t1", "")).rejects.toThrow(
+      "not a Pi agent"
+    );
+    await expect(resolvePiAgent(dead, "t1", "", false)).resolves.toMatchObject({
+      terminal_id: "t1",
+    });
+  });
+
+  test("a killed pane stops restoring supervision", () => {
+    const appended: unknown[] = [];
+    const branch = [
+      {
+        type: "custom",
+        customType: "herdr-spawn-ownership-v1",
+        data: {
+          parent: "/tmp/self.jsonl",
+          machine: "local",
+          host: "h",
+          session: "local",
+          pane: "p",
+          terminal: "t1",
+          sessionFile: "/tmp/s.jsonl",
+        },
+      },
+    ];
+    const ctx = {
+      sessionManager: {
+        getSessionFile: () => "/tmp/self.jsonl",
+        getBranch: () => branch,
+      },
+    } as never;
+    setChildSupervision(
+      {
+        appendEntry: (_t: string, data: unknown) => appended.push(data),
+      } as never,
+      ctx,
+      "local",
+      { pane_id: "p" } as never,
+      false
+    );
+    // A live child defaults to supervised, so killing it must record the change.
+    expect(appended).toHaveLength(1);
+    expect(appended[0]).toMatchObject({ supervised: false });
+  });
+});
+
+describe("session ancestry reader", () => {
+  const write = (body: string) => {
+    const path = join(tmpdir(), `anc-${randomUUID()}.jsonl`);
+    writeFileSync(path, body);
+    return path;
+  };
+  const entry = (parent: string) =>
+    `${JSON.stringify({
+      type: "custom",
+      customType: "herdr-spawn-ancestry-v1",
+      data: { parent: { sessionFile: parent } },
+    })}\n`;
+
+  test("reads the recorded parent past other entries", async () => {
+    const path = write(
+      `${JSON.stringify({ type: "session", id: "s" })}\n${JSON.stringify({ type: "message" })}\n${entry("/tmp/p")}`
+    );
+    expect(await readSessionAncestry(path)).toBe("/tmp/p");
+  });
+
+  test("a half-written last line does not hide the ancestry", async () => {
+    const path = write(`${entry("/tmp/p")}{"type":"message","half":`);
+    expect(await readSessionAncestry(path)).toBe("/tmp/p");
+  });
+
+  test("a session without ancestry returns undefined", async () => {
+    expect(await readSessionAncestry(write('{"type":"session"}\n'))).toBe(
+      undefined
+    );
+  });
+});
+
+describe("kill notice", () => {
+  const fleet = (sent: unknown[], ancestry: string | undefined) =>
+    ({
+      connected: () => ({
+        client: {
+          sessionAncestry: async () => ancestry,
+          sendMessage: async (panel: unknown, message: unknown) =>
+            sent.push({ panel, message }),
+        },
+      }),
+      snapshots: async () => [
+        {
+          id: "local",
+          snapshot: {
+            agents: [
+              {
+                pane_id: "tP",
+                terminal_id: "tP",
+                agent_session: { kind: "path", value: "/tmp/parent.jsonl" },
+              },
+            ],
+          },
+        },
+      ],
+    }) as never;
+
+  const panel = {
+    pane_id: "tK",
+    terminal_id: "tK",
+    name: "worker",
+    agent_session: { kind: "path", value: "/tmp/child.jsonl" },
+  } as never;
+  const ctx = (self: string) =>
+    ({ sessionManager: { getSessionFile: () => self } }) as never;
+
+  test("a peer parent is told the worker is gone", async () => {
+    const sent: unknown[] = [];
+    expect(
+      await notifyKilledParent(
+        fleet(sent, "/tmp/parent.jsonl"),
+        ctx("/tmp/killer.jsonl"),
+        panel,
+        { machine: "local", childName: "worker" }
+      )
+    ).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as { message: { text: string } }).message.text).toContain(
+      "was killed by another session"
+    );
+  });
+
+  test("the parent killing its own child is not notified", async () => {
+    const sent: unknown[] = [];
+    expect(
+      await notifyKilledParent(
+        fleet(sent, "/tmp/parent.jsonl"),
+        ctx("/tmp/parent.jsonl"),
+        panel,
+        { machine: "local" }
+      )
+    ).toBe(false);
+    expect(sent).toHaveLength(0);
+  });
+
+  test("a worker with no recorded ancestry is skipped", async () => {
+    const sent: unknown[] = [];
+    expect(
+      await notifyKilledParent(
+        fleet(sent, undefined),
+        ctx("/tmp/killer.jsonl"),
+        panel,
+        {
+          machine: "local",
+        }
+      )
+    ).toBe(false);
+    expect(sent).toHaveLength(0);
+  });
+
+  test("a worker without a session file is skipped", async () => {
+    const sent: unknown[] = [];
+    expect(
+      await notifyKilledParent(
+        fleet(sent, "/tmp/parent.jsonl"),
+        ctx("/tmp/killer.jsonl"),
+        { pane_id: "tK", terminal_id: "tK" } as never,
+        { machine: "local" }
+      )
+    ).toBe(false);
+    expect(sent).toHaveLength(0);
+  });
+});
+
+describe("kill result", () => {
+  const panel = { pane_id: "p" } as never;
+
+  test("a live kill reports killed", () => {
+    expect(killedResult("killed", "local", panel)).toEqual({
+      killed: true,
+      outcome: "killed",
+      machine: "local",
+      target: "p",
+    });
+  });
+
+  test("a remove-only outcome does not claim a kill", () => {
+    expect(killedResult("removed", "local", panel)).toMatchObject({
+      killed: false,
+      outcome: "removed",
+    });
+  });
+});
+
+describe("remote reply normalisation", () => {
+  /** A mutating call may answer without a record; it must not throw. */
+  const loose = (value: unknown) =>
+    (
+      Object.create(RemoteCoreEndpoint.prototype) as unknown as {
+        localLoose: (value: unknown) => unknown;
+      }
+    ).localLoose(value);
+
+  test("a prefixed address is stripped", () => {
+    expect(loose({ address: "m1/t7" })).toMatchObject({ address: "t7" });
+  });
+
+  test("a bare confirmation is passed through", () => {
+    expect(loose({ removed: "t7" })).toEqual({ removed: "t7" });
+    expect(loose(null)).toBeNull();
+    expect(loose("ok")).toBe("ok");
+  });
+
+  test("an unusable address is passed through instead of throwing", () => {
+    expect(loose({ address: "nonsense" })).toEqual({ address: "nonsense" });
+  });
+});
+
+describe("closeTerminal", () => {
+  /** A Core that records calls; closeTerminal only touches request(). */
+  const fakeCore = (state: string) => {
+    const calls: string[] = [];
+    const connection = Object.create(CoreConnection.prototype) as {
+      core: { request: (method: string) => Promise<unknown> };
+    };
+    connection.core = {
+      request: async (method: string) => {
+        calls.push(method);
+        return method === "terminal.get"
+          ? { address: "t1", state }
+          : { address: "t1" };
+      },
+    };
+    return { calls, connection: connection as unknown as CoreConnection };
+  };
+  const panel = { pane_id: "p", terminal_id: "t1" } as never;
+
+  test("a live terminal is killed, then removed", async () => {
+    const { calls, connection } = fakeCore("live");
+    expect(await connection.closeTerminal(panel)).toBe("killed");
+    expect(calls).toEqual(["terminal.get", "terminal.kill", "terminal.rm"]);
+  });
+
+  test("a finished terminal is only removed", async () => {
+    const { calls, connection } = fakeCore("finished");
+    expect(await connection.closeTerminal(panel)).toBe("removed");
+    expect(calls).toEqual(["terminal.get", "terminal.rm"]);
+  });
+
+  test("an unknown state is refused before anything is removed", async () => {
+    const { calls, connection } = fakeCore("orphaned");
+    await expect(connection.closeTerminal(panel)).rejects.toThrow("unknown");
+    expect(calls).toEqual(["terminal.get"]);
+  });
+
+  test("a changed pane is refused", async () => {
+    const { calls, connection } = fakeCore("live");
+    await expect(
+      connection.closeTerminal({ pane_id: "p", terminal_id: "t9" } as never)
+    ).rejects.toThrow("changed");
+    expect(calls).toEqual(["terminal.get"]);
+  });
+});
+
 describe("wait contract", () => {
   test("blocking is the only wait control", () => {
     expect(
@@ -70,6 +394,15 @@ describe("wait contract", () => {
           timeout_ms: 5,
         })
       ).toThrow("timeout_ms");
+    expect(
+      parseAgentsRequest({
+        action: "reply",
+        target: "p",
+        extension: "e",
+        id: "1",
+        message: "m",
+      }).action
+    ).toBe("reply");
     expect(() =>
       parseAgentsRequest({ action: "send", target: "p", message: "m" })
     ).not.toThrow();

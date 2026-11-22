@@ -27,6 +27,7 @@ const ACTIONS = [
   "detach",
   "read",
   "reply",
+  "kill",
 ] as const;
 export const READ_SOURCES = ["latest", "visible", "recent"] as const;
 const STATUSES = ["idle", "working", "blocked", "done", "unknown"] as const;
@@ -59,6 +60,7 @@ const ACTION_FIELDS: Record<(typeof ACTIONS)[number], ReadonlySet<string>> = {
   detach: new Set(["action", "machine", "target", "context", "board"]),
   read: new Set(["action", "machine", "target", "source", "lines"]),
   reply: new Set(["action", "machine", "target", "extension", "id", "message"]),
+  kill: new Set(["action", "machine", "target"]),
 };
 const AgentsRequest = obj({
   action: {

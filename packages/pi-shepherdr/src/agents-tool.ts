@@ -26,11 +26,27 @@ import {
 import type { AgentBoard } from "./board/host.js";
 import { resolvePiAgent } from "./core/agents.js";
 import type { AgentFleet } from "./fleet/index.js";
+import { notifyKilledParent } from "./kill-notice.js";
 import { attributeAgentPrompt } from "./messages/attribution.js";
 import type { createPeerCommands } from "./peer-commands.js";
 import type { SharedAgentContext } from "./shared-context.js";
 import { setChildSupervision } from "./spawn-ownership.js";
+import type { PaneInfo } from "./types.js";
 import { WorkerResumer } from "./worker-resume.js";
+
+/** A live program was ended; a finished terminal is only removed. */
+export function killedResult(
+  outcome: "killed" | "removed",
+  machine: string,
+  panel: Pick<PaneInfo, "pane_id">
+) {
+  return {
+    killed: outcome === "killed",
+    outcome,
+    machine,
+    target: panel.pane_id,
+  };
+}
 
 export function createAgentsTool(
   fleet: AgentFleet,
@@ -50,6 +66,7 @@ export function createAgentsTool(
       "agents: Read help alone first",
       "agents: MUST use for supported agent operations, local or remote; never bypass with hc or shell commands, even after failure. Report blockers. hc remains available for non-agent processes",
       "agents: Choose agent_type by what the task must produce: a commit → committer, a judgement on existing work → reviewer, facts about existing code → explorer, changed files → general. Skip the hop when one agent already holds the context or the user named one",
+      "agents: Finish a worker with kill once its work is used; do not leave idle workers behind or clean up with hc",
     ],
     parameters: AgentsParameters,
     executionMode: "parallel",
@@ -169,7 +186,9 @@ export function createAgentsTool(
         (await resolvePiAgent(
           runtime.client,
           target,
-          runtime.local ? process.env["HC_TERMINAL_ID"] : ""
+          runtime.local ? process.env["HC_TERMINAL_ID"] : "",
+          // A kill also clears a finished record, which carries no Pi label.
+          params.action !== "kill"
         ));
       if (params.commands) {
         return toolResult({
@@ -177,6 +196,29 @@ export function createAgentsTool(
           target: panel.pane_id,
           commands: await runtime.client.commands(panel),
         });
+      }
+      if (params.action === "kill") {
+        const outcome = await runtime.client.closeTerminal(panel);
+        // The pane is gone either way, so a missing local id must not fail the
+        // kill. Supervision only gates a later resume of this dead pane.
+        try {
+          setChildSupervision(
+            pi,
+            ctx,
+            runtime.local ? fleet.localMachine() : runtime.machine,
+            panel,
+            false
+          );
+        } catch {
+          /* Core unavailable; a killed pane cannot resume regardless */
+        }
+        // A peer parent would otherwise keep waiting on a dead worker. Own work
+        // is told by this session's own supervision, so the notice is skipped.
+        await notifyKilledParent(fleet, ctx, panel, {
+          machine: runtime.machine,
+          childName: owned?.panel.name,
+        }).catch(() => false);
+        return toolResult(killedResult(outcome, runtime.machine, panel));
       }
       if (params.action === "attach" || params.action === "detach") {
         return toolResult(
@@ -268,7 +310,11 @@ export function createAgentsTool(
           executionSignal,
           update,
           () => runtime.client.sendMessage(panel, attributedMessage),
-          { expectUserMessage: true }
+          {
+            expectUserMessage: true,
+            describeWait: (note) =>
+              `${panel.name ?? panel.pane_id} ${note}. It arrives automatically, so do not resend`,
+          }
         );
         // The submission landed, so this session now supervises the worker.
         setChildSupervision(
