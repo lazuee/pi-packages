@@ -63,9 +63,7 @@ export async function executeArchive(
     )
       throw new Error(
         "Message boards require Node.js 22.13 or newer with SQLite support",
-        {
-          cause: error,
-        }
+        { cause: error }
       );
     throw error;
   }

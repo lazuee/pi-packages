@@ -47,14 +47,6 @@ function sameSource(plan: PruningPlan): Stats {
  * final identity check through rename: extension/monitor appends cannot interleave.
  * Fork writes a different path; migration rewrites happen before session_start.
  */
-async function discard(temp: string): Promise<void> {
-  try {
-    unlinkSync(temp);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-}
-
 export async function commitSessionPruning(
   pi: Pick<ExtensionAPI, "appendEntry">,
   ctx: Pick<ExtensionContext, "sessionManager">,
@@ -142,11 +134,13 @@ export async function commitSessionPruning(
     const after = statSync(temp).size;
     renameSync(temp, plan.path);
     return { before: current.size, after };
-  } catch (error) {
-    // A cleanup failure must not replace the outcome that caused it.
-    await discard(temp);
-    throw error;
   } finally {
     await output?.close();
+    try {
+      unlinkSync(temp);
+    } catch (error) {
+      // oxlint-disable-next-line no-unsafe-finally -- Cleanup failure must remain visible, even when the primary operation failed.
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
   }
 }

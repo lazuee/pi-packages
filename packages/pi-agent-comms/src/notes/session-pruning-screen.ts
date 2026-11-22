@@ -32,7 +32,7 @@ export async function openSessionPruningSettings(
   ctx: ExtensionContext,
   options: SessionPruningSettings
 ): Promise<void> {
-  await ctx.ui.custom((tui, theme, _kb, done) => {
+  await ctx.ui.custom<void>((tui, theme, _kb, done) => {
     type State =
       | { kind: "idle" }
       | { kind: "busy"; message: string }
@@ -145,7 +145,7 @@ export async function openSessionPruningSettings(
         }
         tui.requestRender();
       },
-      () => done(undefined),
+      () => done(),
       { enableSearch: false }
     );
     return {
@@ -160,7 +160,7 @@ export async function openSessionPruningSettings(
           theme.bold("  Session auto-pruning"),
           "",
           ...wrap(
-            `Retired payloads are pruned after a new window's first completed turn. ${process.platform === "linux" ? "Empty records are removed automatically after Pi exits." : "Physical record cleanup requires Linux."} Settings follow this session on resume; new and forked sessions start Off. Forks made before restarting can retain unpruned history.`
+            `Automatic pruning applies the limits below after the first completed turn in a new window. ${process.platform === "linux" ? "Empty records are removed automatically after Pi exits." : "Physical record cleanup requires Linux."} Settings follow this session on resume; new and forked sessions start Off. Forks made before restarting can retain unpruned history.`
           ),
           "",
           ...wrap(RESTART_NOTICE),

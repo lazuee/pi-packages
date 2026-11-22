@@ -66,8 +66,7 @@ export class ThreadSummaries {
     )
       throw new Error("Summary model metadata is required");
     const result = this.db
-      .prepare(
-        `INSERT INTO thread_summaries
+      .prepare(`INSERT INTO thread_summaries
 			(board_id,thread_id,status_message_id,through_message_id,created_at,provider,model,reasoning,text,body_search)
 			SELECT ?,?,?,?,?,?,?,?,?,? WHERE EXISTS (
 				SELECT 1 FROM thread_statuses s WHERE s.board_id=? AND s.thread_id=?
@@ -77,8 +76,7 @@ export class ThreadSummaries {
 			ON CONFLICT(board_id,thread_id) DO UPDATE SET
 			status_message_id=excluded.status_message_id,through_message_id=excluded.through_message_id,
 			created_at=excluded.created_at,provider=excluded.provider,model=excluded.model,
-			reasoning=excluded.reasoning,text=excluded.text,body_search=excluded.body_search`
-      )
+			reasoning=excluded.reasoning,text=excluded.text,body_search=excluded.body_search`)
       .run(
         board,
         summary.thread_id,

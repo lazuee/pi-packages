@@ -84,7 +84,7 @@ export class BoardCatchup {
                   action: "read_thread",
                   thread_id,
                 });
-                return nested ? `await tools.board(${args})` : `board ${args}`;
+                return nested ? `tools.board(${args})` : `board ${args}`;
               })
               .join("; ")}`
           : "",

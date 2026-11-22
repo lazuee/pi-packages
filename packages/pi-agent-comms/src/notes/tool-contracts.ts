@@ -31,8 +31,8 @@ const HISTORY_ACTIONS = [
   "read",
   "search",
 ] as const;
-export const NOTES_USAGE = "await tools.notes()";
-export const HISTORY_USAGE = "await tools.history()";
+export const NOTES_USAGE = "tools.notes()";
+export const HISTORY_USAGE = "tools.history()";
 export const NOTES_DESCRIPTION = "Virtual filesystem task checkpoints";
 export const NOTES_ROUTING_GUIDELINE =
   "notes: Access virtual note paths only through notes. MUST NOT store project files or deliverables";
@@ -72,8 +72,7 @@ const NEW_CONTEXT_SCHEMA = obj(
     role: opt(
       str({
         minLength: 1,
-        description:
-          "Configured model-role ID, not an agent name or handoff text",
+        description: "Configured role ID, not an agent name or handoff text",
       })
     ),
   },
@@ -89,7 +88,13 @@ export function newContextSchema(
   return obj(
     {
       ...(roleIds.length
-        ? { role: opt({ ...oneOf(roleIds), type: "string" }) }
+        ? {
+            role: opt({
+              ...oneOf(roleIds),
+              type: "string",
+              description: "Your next role in this session",
+            }),
+          }
         : {}),
       ...(taskCompletionRollover
         ? {
@@ -111,7 +116,7 @@ export function prepareNewContextArguments(input: unknown) {
   const args = input ?? {};
   if (!newContextSchemaValidator.check(args))
     throw new Error(
-      "Use {} to continue in fresh context; optional role selects a configured preset. resume must be true or false."
+      "Use {} for a fresh context window. Pass a configured role ID to switch roles. resume must be true or false."
     );
   return args;
 }
@@ -284,7 +289,6 @@ export function queryHelp(
             paths: gpt
               ? "Own list/search→omit path; relative=own notes; absolute MUST use /<session ID>/notes[/path]"
               : "Omit path to list or search your notes. Relative paths refer to your notes; absolute paths MUST use /<session ID>/notes with an optional path suffix",
-            usage: 'notes: {"action":"read","path":"checkpoint"}',
             ranges: gpt
               ? "start_line/stop_line=1-based inclusive; negative=from end; 0/null/omitted=first/last; out-of-range→clamp; reversed→empty"
               : "start_line/stop_line inclusive, 1-based; negative from end; 0/null/omitted uses first/last line; out-of-range clamps; reversed returns empty content",

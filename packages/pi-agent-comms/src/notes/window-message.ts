@@ -6,6 +6,7 @@ import type {
 import { Box, Text, TruncatedText } from "@earendil-works/pi-tui";
 
 import type { WindowIdentity } from "./bridge.js";
+import type { RolloverTail } from "./rollover-tail.js";
 
 export const WINDOW_MESSAGE = "notes-compaction:window:v1";
 export const SETTLEMENT_ENTRY = "notes-compaction:settled:v1";
@@ -14,6 +15,8 @@ export interface WindowDetails {
   kind: "window" | "identity" | "reminder" | "urgent" | "task-boundary";
   identity: WindowIdentity;
   trim: boolean;
+  role?: string | undefined;
+  tail?: RolloverTail;
 }
 const GUIDANCE = `<context_window_guidance>
 Use short checkpoints with relative paths. Reuse notes without duplicating state. Record only the current goal, task-specific constraints or exceptions, decisions, status, next action and evidence/history links. Omit harness instructions, tool usage and skill-read bookkeeping.
@@ -86,10 +89,32 @@ function identity(value: unknown): WindowIdentity | undefined {
   return data as WindowIdentity;
 }
 
+function parseTail(value: unknown): RolloverTail | undefined {
+  if (
+    value &&
+    typeof value === "object" &&
+    "mode" in value &&
+    (value.mode === "conversation" || value.mode === "full") &&
+    "firstKeptEntryId" in value &&
+    typeof value.firstKeptEntryId === "string" &&
+    "firstMessage" in value &&
+    typeof value.firstMessage === "string"
+  )
+    return {
+      mode: value.mode,
+      firstKeptEntryId: value.firstKeptEntryId,
+      firstMessage: value.firstMessage,
+    };
+}
+
 function parseWindowDetails(value: unknown): WindowDetails | undefined {
   if (!value || typeof value !== "object") return;
   const details = value as Partial<WindowDetails>;
   const ids = identity(details.identity);
+  const tail =
+    details.kind === "window" && details.trim
+      ? parseTail(details.tail)
+      : undefined;
   if (
     details.protocol !== 1 ||
     !ids ||
@@ -104,7 +129,25 @@ function parseWindowDetails(value: unknown): WindowDetails | undefined {
     kind: details.kind!,
     identity: ids,
     trim: details.trim,
+    ...(tail ? { tail } : {}),
+    ...(typeof details.role === "string" &&
+    /^[a-z][a-z0-9-]*$/.test(details.role)
+      ? { role: details.role }
+      : {}),
   };
+}
+
+export function selectedWindowRole(
+  entries: readonly SessionEntry[]
+): string | undefined {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (entry?.type !== "custom_message" || entry.customType !== WINDOW_MESSAGE)
+      continue;
+    const details = windowDetails(entry);
+    if (details?.kind === "window" && details.role) return details.role;
+  }
+  return undefined;
 }
 
 /** Understand previous PCC window IDs for familiar history lookup, without importing its runtime. */
@@ -112,7 +155,18 @@ export function windowDetails(
   entry: SessionEntry | CustomMessageEntryDraft
 ): WindowDetails | undefined {
   if (entry.type !== "custom_message") return;
-  return messageWindowDetails(entry.customType, entry.details);
+  const details = messageWindowDetails(entry.customType, entry.details);
+  if (
+    entry.customType === WINDOW_MESSAGE &&
+    details?.kind === "window" &&
+    !details.role &&
+    typeof entry.content === "string"
+  ) {
+    // Migrate explicit selections from older window messages before pruning their text.
+    const role = /\n\nRole: ([a-z][a-z0-9-]*)$/.exec(entry.content)?.[1];
+    if (role) return { ...details, role };
+  }
+  return details;
 }
 
 export function messageWindowDetails(
@@ -154,7 +208,9 @@ export function windowMessage(
   hint: string,
   trim: boolean,
   kind: "window" | "identity" = "window",
-  gpt = false
+  gpt = false,
+  role?: string,
+  tail?: RolloverTail
 ): CustomMessageEntryDraft {
   // History exposes lookup IDs on demand; rollover must not churn this text just for UUIDs.
   const lines = [`Agent name: ${agent}`];
@@ -169,6 +225,8 @@ export function windowMessage(
       kind,
       identity: ids,
       trim,
+      ...(role === undefined ? {} : { role }),
+      ...(tail ? { tail } : {}),
     } satisfies WindowDetails,
   };
 }

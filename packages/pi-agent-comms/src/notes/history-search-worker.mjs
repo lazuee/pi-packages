@@ -119,6 +119,7 @@ async function index(request) {
   }).immediate();
   return null;
 }
+
 // The temp table belongs to this worker, but document row IDs can change on
 // another SQLite connection. Reuse only an exact ordered scope at the same revision.
 /** @type {{sessionId:string; ids:string[]; revision:number} | undefined} */

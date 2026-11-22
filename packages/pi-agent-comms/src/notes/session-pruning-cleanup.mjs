@@ -152,16 +152,15 @@ export async function cleanSparseSession(file, sessionId, checkOwners) {
       closeSync(directory);
     }
     return { removed: plan.removed.size, before: source.size, after };
-  } catch (error) {
-    // Cleanup must not replace the failure that got us here.
+  } finally {
     await output?.close();
     try {
       unlinkSync(temp);
-    } catch (cleanupError) {
-      if (!vanished(cleanupError)) throw cleanupError;
+    } catch (error) {
+      // oxlint-disable-next-line no-unsafe-finally -- Cleanup failure must remain visible, even when the primary operation failed.
+      if (!vanished(error)) throw error;
+    } finally {
+      releaseLock?.();
     }
-    throw error;
-  } finally {
-    releaseLock?.();
   }
 }

@@ -236,10 +236,7 @@ export function registerBoardActivityRenderer(pi: ExtensionAPI): void {
           this.setText(
             theme.style(
               truncateToWidth("Board · Notice received", contentWidth),
-              {
-                fg: "syntaxString",
-                dim: true,
-              }
+              { fg: "syntaxString", dim: true }
             ) + (expanded ? `\n${pending}` : "")
           );
           return super.render(width);
@@ -247,10 +244,7 @@ export function registerBoardActivityRenderer(pi: ExtensionAPI): void {
         if (!group || group.rows.at(-1)?.id !== ownId) return [];
         const heading = theme.style(
           truncateToWidth(group.summary, contentWidth),
-          {
-            fg: "syntaxString",
-            dim: true,
-          }
+          { fg: "syntaxString", dim: true }
         );
         if (expanded)
           group.details ??= group.rows

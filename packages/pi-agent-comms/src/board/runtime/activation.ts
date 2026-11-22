@@ -44,9 +44,7 @@ export async function activateBoard(pi: ExtensionAPI, runtime: BoardRuntime) {
     )
       throw new Error(
         "Update Codex Conversion to use its Code and Notebook board tools",
-        {
-          cause: error,
-        }
+        { cause: error }
       );
   }
 }
