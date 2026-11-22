@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A monitored program that exits is recognised from its pane, not only from the terminal losing the pane entirely. Core keeps a terminal's diff and status after the program ends, so a worker that stopped — or was killed — reconciled as settled forever, never showed its own removal and held a blocking wait no settlement could release. A pane without its session label, or one the terminal no longer considers interactive, now counts as gone.
+- One record that cannot be resolved no longer skips the rest of a reconcile pass, which left every sibling's stored terminal address pinned to a dead one.
+- A removal settles the wait it was holding: the blocked call is released as closed before its work settled, a task the worker still owed is reported, and a worker that stopped mid-task reports `idle` rather than a finish that never happened.
+- A kill no longer reports success it did not have. A program that already exited is `outcome: "ended"` rather than a claimed kill, a remapped terminal address is read from the freshly loaded snapshot, and a peer parent that could not be reached is named in the result instead of looking told.
+- The ancestry read covered 64 KiB, which a session resumed from a compaction outgrows, and the parent notice looked at a second snapshot taken after the worker's entry was gone. The window is 256 KiB and the notice uses the snapshot the kill already loaded.
+- A controller that inherited its board from a parent no longer reads as boardless, so its spawns stop skipping a board the tree is on.
 - Shepherdr requires running inside the Herdr app; outside it a session warns and stays inactive. The `herdr peers` footer widget is gone, leaving the sidebar as the only agent list.
 - A blocking wait is unbounded: it holds until the settlement arrives instead of detaching on a budget, a stall or an ended session. It still gives up rather than hangs when its result cannot be collected, when a follow-up `assign` takes the work over, or when that session's monitoring ends. `blocking` is the only wait control; `timeout_ms` and the `detached`/`detail` result fields are gone.
 - A held wait reports through one `Waiter` handed to the settlement layer, so the caller keeps the wording. A collectable blocked result says it is being collected instead of the call sitting silent.
