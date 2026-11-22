@@ -19,7 +19,11 @@ import type {
   SessionView,
   SettledAgentStatus,
 } from "../types.js";
-import { blockedSettlement, SettlementCollector } from "./collector.js";
+import {
+  blockedSettlement,
+  recordSettlement,
+  SettlementCollector,
+} from "./collector.js";
 import type { CollectedSettlementWithSession } from "./collector.js";
 import { SettlementDelivery } from "./delivery.js";
 import type { Waiter } from "./delivery.js";
@@ -171,6 +175,21 @@ export class SettlementReporter {
     this.turns.delete(attempt?.attemptId ?? "");
     this.delivery.releaseClaim(attempt, error);
   }
+  /** The program left the terminal. Whoever was owed an answer is told first. */
+  async removed(
+    lifecycle: SettlementLifecycle,
+    record: MonitoredAgent
+  ): Promise<void> {
+    // The caller has already deleted the record, and the ordinary pass skips a
+    // removed one, so this is the only report it gets: answer here, once. A
+    // worker that stopped mid-task never finished, and must not read as done.
+    const status = record.activity.phase === "settled" ? "done" : "idle";
+    this.releaseAgentClaim(
+      record,
+      new Error(`${record.paneId} closed before its work settled`)
+    );
+    await this.report(lifecycle, { record, status }, undefined, true);
+  }
   releaseAgentClaim(record: MonitoredAgent, error: unknown) {
     this.failedAttempts.delete(record.terminalId);
     for (const [key, retry] of this.retries) {
@@ -187,7 +206,8 @@ export class SettlementReporter {
   async report(
     lifecycle: SettlementLifecycle,
     initial: SettlementRequest,
-    retry?: SettlementRetry
+    retry?: SettlementRetry,
+    settledOnClose = false
   ): Promise<void> {
     let request = initial;
     const task = request.task ?? activityTask(request.record.activity);
@@ -248,7 +268,8 @@ export class SettlementReporter {
         : undefined;
       const settlement = await this.collector.collect(
         request.record,
-        request.status === "blocked" && !replyingTo ? "blocked" : undefined
+        request.status === "blocked" && !replyingTo ? "blocked" : undefined,
+        settledOnClose || this.delivery.hasWaiter(retryState.attemptId)
       );
       if (!settlement || !lifecycle.isCurrent()) return;
       if (settlement === "closed") {
@@ -256,11 +277,16 @@ export class SettlementReporter {
         return;
       }
       if (this.pendingBlocked.has(key)) return;
-      const current = this.state.byPane(settlement.agent.pane_id);
-      if (!current || current.terminalId !== request.record.terminalId) return;
+      // A removal deletes the record before reporting, so state no longer holds
+      // it; the caller's record is the live one then.
+      const live = this.state.byPane(settlement.agent.pane_id);
+      const current = live ?? request.record;
+      if (live && live.terminalId !== request.record.terminalId) return;
+      if (!live && !settledOnClose) return;
       if (
-        activityTask(current.activity) !== task ||
-        activityAttemptId(current.activity) !== retryState.attemptId
+        live &&
+        (activityTask(live.activity) !== task ||
+          activityAttemptId(live.activity) !== retryState.attemptId)
       ) {
         if (request.status !== "blocked") {
           // A follow-up assignment owns the live work. A first pass only just
@@ -397,7 +423,10 @@ export class SettlementReporter {
       }
     } catch (error) {
       if (!lifecycle.isCurrent()) return;
-      if (!this.state.byTerminal(request.record.terminalId)) return;
+      // A removal has already deleted its record, so this gate cannot be the
+      // only one: `settledOnClose` says that record is still worth answering.
+      if (!settledOnClose && !this.state.byTerminal(request.record.terminalId))
+        return;
       if (request.status === "blocked") {
         const current = this.state.byTerminal(request.record.terminalId);
         if (current) {
@@ -423,11 +452,25 @@ export class SettlementReporter {
         return;
       }
       if (this.pendingBlocked.has(key)) return;
-      if (retryState.count === 0) {
+      if (retryState.count === 0 && !settledOnClose) {
         lifecycle.context.ui.notify(
           `Could not collect ${request.record.name ?? request.record.paneId}: ${error instanceof Error ? error.message : String(error)}`,
           "warning"
         );
+      }
+      if (settledOnClose) {
+        // The program is gone and nothing will arrive for it; the notice is the
+        // delivery, so a removed record is answered here instead of retried.
+        this.clearRetry(request.record.terminalId, retryState.attemptId);
+        this.delivery.deliverSettlement(
+          lifecycle,
+          request.record,
+          recordSettlement(request.record, request.status),
+          retryState.attemptId,
+          request.blockedMessage,
+          undefined
+        );
+        return;
       }
       const retryRequest = task ? { ...request, task } : request;
       const current = this.state.byTerminal(request.record.terminalId);

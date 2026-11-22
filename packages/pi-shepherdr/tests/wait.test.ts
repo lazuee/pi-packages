@@ -15,11 +15,11 @@ import { startCoreAgent } from "../src/core/spawn.js";
 import { AgentFleet } from "../src/fleet/index.js";
 import { notifyKilledParent } from "../src/kill-notice.js";
 import { MonitorState } from "../src/monitor-state.js";
-
+import { AgentMonitor } from "../src/monitor.js";
 import { readSessionAncestry } from "../src/remote/shepherdr-session.mjs";
 import { SettlementDelivery } from "../src/settlement/delivery.js";
 import type { Waiter } from "../src/settlement/delivery.js";
-
+import { SettlementReporter } from "../src/settlement/index.js";
 import { setChildSupervision } from "../src/spawn-ownership.js";
 import type { ExtensionReply, PaneInfo } from "../src/types.js";
 
@@ -1081,41 +1081,6 @@ describe("blocked note", () => {
   });
 });
 
-
-describe("session ancestry depth", () => {
-  const entry = `${JSON.stringify({
-    type: "custom",
-    customType: "herdr-spawn-ancestry-v1",
-    data: { parent: { sessionFile: "/tmp/p" } },
-  })}\n`;
-  const filler = (count: number) =>
-    Array.from(
-      { length: count },
-      (_, index) =>
-        `${JSON.stringify({ type: "message", text: "x".repeat(1024), index })}\n`
-    ).join("");
-
-  const read = async (body: string) => {
-    const path = join(tmpdir(), `anc-${randomUUID()}.jsonl`);
-    writeFileSync(path, body);
-    return readSessionAncestry(path);
-  };
-
-  test("a resumed session's ancestry past the old 64 KiB head is found", async () => {
-    // A resume writes a compaction summary ahead of the ancestry entry.
-    expect(await read(`${filler(70)}${entry}{"type":"message"}\n`)).toBe(
-      "/tmp/p"
-    );
-  });
-
-  test("the whole window answers, not just its first chunk", async () => {
-    // 230 x ~1060 bytes sits inside the 256 KiB window, past every 64 KiB chunk.
-    expect(await read(`${filler(230)}${entry}`)).toBe("/tmp/p");
-    // 250 x ~1060 exceeds it; the boundary is honest rather than silent sooner.
-    expect(await read(`${filler(250)}${entry}`)).toBeUndefined();
-  });
-});
-
 describe("reconcile closure", () => {
   /** A live pane at full status; Core keeps status and label after a program exits. */
   const live = (
@@ -1259,3 +1224,247 @@ describe("reconcile closure", () => {
   });
 });
 
+describe("removal report", () => {
+  const record = (activity: object) =>
+    ({
+      scope: "persistent",
+      activity,
+      paneId: "p1",
+      terminalId: "t1",
+    }) as never;
+
+  /** A reporter whose collection always refuses the turn, as a kept pane does. */
+  const reporter = () => {
+    const state = new MonitorState();
+    const sent: number[] = [];
+    const instance = new SettlementReporter(
+      {
+        sendMessage: () => sent.push(1),
+        events: { emit: () => undefined, on: () => undefined },
+        getActiveTools: () => [],
+      } as never,
+      {
+        core: {
+          request: async () => ({
+            address: "t1",
+            state: "live",
+            status: { state: "idle" },
+            labels: { "pi.session_file": "/tmp/s.jsonl" },
+          }),
+        },
+        reader: { view: async () => ({}), latest: async () => undefined },
+      } as never,
+      state,
+      () => undefined,
+      { view: async () => ({}), latest: async () => undefined } as never,
+      { machine: "local", label: () => "local", operatorPrefix: "hc" },
+      async () => undefined
+    );
+    return { instance, state };
+  };
+
+  test("a settled removal is published once, not retried", async () => {
+    const { instance, state } = reporter();
+    state.restore([record({ phase: "settled", status: "idle" })]);
+    const published: number[] = [];
+    const original = instance.report.bind(instance);
+    instance.report = (async (...args: Parameters<typeof original>) => {
+      published.push(1);
+      return original(...args);
+    }) as typeof instance.report;
+    await instance.removed(lifecycle, state.list()[0]!);
+    // One pass; a second would mean the hold off never applied.
+    expect(published).toHaveLength(1);
+    expect(state.byTerminal("t1")?.activity.phase).toBe("settled");
+  });
+
+  test("an owed removal publishes and releases its wait", async () => {
+    const { instance, state } = reporter();
+    state.restore([record({ phase: "working", attemptId: "a1", task: "w" })]);
+    const settled = instance.claim(
+      { attemptId: "a1", terminalId: "t1" },
+      signal()
+    );
+    await instance.removed(lifecycle, state.list()[0]!);
+    await expect(settled!).rejects.toThrow("closed before its work settled");
+  });
+
+  test("a worker that died mid-task is not reported as done", async () => {
+    const { instance, state } = reporter();
+    state.restore([record({ phase: "working", attemptId: "a1", task: "w" })]);
+    const seen: string[] = [];
+    const original = instance.report.bind(instance);
+    instance.report = (async (...args: Parameters<typeof original>) => {
+      seen.push(args[1].status);
+      return original(...args);
+    }) as typeof instance.report;
+    await instance.removed(lifecycle, state.list()[0]!);
+    expect(seen).toEqual(["idle"]);
+  });
+
+  test("a settled worker that exited is reported as done", async () => {
+    const { instance, state } = reporter();
+    state.restore([record({ phase: "settled", status: "idle" })]);
+    const seen: string[] = [];
+    const original = instance.report.bind(instance);
+    instance.report = (async (...args: Parameters<typeof original>) => {
+      seen.push(args[1].status);
+      return original(...args);
+    }) as typeof instance.report;
+    await instance.removed(lifecycle, state.list()[0]!);
+    expect(seen).toEqual(["done"]);
+  });
+});
+
+describe("session ancestry depth", () => {
+  const entry = `${JSON.stringify({
+    type: "custom",
+    customType: "herdr-spawn-ancestry-v1",
+    data: { parent: { sessionFile: "/tmp/p" } },
+  })}\n`;
+  const filler = (count: number) =>
+    Array.from(
+      { length: count },
+      (_, index) =>
+        `${JSON.stringify({ type: "message", text: "x".repeat(1024), index })}\n`
+    ).join("");
+
+  const read = async (body: string) => {
+    const path = join(tmpdir(), `anc-${randomUUID()}.jsonl`);
+    writeFileSync(path, body);
+    return readSessionAncestry(path);
+  };
+
+  test("a resumed session's ancestry past the old 64 KiB head is found", async () => {
+    // A resume writes a compaction summary ahead of the ancestry entry.
+    expect(await read(`${filler(70)}${entry}{"type":"message"}\n`)).toBe(
+      "/tmp/p"
+    );
+  });
+
+  test("the whole window answers, not just its first chunk", async () => {
+    // 230 x ~1060 bytes sits inside the 256 KiB window, past every 64 KiB chunk.
+    expect(await read(`${filler(230)}${entry}`)).toBe("/tmp/p");
+    // 250 x ~1060 exceeds it; the boundary is honest rather than silent sooner.
+    expect(await read(`${filler(250)}${entry}`)).toBeUndefined();
+  });
+});
+
+describe("monitor removal", () => {
+  /** One reconcile over a Core that drops the monitored program from its pane. */
+  const reconcileOnce = async (
+    activity: { phase: string; attemptId?: string },
+    remove: boolean
+  ) => {
+    const noticed: string[] = [];
+    const published: string[] = [];
+    const paneAliveAnswer = remove ? null : "worker";
+    const monitor = new AgentMonitor(
+      {
+        getActiveTools: () => [],
+        sendMessage: () => published.push("event"),
+        events: { emit: () => undefined, on: () => undefined },
+        appendEntry: () => undefined,
+      } as never,
+      {
+        client: {
+          core: {
+            request: async () => ({
+              address: "t1",
+              state: "live",
+              status: { app: "pi", state: "idle" },
+              labels: paneAliveAnswer
+                ? { "pi.session_file": "/tmp/s.jsonl" }
+                : {},
+              name: "worker",
+            }),
+            localSnapshot: async () =>
+              ({
+                terminals: [
+                  {
+                    address: "t1",
+                    state: "live",
+                    // Core keeps the diff and the status; only the program's
+                    // own label and interactivity go with it. The list always
+                    // carries a labels object, which is how a live pane reads.
+                    name: "worker",
+                    labels: paneAliveAnswer
+                      ? { "pi.session_file": "/tmp/s.jsonl" }
+                      : {},
+                    status: { app: "pi", state: "idle" },
+                  },
+                ],
+              }) as never,
+            subscribe: async () => () => undefined,
+          },
+        },
+        machine: "local",
+        machineLabel: () => "local",
+        onChange: () => undefined,
+        onRefresh: () => undefined,
+        onWarning: () => undefined,
+        onRecovered: () => undefined,
+        onRemoval: (record: { paneId: string }) => noticed.push(record.paneId),
+        reconnect: false,
+      } as never
+    );
+    monitor["state"].restore([
+      {
+        scope: "persistent",
+        activity: { status: "idle", ...activity, task: "w" },
+        paneId: "p1",
+        terminalId: "t1",
+        name: "worker",
+      },
+    ]);
+    const context = {
+      ui: { notify: () => undefined },
+      sessionManager: {
+        getSessionId: () => "s",
+        getSessionFile: () => "/tmp/c.jsonl",
+      },
+      isIdle: () => true,
+    };
+    monitor["context"] = context as never;
+    monitor["activationGeneration"] = 0;
+    await monitor["reconcile"](
+      monitor["activationGeneration"],
+      context as never
+    );
+    return { noticed, published, monitor };
+  };
+
+  test("an exited program is removed, reported and its supervisor told", async () => {
+    const { noticed, published, monitor } = await reconcileOnce(
+      { phase: "settled" },
+      true
+    );
+    // `published` is the controller-side event the removal owes; without it a
+    // settled removal is silently kept and the supervisor never hears.
+    expect({ noticed, published: published.length }).toEqual({
+      noticed: ["p1"],
+      published: 1,
+    });
+    expect(monitor.list()).toEqual([]);
+  });
+
+  test("an owed removal reports the task, not the stand-down twice", async () => {
+    const { noticed, published } = await reconcileOnce(
+      { phase: "working", attemptId: "a1" },
+      true
+    );
+    expect(noticed).toEqual(["p1"]);
+    expect(published.length).toBe(1);
+  });
+
+  test("a live program is not removed", async () => {
+    const { noticed, monitor } = await reconcileOnce(
+      { phase: "settled" },
+      false
+    );
+    expect(noticed).toEqual([]);
+    expect(
+      monitor.list().map((record) => [record.paneId, record.terminalId])
+    ).toHaveLength(1);
+  });
+});

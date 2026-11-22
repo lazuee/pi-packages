@@ -2,7 +2,7 @@ import { isSettledStatus } from "../activity.js";
 import { getSnapshot, sessionPath } from "../core/agents.js";
 import type { CoreConnection } from "../core/backend.js";
 import { object } from "../core/protocol.js";
-import { terminalPane } from "../core/terminal.js";
+import { paneAlive, terminalPane } from "../core/terminal.js";
 import { SessionReader } from "../session-reader.js";
 import type { AssistantReader } from "../session-reader.js";
 import type {
@@ -31,13 +31,15 @@ export interface CollectedSettlementWithSession extends CollectedSettlement {
   session: SessionView;
 }
 
-export function blockedSettlement(
-  record: MonitoredAgent
+/** A settlement built from the record alone, for a pane that cannot be read. */
+export function recordSettlement(
+  record: MonitoredAgent,
+  status: SettledAgentStatus
 ): CollectedSettlementWithSession {
   return {
     agent: {
       agent: "pi",
-      agent_status: "blocked",
+      agent_status: status,
       ...(record.cwd ? { cwd: record.cwd } : {}),
       ...(record.name ? { name: record.name } : {}),
       pane_id: record.paneId,
@@ -47,8 +49,14 @@ export function blockedSettlement(
     },
     labels: {},
     session: {},
-    status: "blocked",
+    status,
   };
+}
+
+export function blockedSettlement(
+  record: MonitoredAgent
+): CollectedSettlementWithSession {
+  return recordSettlement(record, "blocked");
 }
 
 export class SettlementCollector {
@@ -78,7 +86,8 @@ export class SettlementCollector {
 
   async collect(
     record: MonitoredAgent,
-    reportedStatus?: "blocked"
+    reportedStatus?: "blocked",
+    settledOnClose = false
   ): Promise<CollectedSettlementWithSession | "closed" | undefined> {
     let terminal: unknown;
     try {
@@ -101,10 +110,13 @@ export class SettlementCollector {
       object(terminal)["state"] === "finished"
     )
       return "closed";
-    if (current.terminal_id !== record.terminalId || current.agent !== "pi") {
-      return reportedStatus === "blocked"
-        ? blockedSettlement(record)
-        : undefined;
+    if (current.terminal_id !== record.terminalId || !paneAlive(current)) {
+      if (reportedStatus === "blocked") return blockedSettlement(record);
+      // The waiter, not a retry, is told the program is gone; a plain pass waits
+      // for the record's own removal, which still carries its task.
+      if (settledOnClose)
+        throw new Error(`${record.paneId} closed before its work settled`);
+      return undefined;
     }
     const status =
       reportedStatus ??

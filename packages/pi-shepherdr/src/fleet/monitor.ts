@@ -5,6 +5,7 @@ import type {
 
 import type { CoreConnection } from "../core/backend.js";
 import { AgentMonitor } from "../monitor.js";
+import { setChildSupervision } from "../spawn-ownership.js";
 import { errorMessage, LOCAL_MACHINE } from "./machine.js";
 import type { MachineRuntime } from "./machine.js";
 
@@ -60,6 +61,27 @@ export function createMachineMonitor(
           ?.ui.notify(`Core monitoring restored: ${machine}`, "info");
     },
     reconnect: runtime.local,
+    // The record is gone by now, so supervision no longer restores the worker.
+    onRemoval: (record) => {
+      if (!events.isAttached()) return;
+      const context = events.context();
+      if (!context) return;
+      try {
+        setChildSupervision(
+          pi,
+          context,
+          runtime.local ? LOCAL_MACHINE : machine,
+          { pane_id: record.paneId },
+          false
+        );
+      } catch {
+        /* empty */
+      }
+      context.ui.notify(
+        `${machine} / ${record.name ?? record.paneId} exited before its work settled`,
+        "warning"
+      );
+    },
     ...(client.reader ? { reader: client.reader } : {}),
     ...(selfPaneId ? { selfPaneId } : {}),
   });

@@ -60,6 +60,10 @@ export class SettlementDelivery {
   replyingTo(attemptId: string) {
     return this.claims.get(attemptId)?.replyingTo;
   }
+  /** A tool call is waiting on this attempt; nothing else can report for it. */
+  hasWaiter(attemptId: string | undefined): boolean {
+    return !!attemptId && !!this.claims.get(attemptId)?.waiter;
+  }
   observeReply(attempt: WorkAttempt, reply: ExtensionReply): void {
     const claim = this.claims.get(attempt.attemptId);
     this.claims.set(attempt.attemptId, {

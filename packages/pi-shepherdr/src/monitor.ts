@@ -17,6 +17,7 @@ import type { AssistantReader } from "./session-reader.js";
 import { SettlementReporter } from "./settlement/index.js";
 import type {
   ClaimedSettlement,
+  SettlementLifecycle,
   SettlementRequest,
   Waiter,
 } from "./settlement/index.js";
@@ -37,6 +38,8 @@ interface AgentMonitorOptions {
   operatorPrefix: string;
   onWarning: (issue: MonitoringIssue) => void;
   onRecovered: () => void;
+  /** The program left the terminal; the record is already gone. */
+  onRemoval: (record: MonitoredAgent) => void;
   reader?: AssistantReader;
   reconnect: boolean;
   selfPaneId?: string;
@@ -47,6 +50,7 @@ export class AgentMonitor {
   readonly machine: string;
   private readonly onChange: () => void;
   private readonly onRefresh: () => void;
+  private readonly onRemoval: (record: MonitoredAgent) => void;
   private readonly selfPaneId: string | undefined;
   private readonly state = new MonitorState();
   private readonly events: MonitorEvents;
@@ -62,6 +66,7 @@ export class AgentMonitor {
     this.machine = options.machine;
     this.onChange = options.onChange;
     this.onRefresh = options.onRefresh;
+    this.onRemoval = options.onRemoval;
     this.selfPaneId = options.selfPaneId;
     const reader = options.reader ?? new SessionReader();
     this.extensionMessages = new MonitorExtensionMessages({
@@ -296,12 +301,6 @@ export class AgentMonitor {
       snapshot,
       this.selfPaneId
     );
-    for (const record of removed) {
-      this.settlements.releaseAgentClaim(
-        record,
-        new Error(`${record.paneId} closed before its work settled`)
-      );
-    }
     if (changed || persistRestoration) this.persist();
     else this.onRefresh();
     await this.extensionMessages.refresh(snapshot.agents);
@@ -310,7 +309,19 @@ export class AgentMonitor {
       void this.events.refresh().catch(() => {
         /* empty */
       });
+    // Removals report themselves, so their own completions are spent and are
+    // skipped below. The notice waits for that report to have been published.
+    await Promise.allSettled(
+      removed.map((record) => this.publishRemoval(record))
+    );
+    for (const record of removed) this.onRemoval(record);
     for (const completion of completions) {
+      if (
+        removed.some(
+          (record) => record.terminalId === completion.record.terminalId
+        )
+      )
+        continue;
       // A claimed attempt means a tool is still waiting; otherwise publish.
       void (completion.claim
         ? this.waitReport(completion)
@@ -352,19 +363,30 @@ export class AgentMonitor {
     });
   }
 
-  private report(request: SettlementRequest): Promise<void> {
+  private report(request: SettlementRequest, initial = false): Promise<void> {
+    const lifecycle = this.lifecycle();
+    if (!lifecycle) return Promise.resolve();
+    return this.settlements.report(lifecycle, request, undefined, initial);
+  }
+
+  // A removal may owe the caller an answer: an exited program keeps its pane,
+  // so no `closed` settlement arrives to settle a held wait.
+  private publishRemoval(record: MonitoredAgent): Promise<void> {
+    const lifecycle = this.lifecycle();
+    if (!lifecycle) return Promise.resolve();
+    return this.settlements.removed(lifecycle, record);
+  }
+
+  private lifecycle(): SettlementLifecycle | undefined {
     const generation = this.activationGeneration;
     const { context } = this;
-    if (!context) return Promise.resolve();
-    return this.settlements.report(
-      {
-        context,
-        generation,
-        isCurrent: () =>
-          generation === this.activationGeneration && context === this.context,
-      },
-      request
-    );
+    if (!context) return undefined;
+    return {
+      context,
+      generation,
+      isCurrent: () =>
+        generation === this.activationGeneration && context === this.context,
+    };
   }
 
   requireTurn(attempt: WorkAttempt | undefined): void {
