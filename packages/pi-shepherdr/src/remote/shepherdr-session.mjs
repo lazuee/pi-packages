@@ -463,9 +463,9 @@ export async function readSessionHeader(path) {
  * The ancestry entry is a shepherdr one, so the shared saved-session reader (which
  * keeps only notes entries) drops it. Reading the head directly keeps it.
  *
- * The window is a quarter of the byte cap, so a session resumed from a
- * compaction — the case a kill is most often used on — still reaches an
- * ancestry entry written after that compaction's summary.
+ * The window is a whole number of read chunks, `ANCESTRY_HEAD_BYTES`, so a
+ * session resumed from a compaction — the case a kill is most often used on —
+ * still reaches an ancestry entry written after that compaction's summary.
  * @param {string} path
  */
 export async function readSessionAncestry(path) {
