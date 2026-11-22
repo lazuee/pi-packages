@@ -14,8 +14,8 @@ import { join } from "node:path";
 import type * as Profiles from "../src/profiles.ts";
 
 /**
- * The profiles module resolves the agent directory at import time, so each case
- * builds a throwaway one and imports the module fresh against it.
+ * Each case builds a throwaway agent directory and points the module at it for
+ * the duration.
  */
 async function withAgentDirectory(
   run: (agentDirectory: string) => Promise<void>

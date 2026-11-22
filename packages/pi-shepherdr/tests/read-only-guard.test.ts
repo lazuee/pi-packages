@@ -6,9 +6,9 @@ import { join } from "node:path";
 import type * as Guard from "../src/read-only-guard.js";
 
 /**
- * The guard reads the live profile directory, and `profiles.ts` pins that
- * directory when it is imported. Both are loaded only after the fixture
- * directory is in the environment.
+ * The guard reads the live profile directory, which `profiles.ts` resolves per
+ * call from `PI_CODING_AGENT_DIR`. The fixture directory must be set before the
+ * first call, not before the import.
  */
 const directory = mkdtempSync(join(tmpdir(), "guard-"));
 const previous = process.env["PI_CODING_AGENT_DIR"];
