@@ -304,9 +304,7 @@ async function bundledDigests(): Promise<Map<string, string>> {
 
 async function readManifest(): Promise<Map<string, string>> {
   try {
-    const parsed = JSON.parse(
-      await readFile(manifest(), "utf-8")
-    ) as unknown;
+    const parsed = JSON.parse(await readFile(manifest(), "utf-8")) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
       return new Map();
     return new Map(
@@ -323,13 +321,9 @@ async function writeManifest(digests: Map<string, string>): Promise<void> {
   const ordered = Object.fromEntries(
     [...digests].toSorted(([left], [right]) => left.localeCompare(right))
   );
-  await writeFile(
-    manifest(),
-    `${JSON.stringify(ordered, null, "\t")}\n`,
-    {
-      mode: 0o600,
-    }
-  );
+  await writeFile(manifest(), `${JSON.stringify(ordered, null, "\t")}\n`, {
+    mode: 0o600,
+  });
 }
 
 /**

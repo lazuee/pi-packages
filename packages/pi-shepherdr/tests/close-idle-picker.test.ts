@@ -68,7 +68,8 @@ describe("idle picker", () => {
       theme,
       tui,
       () => undefined,
-      (m) => machineLabel([{ id: "local", local: true, status: "connected" }], m)
+      (m) =>
+        machineLabel([{ id: "local", local: true, status: "connected" }], m)
     );
     const lines = picker.render(200);
     const a = lines.find((line) => line.includes(" a "))!;

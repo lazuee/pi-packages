@@ -41,11 +41,7 @@ async function dead(
       terminal: child.terminal,
     })) as Record<string, unknown>;
   } catch (error) {
-    if (
-      error instanceof Error &&
-      "kind" in error &&
-      error.kind === "not_found"
-    )
+    if (error instanceof Error && "kind" in error && error.kind === "not_found")
       return undefined;
     throw error;
   }
