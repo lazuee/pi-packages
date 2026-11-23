@@ -12,9 +12,17 @@ const WRITES = new Set(["edit", "write"]);
 const MUTATORS =
   /(^|[\s;&|(])(rm|mv|cp|mkdir|rmdir|touch|ln|tee|sed\s+-i|perl\s+-i|patch|truncate|chmod|chown|install)\b/;
 
-/** `git` subcommands that write. Anything else under git is a read. */
-const GIT_WRITES =
+/** `git` subcommands that write. Anything else under git is a read. An attached
+ * argument is optional, so `git commit -m x` and `commit -m x` both match. */
+const GIT_WRITE_VERB =
   /^git\s+(commit|add|checkout|switch|reset|restore|revert|merge|rebase|cherry-pick|stash|tag|clone|init|apply|clean|mv|rm|pull|push)\b/;
+/** The same verbs with no `git` in front. A commit is nearly always a pipeline
+ * (`git commit -F -`) or a heredoc, and the stage split there leaves a bare
+ * verb; without this, `commit -F - <<'EOF'` reads as a harmless reader. */
+const GIT_WRITE_BARE =
+  /^(commit|checkout|switch|reset|restore|revert|merge|rebase|cherry-pick|stash|clone|init|clean|push)(\s|$)/;
+/** `add` alone is too short to trust; demand something it would stage. */
+const GIT_ADD_BARE = /^add\s+(?!-A\b|-p\b|-u\b)\S/;
 
 /** Package managers and build tools write into the tree or the lockfile. */
 const INSTALLERS =
@@ -29,10 +37,19 @@ const RUNNER_READS =
 /** Flags that make an otherwise-reading command write: snapshot updates, incremental builds. */
 const RUNNER_WRITES = /(?:[:\s-])update\b|\s-b\b|\s--write\b/;
 
-/** Split on shell separators, keeping quoted strings intact enough to classify. */
+/** Split on shell separators, keeping quoted strings intact enough to classify. A
+ * heredoc body is data, never commands: `git commit -F - <<'EOF'` would otherwise
+ * classify whichever body line happens to read like a command. */
 function segments(command: string): string[] {
+  const heredoc = /<<-?\s*["']?([A-Za-z_][\w]*)["']?/;
   return command
     .split(/&&|\|\||;|\n|\|/)
+    .map((part) => {
+      const terminator = heredoc.exec(part)?.[1];
+      if (terminator === undefined) return part;
+      const end = part.search(new RegExp(`\\n${terminator}\\s*(\\n|$)`));
+      return end === -1 ? part.replace(heredoc, " ") : part.slice(0, end);
+    })
     .map((part) => part.trim())
     .filter(Boolean);
 }
@@ -72,7 +89,13 @@ function writes(segment: string): boolean {
     if (tail && RUNNER_READS.test(tail)) return false;
     if (tail || /^make\b/.test(bare)) return true;
   }
-  if (GIT_WRITES.test(bare) || INSTALLERS.test(bare) || MUTATORS.test(bare))
+  if (
+    GIT_WRITE_VERB.test(bare) ||
+    GIT_WRITE_BARE.test(bare) ||
+    GIT_ADD_BARE.test(bare) ||
+    INSTALLERS.test(bare) ||
+    MUTATORS.test(bare)
+  )
     return true;
   const first = bare.split(/\s+/)[0] ?? "";
   return SCRIPT.test(first) && !INSPECTING_NAME.test(first);

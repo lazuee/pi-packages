@@ -130,6 +130,25 @@ describe("read-only shell classification", () => {
     expect(await guarded("./check-deploy.sh")).toBeUndefined();
   });
 
+  test("a commit is not hidden by its message", async () => {
+    // A commit is usually a pipeline or a heredoc, which leaves a bare verb.
+    expect((await guarded("git commit -F - <<'EOF'\nfix: x\nEOF"))?.block).toBe(
+      true
+    );
+    expect((await guarded("commit -F - <<'EOF'\nfix: x\nEOF"))?.block).toBe(
+      true
+    );
+    expect((await guarded("git add README.md"))?.block).toBe(true);
+    expect((await guarded("add README.md"))?.block).toBe(true);
+  });
+
+  test("a heredoc body is not classified as commands", async () => {
+    // The body's `rm` would otherwise be read as one, and hide nothing here.
+    expect((await guarded("git commit -F - <<'EOF'\nfix: x\nEOF"))?.block).toBe(
+      true
+    );
+  });
+
   test("an interrupted parallel branch still counts", async () => {
     expect((await guarded("git status || rm -rf .cache"))?.block).toBe(true);
   });
