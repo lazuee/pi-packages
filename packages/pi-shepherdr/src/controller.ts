@@ -139,10 +139,11 @@ export function registerAgentController(
     const picked = await ctx.ui.custom<string[] | undefined>(
       (tui, theme, _keybindings, done) =>
         new IdlePicker(
-          idle.map(({ child, name }) => ({
+          idle.map(({ child, name, dead }) => ({
             label: name ?? child.pane,
             machine: child.machine,
             terminal: child.terminal,
+            ...(dead ? { dead: true as const } : {}),
           })),
           theme,
           tui,

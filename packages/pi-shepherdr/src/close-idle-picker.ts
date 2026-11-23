@@ -13,6 +13,8 @@ export interface IdlePick {
   label: string;
   machine: string;
   terminal: string;
+  /** Its program already exited; the row is reaped, not quit. */
+  dead?: true;
 }
 
 /**
@@ -69,7 +71,7 @@ export class IdlePicker {
       "",
       ...this.window().map((entry, position) => {
         const row = this.offset + position;
-        const line = `  ${mark(entry.terminal)} ${entry.label} ${this.theme.fg("dim", `· ${this.describe(entry.machine)}`)}`;
+        const line = `  ${mark(entry.terminal)} ${entry.label} ${this.theme.fg("dim", `· ${this.describe(entry.machine)}${entry.dead ? " · exited" : ""}`)}`;
         return truncateToWidth(
           row === this.index
             ? this.theme.bg("selectedBg", line.padEnd(width))

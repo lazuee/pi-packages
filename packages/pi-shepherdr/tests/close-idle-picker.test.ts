@@ -59,6 +59,24 @@ describe("idle picker", () => {
     expect(get()).toBeUndefined();
   });
 
+  test("an exited target is marked apart from one still running", () => {
+    const picker = new IdlePicker(
+      [
+        { label: "a", machine: "local", terminal: "t1" },
+        { label: "b", machine: "local", terminal: "t2", dead: true },
+      ],
+      theme,
+      tui,
+      () => undefined,
+      (m) => machineLabel([{ id: "local", local: true, status: "connected" }], m)
+    );
+    const lines = picker.render(200);
+    const a = lines.find((line) => line.includes(" a "))!;
+    const b = lines.find((line) => line.includes(" b "))!;
+    expect(a).not.toContain("exited");
+    expect(b).toContain("exited");
+  });
+
   test("input is ignored while closing", () => {
     const { picker } = make();
     picker.handleInput("\r");
