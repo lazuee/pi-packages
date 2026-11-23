@@ -127,6 +127,45 @@ describe("profile installation", () => {
       ).toBe("my local edit\n");
     }));
 
+  test("delivers a file the bundle grew after the last install", () =>
+    withAgentDirectory(async (agentDirectory) => {
+      // An install seeded by a bundle from before the file existed.
+      const before = mkdtempSync(join(tmpdir(), "bundle-"));
+      cpSync(bundled, before, { recursive: true });
+      rmSync(join(before, "committer", "plugin.mjs"));
+      const manifestSeed = await freshImport(before);
+      await manifestSeed.installAgentProfiles();
+      expect(() =>
+        readFileSync(
+          join(
+            agentDirectory,
+            "shepherdr",
+            "profiles",
+            "committer",
+            "plugin.mjs"
+          )
+        )
+      ).toThrow();
+
+      // The next bundle ships it; the install was never edited, so it arrives.
+      const second = await freshImport(bundled);
+      await second.installAgentProfiles();
+      rmSync(before, { force: true, recursive: true });
+
+      expect(
+        readFileSync(
+          join(
+            agentDirectory,
+            "shepherdr",
+            "profiles",
+            "committer",
+            "plugin.mjs"
+          ),
+          "utf-8"
+        )
+      ).toContain("pi.dev");
+    }));
+
   test("records the manifest so the next start has a baseline", () =>
     withAgentDirectory(async (agentDirectory) => {
       const { installAgentProfiles } = await freshImport();
@@ -158,13 +197,27 @@ describe("profile installation", () => {
       ).toBe(before);
     }));
 
-  test("leaves a removed profile alone", () =>
+  test("reinstalls a bundled profile that was deleted from the install", () =>
+    withAgentDirectory(async (agentDirectory) => {
+      // A deleted profile keeps its manifest entries, which used to leave it
+      // gone for good while element-based guidance still offered it.
+      const { installAgentProfiles } = await freshImport();
+      await installAgentProfiles();
+      const target = join(agentDirectory, "shepherdr", "profiles", "committer");
+      rmSync(target, { recursive: true });
+
+      await installAgentProfiles();
+
+      expect(readFileSync(join(target, "plugin.mjs"), "utf-8")).toContain(
+        "pi.dev"
+      );
+    }));
+
+  test("leaves a removed profile file inside a kept profile alone", () =>
     withAgentDirectory(async (agentDirectory) => {
       const { installAgentProfiles } = await freshImport();
       await installAgentProfiles();
-      rmSync(join(agentDirectory, "shepherdr", "profiles", "committer"), {
-        recursive: true,
-      });
+      rmSync(installedPath(agentDirectory, "committer"));
 
       await installAgentProfiles();
 

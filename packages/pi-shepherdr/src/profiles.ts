@@ -360,25 +360,44 @@ async function upgradeProfileFile(
   return false;
 }
 
+/** Profiles the bundle carries, validated. Keys are `<profile>/<file>`. */
+function bundledNames(bundled: Map<string, string>): string[] {
+  const names = new Set([...bundled.keys()].map((key) => key.split("/")[0]!));
+  for (const name of names)
+    if (!PROFILE_NAME.test(name))
+      throw new Error(`invalid bundled agent profile: ${name}`);
+  return [...names].toSorted();
+}
+
+async function profilePresent(name: string): Promise<boolean> {
+  try {
+    return (await stat(join(profilesDirectory(), name))).isDirectory();
+  } catch (error) {
+    if (hasCode(error, "ENOENT")) return false;
+    throw error;
+  }
+}
+
 export async function installAgentProfiles(): Promise<void> {
   await mkdir(profilesDirectory(), { mode: 0o700, recursive: true });
   const bundled = await bundledDigests();
   if (await exists(marker())) {
     const previous = await readManifest();
+    // `stat`, not `exists`: an unreadable profile must not be reported as missing
+    // and quietly overwritten by `cp`'s error-on-exist.
+    for (const name of bundledNames(bundled)) {
+      if (await profilePresent(name)) continue;
+      await installProfile(name);
+    }
     for (const [key, hash] of bundled) {
       const wasShipped = previous.get(key);
-      if (wasShipped === undefined || wasShipped === hash) continue;
+      // A file the bundle grew after the last install was never served, so there
+      // is no earlier digest to match; `undefined` can only mean new, never edited.
+      if (wasShipped === hash) continue;
       await upgradeProfileFile(key, wasShipped);
     }
   } else {
-    for (const name of (await readdir(bundledProfilesDirectory())).toSorted()) {
-      if (!(await stat(join(bundledProfilesDirectory(), name))).isDirectory())
-        continue;
-      if (!PROFILE_NAME.test(name)) {
-        throw new Error(`invalid bundled agent profile: ${name}`);
-      }
-      await installProfile(name);
-    }
+    for (const name of bundledNames(bundled)) await installProfile(name);
     try {
       await writeFile(marker(), "1\n", {
         flag: "wx",
