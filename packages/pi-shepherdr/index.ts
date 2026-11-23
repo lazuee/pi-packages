@@ -11,6 +11,7 @@ import { AgentFleet } from "./src/fleet/index.js";
 import { registerAgentEventRenderer } from "./src/messages/render.js";
 import { createPeerCommands } from "./src/peer-commands.js";
 import { registerPeerInbox } from "./src/peer-inbox.js";
+import { registerProfilePlugins } from "./src/profile-plugins.js";
 import { installAgentProfiles } from "./src/profiles.js";
 import { registerReadOnlyGuard } from "./src/read-only-guard.js";
 import { registerSharedAgentContext } from "./src/shared-context-host.js";
@@ -29,6 +30,8 @@ export default async function shepherdrExtension(
   const workerRole = registerWorkerRole(pi);
   registerWorkerBriefing(pi);
   registerReadOnlyGuard(pi);
+  // After the guard, so it stays the one that answers a read-only profile.
+  registerProfilePlugins(pi);
 
   await installAgentProfiles();
   // Older saved launch commands may still carry this flag. It no longer pins a role.
