@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import {
@@ -18,6 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { PROFILE_FLAG, WRITES_FLAG } from "./worker-role.js";
 
 const PROFILE_NAME = /^[a-z][a-z0-9_-]{0,31}$/;
+const AUTH_CHECK_TIMEOUT_MS = 10_000;
 const DEFAULT_AGENT_DIRECTORY = join(homedir(), ".pi", "agent");
 /** Read per call: the directory is set before import in tests and can be
  * swapped between cases, so a value pinned at import silently binds the first
@@ -52,6 +54,9 @@ export interface AgentProfile {
   model: string;
   name: string;
   piArgs: string[];
+  /** Plugin modules this profile alone runs, in order, as written in its
+   * `profile.json` and so relative to that file. */
+  plugins: string[];
   prepare?: string;
   prompt?: string;
   shareContext?: boolean;
@@ -76,6 +81,7 @@ interface ProfileFile {
   description?: unknown;
   model?: unknown;
   pi_args?: unknown;
+  plugins?: unknown;
   prepare?: unknown;
   prompt?: unknown;
   share_context?: unknown;
@@ -129,6 +135,7 @@ function readProfileFile(name: string, directory: string): ProfileFile {
     "description",
     "model",
     "pi_args",
+    "plugins",
     "prepare",
     "prompt",
     "share_context",
@@ -179,11 +186,18 @@ async function readProfile(
     ? resolve(directory, promptPath)
     : undefined;
   const prepare = preparePath ? resolve(directory, preparePath) : undefined;
+  const plugins = parsed.plugins
+    ? stringArray(parsed.plugins, `${name}.plugins`).map((file) => file.trim())
+    : [];
   if (resolvedPromptPath && !(await stat(resolvedPromptPath)).isFile()) {
     throw new Error(`${name}.prompt is not a file`);
   }
   if (prepare && !(await stat(prepare)).isFile()) {
     throw new Error(`${name}.prepare is not a file`);
+  }
+  for (const file of plugins) {
+    if (!(await stat(join(directory, file))).isFile())
+      throw new Error(`${name}.plugins entry is not a file: ${file}`);
   }
   return {
     name,
@@ -210,6 +224,7 @@ async function readProfile(
         }
       : {}),
     ...(prepare ? { prepare } : {}),
+    plugins,
   };
 }
 
@@ -332,7 +347,7 @@ async function writeManifest(digests: Map<string, string>): Promise<void> {
  */
 async function upgradeProfileFile(
   key: string,
-  previous: string
+  previous: string | undefined
 ): Promise<boolean> {
   const target = join(profilesDirectory(), key);
   let installed: Buffer;
@@ -434,13 +449,70 @@ export async function loadAgentProfiles(): Promise<Map<string, AgentProfile>> {
   return profiles;
 }
 
+/** The session's own defaults, as configured on this machine. */
+function defaultModel(): string | undefined {
+  try {
+    const settings = JSON.parse(
+      readFileSync(join(agentDirectory(), "settings.json"), "utf-8")
+    ) as { defaultModel?: unknown; defaultProvider?: unknown };
+    // A bare model id only means something with its provider in front.
+    if (typeof settings.defaultModel !== "string" || !settings.defaultModel)
+      return;
+    if (settings.defaultModel.includes("/")) return settings.defaultModel;
+    return typeof settings.defaultProvider === "string" &&
+      settings.defaultProvider
+      ? `${settings.defaultProvider}/${settings.defaultModel}`
+      : undefined;
+  } catch {
+    return;
+  }
+}
+
+/** What a launch decided about the model, when it did not simply use it. */
+export interface ModelFallback {
+  from: string;
+  to: string;
+}
+
+/** `pi auth check` answers ready, not_ready or invalid without spending a call. */
+function modelUsable(model: string): boolean {
+  const result = spawnSync("pi", ["auth", "check", "--model", model], {
+    encoding: "utf-8",
+    timeout: AUTH_CHECK_TIMEOUT_MS,
+  });
+  // An unreadable answer is not proof of absence; keep the configured model.
+  if (result.error || result.stdout === null) return true;
+  return result.stdout.trim() === "ready";
+}
+
+/**
+ * The profile's model normally, but a model whose provider is not configured
+ * here would fail the session outright, so an unusable one falls back to this
+ * machine's default. The profile keeps naming the model it wants.
+ */
+function launchModel(profile: AgentProfile): string {
+  return fallbackModel(profile)?.to ?? profile.model;
+}
+
+/** The substitute model, when the declared one is unusable and another exists. */
+export function fallbackModel(
+  profile: AgentProfile
+): ModelFallback | undefined {
+  if (modelUsable(profile.model)) return;
+  const to = defaultModel();
+  if (!to || to === profile.model) return;
+  return { from: profile.model, to };
+}
+
 export function profileAgentArgs(
   profile: AgentProfile,
-  allowWrites = false
+  allowWrites = false,
+  /** Already-decided model, so a caller that probed does not probe again. */
+  model?: string
 ): string[] {
   return [
     "--model",
-    profile.model,
+    model ?? launchModel(profile),
     "--thinking",
     profile.thinking,
     `--${PROFILE_FLAG}`,

@@ -26,6 +26,7 @@ import {
 } from "./launch.js";
 import { attributeAgentPrompt } from "./messages/attribution.js";
 import {
+  fallbackModel,
   loadAgentProfiles,
   prepareProfileMessage,
   profileAgentArgs,
@@ -125,7 +126,19 @@ export async function spawnAgent(
       profile: profile.name,
       status: "starting",
     });
-    const agentArgs = profileAgentArgs(profile, params.allow_writes === true);
+    // A profile may name a model this machine cannot reach. The launch uses the
+    // default instead, which is invisible unless it is said out loud.
+    const fallback = fallbackModel(profile);
+    if (fallback)
+      ctx.ui.notify(
+        `${profile.name}: ${fallback.from} is not configured here, using ${fallback.to}`,
+        "warning"
+      );
+    const agentArgs = profileAgentArgs(
+      profile,
+      params.allow_writes === true,
+      fallback?.to
+    );
     const relationship = sharedContext.spawns.prepareRelationship(
       ctx,
       runtime,
