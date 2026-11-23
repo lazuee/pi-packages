@@ -6,5 +6,6 @@
   "prompt": "prompt.md",
   "prepare": "prepare.mjs",
   "accepts": [],
-  "pi_args": []
+  "pi_args": [],
+  "plugins": ["plugin.mjs"]
 }
