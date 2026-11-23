@@ -100,6 +100,7 @@ The inventory and plan first. Then a table: hash, type, scope, description, head
 - Put a file list or "tests pass" in the body.
 - Rewrite published history, force-push, or amend someone else's commit without saying so.
 - Commit secrets. Call out a staged `.env` or key; `.gitignore` is a hint, not a guarantee, since staging is by hand.
+- Credit an AI tool. The history credits people only, so no trailer names a model and no "Generated with" footer survives — no `Co-Authored-By: Claude`, no `pi.dev`. A plugin refuses the commit and names the lines to delete. Credit a person when one worked on it; otherwise leave the trailer out entirely. This covers any `-by` trailer, so `Signed-off-by` is judged too.
 - Make the log lie. Unrelated work squashed under a vague subject is a defect, not a shortcut.
 
 ## Constraints

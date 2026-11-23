@@ -260,7 +260,9 @@ Profiles live under:
 <pi-agent-directory>/shepherdr/profiles/<name>/profile.json
 ```
 
-That directory is authoritative after initialization. Edit a profile to change it, add a directory to create an agent type, or delete its directory to remove it; deleted defaults are not recreated. Profiles never inherit the controller's model or thinking level.
+A profile keeps declaring the model it wants. When that model's provider is not configured on this machine, the spawn would otherwise fail outright, so Shepherdr probes it with `pi auth check` (about 200 ms, no tokens) and launches this machine's `defaultModel` instead, naming both in the worker's stderr. An unreadable probe keeps the declared model rather than guessing.
+
+That directory is authoritative after initialization. Edit a profile to change it, or add a directory to create an agent type. A deleted bundled profile comes back on the next start, because the rest of Shepherdr still offers it; delete a single file inside one to keep the profile without it. Profiles never inherit the controller's model or thinking level.
 
 ```json
 {
@@ -281,6 +283,28 @@ Optional profile settings:
 - `share_context`: `false` opts new spawns out of shared notes and history. Omission or `true` follows the controller setting.
 - `writes`: `false` makes the profile read-only, and Shepherdr refuses its file-writing tools. Inspecting shell commands (`git status`, `git log`, searches) still run; `git commit`, `rm`, `mkdir`, installs and `--write` formatters are refused with the reason. Omission means it may write. The bundled `explorer` and `reviewer` set it. Pass `allow_writes: true` to a `spawn` when a read-only profile must genuinely edit, which opts that spawn out for its lifetime and records the fact as `--shepherdr-writes 0`.
 - `write_tools`: extra tool names that write, for MCP tools Shepherdr cannot recognise. Requires `writes: false`, and says so if set without it. Only the two built-in writers are known otherwise, so an MCP tool nobody declared is allowed — declare the mutating ones.
+
+`plugins` is an optional list of plugin modules, each relative to that profile's own `profile.json`. A plugin is the read-only guard's contract in reverse: it narrows one profile rather than the whole session, so a rule that only ever applies to a committer needs no global config. Each module exports `hook` and the function for it:
+
+```js
+export const hook = "tool_call";
+
+export function tool_call(event, { memory }) {
+  // event.toolName and event.input, exactly as an extension sees a tool call.
+  // Return nothing to let it run, or a verdict to refuse it.
+  return { block: true, reason: "why", memory: undefined };
+}
+```
+
+`context` also carries `model`, the session's `provider/model`. It must be read from there: `PI_MODEL` is a bash-tool variable and Pi deletes it from the extension's own environment.
+
+`memory` is what the same plugin returned last time; nothing else persists, since the file is re-read on every call and an edit takes effect on the next one. A plugin that cannot load fails that tool call by name — a guard that silently loaded to nothing is worse than a visible stop — and is retried once the file changes. Profile plugins run inside the worker, never the controller.
+
+The bundled `committer` profile ships one: it refuses a commit message that credits an AI tool, because the history credits people only. No trailer names a model and no "Generated with" footer survives.
+
+A trailer is any key ending in `-by`, so `Signed-off-by` is judged too. A value is judged by its `<email>` alone when it has one, and by the tool or vendor name it starts with when it has none — never by the sender's domain, because people commit from `@anthropic.com` too and a person may be called Claude. A trailer for a person passes. The refusal lists the offending lines rather than correcting them, and the commit never lands.
+
+It runs as a tool-call guard, so a refused commit never lands. It reads the message from a `-F` file, a heredoc body or a `printf`/`echo` piped into stdin, and `--no-verify` does not escape it. A bare `git commit -F -` reading stdin has nothing to judge and passes.
 
 `help` and `list` expose each profile's description and configured settings. Profile names carry no blocking policy. The bundled reviewer profile sets `"blocking": true`; change it to `false` to force asynchronous review, or remove it to choose per call. Existing installed profiles are never overwritten. An existing reviewer without `blocking` now respects the call like any other profile.
 
