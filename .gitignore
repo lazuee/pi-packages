@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .cache/
+package-lock.json
 *.tsbuildinfo
 .DS_Store
 .pi/

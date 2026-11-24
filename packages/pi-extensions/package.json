@@ -45,16 +45,6 @@
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "1.6.0",
-    "@lazuee/pi-agent-comms": "workspace:*",
-    "@lazuee/pi-agent-desktop": "workspace:*",
-    "@lazuee/pi-ask": "workspace:*",
-    "@lazuee/pi-better-skills-tool": "workspace:*",
-    "@lazuee/pi-cache-hit-predictor": "workspace:*",
-    "@lazuee/pi-github-watch": "workspace:*",
-    "@lazuee/pi-shepherdr": "workspace:*",
-    "@lazuee/pi-suggestions": "workspace:*",
-    "@lazuee/pi-tokens": "workspace:*",
-    "@lazuee/pi-unicode-charts": "workspace:*",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
